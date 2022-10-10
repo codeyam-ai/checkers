@@ -120,9 +120,14 @@ module ethos::checkers {
         let player = tx_context::sender(ctx);     
         assert!(game.current_player == player, EINVALID_PLAYER);
 
+        let player_number = PLAYER1; 
+        if (game.player2 == player) {
+            player_number = PLAYER2;
+        };
+
         let board = current_board_mut(game);
         
-        checker_board::modify(board, fromRow, fromColumn, toRow, toColumn);
+        checker_board::modify(board, player_number, fromRow, fromColumn, toRow, toColumn);
         
         if (player == game.player1) {
             game.current_player = *&game.player2;

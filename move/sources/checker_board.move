@@ -22,6 +22,7 @@ module ethos::checker_board {
     const EBAD_DESTINATION: u64 = 1;
     const EOCCUPIED_SPACE: u64 = 2;
     const EBAD_JUMP: u64 = 3;
+    const EINVALID_PLAYER: u64 = 4;
     
     struct CheckerBoard has store, copy {
         spaces: vector<vector<Option<u8>>>,
@@ -74,9 +75,9 @@ module ethos::checker_board {
         game_board 
     }
 
-    public(friend) fun modify(board: &mut CheckerBoard, from_row: u64, from_col: u64, to_row: u64, to_col: u64): bool {
+    public(friend) fun modify(board: &mut CheckerBoard, player_number: u8, from_row: u64, from_col: u64, to_row: u64, to_col: u64): bool {
         let piece = piece_at(board, from_row, from_col);
-        let move_effects = analyze_move(board, piece, from_row, from_col, to_row, to_col);
+        let move_effects = analyze_move(board, player_number, piece, from_row, from_col, to_row, to_col);
         
         let old_space = space_at_mut(board, from_row, from_col);
         let piece = option::swap(old_space, EMPTY);
@@ -158,7 +159,8 @@ module ethos::checker_board {
         }
     }
 
-    fun analyze_move(board: &CheckerBoard, piece: &u8, from_row: u64, from_col: u64, to_row: u64, to_col: u64): MoveEffects {
+    fun analyze_move(board: &CheckerBoard, player_number: u8, piece: &u8, from_row: u64, from_col: u64, to_row: u64, to_col: u64): MoveEffects {
+        assert!(piece == &player_number, EINVALID_PLAYER);
         assert!(to_row < ROW_COUNT, EBAD_DESTINATION);
         assert!(to_col < COLUMN_COUNT, EBAD_DESTINATION);
         
@@ -222,6 +224,7 @@ module ethos::checker_board {
             if (double_jump) {
                 let double_jump_effects = analyze_move(
                     board, 
+                    player_number,
                     piece,
                     landing_row, 
                     landing_col, 
