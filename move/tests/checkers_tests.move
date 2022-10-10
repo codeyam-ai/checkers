@@ -101,7 +101,7 @@ module ethos::checkers_tests {
     #[test]
     #[expected_failure(abort_code = 0)]
     fun test_aborts_if_wrong_player_tries_to_move() {
-        use ethos::checkers::{create_game, make_move, piece_at, current_player};
+        use ethos::checkers::{create_game, make_move};
 
         let scenario = &mut test_scenario::begin(&PLAYER1);
         {
@@ -122,10 +122,6 @@ module ethos::checkers_tests {
         {
             let game_wrapper = test_scenario::take_shared<CheckersGame>(scenario);
             let game = test_scenario::borrow_mut(&mut game_wrapper);
-
-            assert!(piece_at(game, 2, 1) == &0, (*piece_at(game, 2, 1) as u64));
-            assert!(piece_at(game, 3, 2) == &1, (*piece_at(game, 3, 2) as u64));
-            assert!(current_player(game) == &PLAYER2, 1);
 
             make_move(game, 5, 4, 4, 3, test_scenario::ctx(scenario));
 
