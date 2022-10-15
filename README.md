@@ -2,11 +2,9 @@
 
 A fully on-chain checkers game. Built on [Sui](https://sui.io) by [Ethos](https://ethoswallet.xyz).
 
-You can play Ethos Checkers at [https://ethoswallet.github.io/checkers](https://ethoswallet.github.io/checkers)
-
 Ethos Checkers consists of a smart contract that allows the player to mint a game that is playable on chain.
 
-The front-end submits transaction to the Sui blockchain that calculates the next state of the game board. That next state is returned to the front end to display the next state. Most of the logic in the front-end involves diffing and animating the game board states to create an interesting and enjoyable user experience.
+You can't yet play Ethos Checkers, but you can play [Ethos Chess](https://ethoswallet.github.io/chess) and [Sui 8192](https://ethoswallet.github.io/Sui8192). We are working on a front-end that will allow you to play Ethos Checkers soon.
 
 ## Sui
 
@@ -55,21 +53,3 @@ or
 #### Deploy
 
 `sui client publish --gas-budget 3000`
-
-## The Front-End
-
-The front end is written in plain javascript, html, and css. It has minimal dependencies and is statically hosted on GitHub, using the blockchain for all persistent state.
-
-It has react as a dependency to work properly with the Ethos apis which provide wallet connecting capabilities as well as an easy pathway for people who do not yet have a wallet to play the game via email or social authentication.
-
-### Working With The Front-End
-
-#### Initialization
-
-`yarn`
-
-#### Running
-
-`yarn start`
-
-(Note: the site can also be built using `yarn build` and `index.html` can be opened, but some aspects of the game require it be run via a server - it still works as a statically hosted website, though)
