@@ -1,8 +1,8 @@
 {
-  "name": "sui8192",
+  "name": "ethos-checkers",
   "version": "0.0.1",
   "main": "index.js",
-  "repository": "https://github.com/EthosWallet/sui-2048-simple.git",
+  "repository": "https://github.com/EthosWallet/checkers.git",
   "author": "Jared Cosulich <jared.cosulich@gmail.com>",
   "license": "MIT",
   "dependencies": {
