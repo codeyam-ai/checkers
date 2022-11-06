@@ -67,12 +67,16 @@ module ethos::checker_board {
             i = i + 1;
         };
 
-        let game_board = CheckerBoard { 
-            spaces, 
-            game_over: false
-        };
+        let game_board = create_board(spaces);
 
         game_board 
+    }
+ 
+    public(friend) fun create_board(spaces: vector<vector<Option<u8>>>): CheckerBoard {
+        CheckerBoard { 
+            spaces, 
+            game_over: false
+        }
     }
 
     public(friend) fun modify(board: &mut CheckerBoard, player_number: u8, from_row: u64, from_col: u64, to_row: u64, to_col: u64): bool {
@@ -126,6 +130,10 @@ module ethos::checker_board {
 
     public(friend) fun piece_at(board: &CheckerBoard, row: u64, column: u64): &u8 {
         option::borrow(space_at(board, row, column))
+    }
+
+    public(friend) fun game_over(board: &CheckerBoard): &bool {
+        &board.game_over
     }
 
     public(friend) fun empty_space_positions(game_board: &CheckerBoard): vector<SpacePosition> {

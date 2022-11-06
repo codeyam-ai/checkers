@@ -9,6 +9,9 @@ module ethos::checkers {
     use std::option::{Self, Option};
     use ethos::checker_board::{Self, CheckerBoard};
 
+    #[test_only]
+    friend ethos::checkers_tests;
+
     const EINVALID_PLAYER: u64 = 0;
     const PLAYER1: u8 = 1;
     const PLAYER2: u8 = 2;
@@ -66,9 +69,13 @@ module ethos::checkers {
     }
 
     public entry fun create_game(player2: address, ctx: &mut TxContext) {
+        let new_board = checker_board::new();
+        create_game_with_board(player2, new_board, ctx);
+    }
+    
+    public(friend) fun create_game_with_board(player2: address, board: CheckerBoard, ctx: &mut TxContext) {
         let game_uid = object::new(ctx);
         let player1 = tx_context::sender(ctx);
-        let new_board = checker_board::new();
         
         let name = string::utf8(b"Ethos Checkers");
         let description = string::utf8(b"Checkers - built on Sui  - by Ethos");
@@ -82,7 +89,7 @@ module ethos::checkers {
             player1,
             player2,
             moves: vector[],
-            boards: vector[new_board],
+            boards: vector[board],
             current_player: player1,
             winner: option::none()
         };
@@ -117,7 +124,7 @@ module ethos::checkers {
     }
 
     public entry fun make_move(game: &mut CheckersGame, fromRow: u64, fromColumn: u64, toRow: u64, toColumn: u64, ctx: &mut TxContext) {
-        let player = tx_context::sender(ctx);     
+        let player = tx_context::sender(ctx);  
         assert!(game.current_player == player, EINVALID_PLAYER);
 
         let player_number = PLAYER1; 
@@ -182,5 +189,14 @@ module ethos::checkers {
 
     public fun player_cap_game_id(player_cap: &CheckersPlayerCap): &ID {
         &player_cap.game_id
+    }
+
+    public fun winner(game: &CheckersGame): &Option<address> {
+        &game.winner
+    }
+
+    public fun game_over(game: &CheckersGame): &bool {
+        let board = current_board(game);
+        checker_board::game_over(board)
     }
 }

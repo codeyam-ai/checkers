@@ -4,6 +4,7 @@ module ethos::checkers_tests {
     use std::vector;
     use sui::test_scenario::{Self, Scenario};
     use sui::object;
+    use std::option::{Self, Option};
 
     use ethos::checkers::{Self, CheckersGame, CheckersPlayerCap};
     use ethos::checker_board;
@@ -12,26 +13,22 @@ module ethos::checkers_tests {
     const PLAYER2: address = @0xA1C05;
     const NONPLAYER: address = @0xFACE;
 
-    #[test_only]
     struct Position has drop {
       row: u64,
       col: u64
     }
 
-    #[test_only]
     struct ChessMove has drop {
         start: Position,
         end: Position
     }
 
-    #[test_only]
     fun cm(start_row: u64, start_col: u64, end_row: u64, end_col: u64): ChessMove {
         ChessMove { 
             start: Position { row: start_row, col: start_col }, 
             end: Position { row: end_row, col: end_col } }
     }
 
-    #[test_only]
     fun test_move(game: &mut CheckersGame, m: &ChessMove, scenario: &mut Scenario) {
         checkers::make_move(
             game, 
@@ -41,6 +38,13 @@ module ethos::checkers_tests {
             m.end.col,
             test_scenario::ctx(scenario)
         )
+    }
+
+    fun o(value: u8): Option<u8> {
+        if (value == 0) {
+          return option::none()
+        };
+        option::some(value)
     }
 
     #[test]
@@ -185,10 +189,55 @@ module ethos::checkers_tests {
 
     #[test]
     fun test_game_over() {
+        use ethos::checkers::{create_game_with_board, winner, game_over};
+        use ethos::checker_board::{create_board};
+
+        let spaces = vector[
+            vector[o(0), o(0), o(0), o(0), o(0), o(0), o(0), o(0)],
+            vector[o(0), o(0), o(0), o(0), o(0), o(0), o(0), o(0)],
+            vector[o(0), o(0), o(1), o(0), o(0), o(0), o(0), o(0)],
+            vector[o(0), o(2), o(0), o(0), o(0), o(0), o(0), o(0)],
+            vector[o(0), o(0), o(0), o(0), o(0), o(0), o(0), o(0)],
+            vector[o(0), o(0), o(0), o(0), o(0), o(0), o(0), o(0)],
+            vector[o(0), o(0), o(0), o(0), o(0), o(0), o(0), o(0)],
+            vector[o(0), o(0), o(0), o(0), o(0), o(0), o(0), o(0)]
+        ];
+        let board = create_board(spaces);
         let scenario = test_scenario::begin(PLAYER1);
+        {
+            create_game_with_board(PLAYER2, board, test_scenario::ctx(&mut scenario));
+        };
+
+        test_scenario::next_tx(&mut scenario, PLAYER1);
+        {
+            let game = test_scenario::take_shared<CheckersGame>(&mut scenario);
+            
+            make_move(&mut game, 2, 2, 4, 0, test_scenario::ctx(&mut scenario));
+
+            test_scenario::return_shared<CheckersGame>(game);
+        };
+
+        let game = test_scenario::take_shared<CheckersGame>(&mut scenario);
+        let winner = winner(&game);
+        assert!(option::contains(winner, PLAYER1), option::borrow(winner));
+        test_scenario::return_shared<CheckersGame>(game);
+
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    fun test_complete_game() {
+        use ethos::checkers::{create_game};
+
+        let scenario = test_scenario::begin(PLAYER1);
+        {
+            create_game(PLAYER2, test_scenario::ctx(&mut scenario));
+        };
 
         let moves = vector[
-            cm(2, 1, 3, 2)
+            cm(2, 1, 3, 2),
+            cm(5, 0, 4, 1),
+            cm(3, 2, 5, 0)
         ];
 
         let i=0;
@@ -196,7 +245,12 @@ module ethos::checkers_tests {
         while (i < move_count) {
             let m = vector::borrow(&moves, i);
             
-            test_scenario::next_tx(&mut scenario, NONPLAYER);
+            let player = PLAYER1;
+            if (i % 2 == 1) {
+                player = PLAYER2;
+            };
+
+            test_scenario::next_tx(&mut scenario, player);
             {
                 let game = test_scenario::take_shared<CheckersGame>(&mut scenario);
                 test_move(&mut game, m, &mut scenario);
