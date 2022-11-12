@@ -18,18 +18,18 @@ module ethos::checkers_tests {
       col: u64
     }
 
-    struct ChessMove has drop {
+    struct CheckersMove has drop {
         start: Position,
         end: Position
     }
 
-    fun cm(start_row: u64, start_col: u64, end_row: u64, end_col: u64): ChessMove {
-        ChessMove { 
+    fun cm(start_row: u64, start_col: u64, end_row: u64, end_col: u64): CheckersMove {
+        CheckersMove { 
             start: Position { row: start_row, col: start_col }, 
             end: Position { row: end_row, col: end_col } }
     }
 
-    fun test_move(game: &mut CheckersGame, m: &ChessMove, scenario: &mut Scenario) {
+    fun test_move(game: &mut CheckersGame, m: &CheckersMove, scenario: &mut Scenario) {
         checkers::make_move(
             game, 
             m.start.row, 

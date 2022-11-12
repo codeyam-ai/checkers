@@ -32,7 +32,7 @@ function init() {
   // test();
   
   const ethosConfiguration = {
-    appId: 'ethos-chess'
+    apiKey: 'ethos-checkers'
   };
 
   const start = eById('ethos-start');
@@ -136,7 +136,7 @@ function handleError({ gameOver, error }) {
         return;
     }
 
-    if (error.indexOf(`Identifier("chess_board") }, 1`) > -1) {
+    if (error.indexOf(`Identifier(checkers_board") }, 1`) > -1) {
         showInvalidMoveError();
         reset();
         return;
@@ -444,7 +444,7 @@ const onWalletConnected = async ({ signer }) => {
                 kind: "moveCall",
                 data: {
                     packageObjectId: contractAddress,
-                    module: 'chess',
+                    module: 'checkers',
                     function: 'create_game',
                     typeArguments: [],
                     arguments: [player2],

@@ -1,10 +1,12 @@
-# Ethos Checkers
+# Sui Checkers
 
 A fully on-chain checkers game. Built on [Sui](https://sui.io) by [Ethos](https://ethoswallet.xyz).
 
-Ethos Checkers consists of a smart contract that allows the player to mint a game that is playable on chain.
+Sui Checkers consists of a smart contract that allows the player to mint a game that is playable on chain.
 
-You can't yet play Ethos Checkers, but you can play [Ethos Chess](https://ethoswallet.github.io/chess) and [Sui 8192](https://ethoswallet.github.io/Sui8192). We are working on a front-end that will allow you to play Ethos Checkers soon.
+You can play Sui Checkers at [https://ethoswallet.github.io/checkers](https://ethoswallet.github.io/checkers).
+
+Sui Checkers consists of a smart contract that allows the player to mint a game that is playable on chain.
 
 ## Sui
 

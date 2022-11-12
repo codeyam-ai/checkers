@@ -7,7 +7,7 @@ const constructTransaction = (selected, destination, activeGameAddress) => {
     kind: "moveCall",
     data: {
         packageObjectId: contractAddress,
-        module: 'chess',
+        module: 'checkers',
         function: 'make_move',
         typeArguments: [],
         arguments: [
@@ -57,7 +57,7 @@ const execute = async (walletSigner, selected, destination, activeGameAddress, o
         return;
     }
 
-    const { moveEvent } = events.find((e) => e.moveEvent && e.moveEvent.type.indexOf('ChessMoveEvent') > -1);
+    const { moveEvent } = events.find((e) => e.moveEvent && e.moveEvent.type.indexOf('CheckersMoveEvent') > -1);
     onComplete(board.convertInfo(moveEvent));
     
     // const { fields } = event;
