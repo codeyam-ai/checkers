@@ -1,12 +1,6 @@
 
 #[test_only]
 module ethos::checker_board_tests {
-    use ethos::checker_board::{CheckerBoard};
-    use sui::transfer;
-
-    struct TestCheckerBoard has key {
-        board: CheckerBoard
-    }
 
     const PLAYER1: u8 = 1;
     const PLAYER2: u8 = 2;
@@ -20,8 +14,6 @@ module ethos::checker_board_tests {
         assert!(column_count() == 8, column_count());
         let empty_space_count = empty_space_count(&board);
         assert!(empty_space_count == 8, empty_space_count);
-
-        transfer::share_object(TestCheckerBoard { board })
     }
 
     #[test]
@@ -34,7 +26,6 @@ module ethos::checker_board_tests {
         assert!(piece_at(&board, 2, 1) == &0, (*piece_at(&board, 2, 1) as u64));
         assert!(piece_at(&board, 3, 2) == &1, (*piece_at(&board, 3, 2) as u64));
 
-        transfer::share_object(TestCheckerBoard { board });
     }
 
     #[test]
@@ -44,8 +35,6 @@ module ethos::checker_board_tests {
 
         let board = new();
         modify(&mut board, PLAYER1, 3, 2, 4, 1);
-
-        transfer::share_object(TestCheckerBoard { board });
     }
 
     #[test]
@@ -55,8 +44,6 @@ module ethos::checker_board_tests {
 
         let board = new();
         modify(&mut board, PLAYER1, 2, 1, 1, 2);
-
-        transfer::share_object(TestCheckerBoard { board });
     }
 
     #[test]
@@ -66,8 +53,6 @@ module ethos::checker_board_tests {
 
         let board = new();
         modify(&mut board, PLAYER2, 5, 2, 6, 1);
-
-        transfer::share_object(TestCheckerBoard { board });
     }
 
     #[test]
@@ -77,8 +62,6 @@ module ethos::checker_board_tests {
 
         let board = new();
         modify(&mut board, PLAYER2, 6, 1, 5, 2);
-
-        transfer::share_object(TestCheckerBoard { board });
     }
 
     #[test]
@@ -88,8 +71,6 @@ module ethos::checker_board_tests {
 
         let board = new();
         modify(&mut board, PLAYER1, 2, 1, 3, 6);
-
-        transfer::share_object(TestCheckerBoard { board });
     }
 
     #[test]
@@ -99,8 +80,6 @@ module ethos::checker_board_tests {
 
         let board = new();
         modify(&mut board, PLAYER2, 5, 0, 4, 3);
-
-        transfer::share_object(TestCheckerBoard { board });
     }
 
     #[test]
@@ -110,8 +89,6 @@ module ethos::checker_board_tests {
 
         let board = new();
         modify(&mut board, PLAYER1, 5, 0, 4, 1);
-
-        transfer::share_object(TestCheckerBoard { board });
     }
 
     #[test]
@@ -121,8 +98,6 @@ module ethos::checker_board_tests {
 
         let board = new();
         modify(&mut board, PLAYER2, 2, 1, 3, 2);
-
-        transfer::share_object(TestCheckerBoard { board });
     }
 
     #[test]
@@ -136,8 +111,6 @@ module ethos::checker_board_tests {
         assert!(empty_space_count(&board) == 8, empty_space_count(&board));
         modify(&mut board, PLAYER2, 5, 4, 3, 6);
         assert!(empty_space_count(&board) == 9, empty_space_count(&board));
-
-        transfer::share_object(TestCheckerBoard { board });
     }
 
      #[test]
@@ -151,8 +124,6 @@ module ethos::checker_board_tests {
         assert!(empty_space_count(&board) == 8, empty_space_count(&board));
         modify(&mut board, PLAYER1, 2, 3, 4, 1);
         assert!(empty_space_count(&board) == 9, empty_space_count(&board));
-
-        transfer::share_object(TestCheckerBoard { board });
     }
 
     #[test]
@@ -167,8 +138,6 @@ module ethos::checker_board_tests {
         assert!(empty_space_count(&board) == 8, empty_space_count(&board));
         modify(&mut board, PLAYER2, 5, 2, 1, 2);
         assert!(empty_space_count(&board) == 10, empty_space_count(&board));
-
-        transfer::share_object(TestCheckerBoard { board });
     }
 
     #[test]
@@ -183,8 +152,6 @@ module ethos::checker_board_tests {
         assert!(empty_space_count(&board) == 8, empty_space_count(&board));
         modify(&mut board, PLAYER1, 2, 3, 6, 3);
         assert!(empty_space_count(&board) == 10, empty_space_count(&board));
-
-        transfer::share_object(TestCheckerBoard { board });
     }
 
     // #[test]

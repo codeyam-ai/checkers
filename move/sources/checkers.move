@@ -13,6 +13,8 @@ module ethos::checkers {
     friend ethos::checkers_tests;
 
     const EINVALID_PLAYER: u64 = 0;
+    const EGAME_OVER: u64 = 0;
+
     const PLAYER1: u8 = 1;
     const PLAYER2: u8 = 2;
 
@@ -126,22 +128,28 @@ module ethos::checkers {
     public entry fun make_move(game: &mut CheckersGame, fromRow: u64, fromColumn: u64, toRow: u64, toColumn: u64, ctx: &mut TxContext) {
         let player = tx_context::sender(ctx);  
         assert!(game.current_player == player, EINVALID_PLAYER);
+        assert!(option::is_none(&game.winner), EGAME_OVER);
 
         let player_number = PLAYER1; 
         if (game.player2 == player) {
             player_number = PLAYER2;
         };
 
-        let board = current_board_mut(game);
-        
-        checker_board::modify(board, player_number, fromRow, fromColumn, toRow, toColumn);
+        let mut_board = current_board_mut(game);
+        {
+            checker_board::modify(mut_board, player_number, fromRow, fromColumn, toRow, toColumn);
+        };
         
         if (player == game.player1) {
             game.current_player = *&game.player2;
         } else {
             game.current_player = *&game.player1;
+        };
+
+        let board = current_board(game);
+        if (*checker_board::game_over(board)) {
+            option::fill(&mut game.winner, player);
         }
-        
     }
 
     public fun game_id(game: &CheckersGame): &UID {

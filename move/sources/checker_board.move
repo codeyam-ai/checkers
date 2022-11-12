@@ -24,7 +24,7 @@ module ethos::checker_board {
     const EBAD_JUMP: u64 = 3;
     const EINVALID_PLAYER: u64 = 4;
     
-    struct CheckerBoard has store, copy {
+    struct CheckerBoard has store, copy, drop {
         spaces: vector<vector<Option<u8>>>,
         game_over: bool
     }
@@ -32,6 +32,16 @@ module ethos::checker_board {
     struct SpacePosition has copy, drop {
         row: u64,
         column: u64
+    }
+
+    struct PlayerPositions has copy, drop {
+        player1: vector<SpacePosition>,
+        player2: vector<SpacePosition>,
+    }
+
+    struct PlayerCounts has copy, drop {
+        player1: u64,
+        player2: u64
     }
 
     struct MoveEffects has drop {
@@ -99,6 +109,11 @@ module ethos::checker_board {
             jump_index = jump_index + 1;
         };
 
+        let counts = player_counts(board);
+        if (counts.player1 == 0 || counts.player2 == 0) {
+            board.game_over = true;
+        };
+
         true
     }
     
@@ -158,6 +173,40 @@ module ethos::checker_board {
     public(friend) fun empty_space_count(game_board: &CheckerBoard): u64 {
         vector::length(&empty_space_positions(game_board))
     }
+
+    public(friend) fun player_positions(game_board: &CheckerBoard): PlayerPositions {
+        let positions1 = vector<SpacePosition>[];
+        let positions2 = vector<SpacePosition>[];
+
+        let row = 0;
+        while (row < ROW_COUNT) {
+            let column = 0;
+            while (column < COLUMN_COUNT) {
+                let space = space_at(game_board, row, column);
+                if (option::contains(space, &PLAYER1)) {
+                    vector::push_back(&mut positions1, SpacePosition { row, column })
+                } else if (option::contains(space, &PLAYER2)) {
+                    vector::push_back(&mut positions2, SpacePosition { row, column })
+                };
+                column = column + 1;
+            };
+            row = row + 1;
+        };
+
+        PlayerPositions {
+            player1: positions1,
+            player2: positions2
+        }
+    }
+
+    public(friend) fun player_counts(game_board: &CheckerBoard): PlayerCounts {
+        let positions = player_positions(game_board);
+        PlayerCounts {
+            player1: vector::length(&positions.player1),
+            player2: vector::length(&positions.player2)
+        }
+    }
+
 
     fun valid_space(row: u64, column: u64): bool {
         if (row % 2 == 1) {

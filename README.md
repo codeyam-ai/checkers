@@ -52,4 +52,18 @@ or
 
 #### Deploy
 
-`sui client publish --gas-budget 3000`
+`sui client publish --gas-budget 10000`
+
+## The Front-End
+
+The front end is written in plain javascript, html, and css. It has minimal dependencies and is statically hosted on GitHub, using the blockchain for all persistent state.
+
+It has react as a dependency to work properly with the Ethos apis which provide wallet connecting capabilities as well as an easy pathway for people who do not yet have a wallet to play the game via email or social authentication.
+
+### Working With The Front-End
+
+#### Running
+
+`yarn start`
+
+This will install all necessary dependencies, build the project, launch a server, and open a browser to the correct url.

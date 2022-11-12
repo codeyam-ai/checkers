@@ -41,9 +41,6 @@ module ethos::checkers_tests {
     }
 
     fun o(value: u8): Option<u8> {
-        if (value == 0) {
-          return option::none()
-        };
         option::some(value)
     }
 
@@ -189,7 +186,7 @@ module ethos::checkers_tests {
 
     #[test]
     fun test_game_over() {
-        use ethos::checkers::{create_game_with_board, winner, game_over};
+        use ethos::checkers::{create_game_with_board, make_move, winner, game_over};
         use ethos::checker_board::{create_board};
 
         let spaces = vector[
@@ -217,10 +214,14 @@ module ethos::checkers_tests {
             test_scenario::return_shared<CheckersGame>(game);
         };
 
-        let game = test_scenario::take_shared<CheckersGame>(&mut scenario);
-        let winner = winner(&game);
-        assert!(option::contains(winner, PLAYER1), option::borrow(winner));
-        test_scenario::return_shared<CheckersGame>(game);
+        test_scenario::next_tx(&mut scenario, PLAYER2);
+        {
+            let game = test_scenario::take_shared<CheckersGame>(&mut scenario);
+            let winner_option = winner(&game);
+            assert!(option::contains(winner_option, &PLAYER1), 1);
+            assert!(*game_over(&game), 1);
+            test_scenario::return_shared<CheckersGame>(game);
+        };
 
         test_scenario::end(scenario);
     }
