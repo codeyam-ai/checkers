@@ -3,6 +3,7 @@ const { contractAddress } = require("./constants");
 const board = require('./board');
 
 const constructTransaction = (selected, destination, activeGameAddress) => {
+    console.log("MOVE",selected, destination)
   return {
     kind: "moveCall",
     data: {

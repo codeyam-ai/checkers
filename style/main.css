@@ -375,8 +375,9 @@ input {
 .tile-wrapper {
   background-color: #e4e4e4;
   border-radius: 12px;
-  width: 48px;
-  height: 48px;
+  padding: 3px;
+  width: 45px;
+  height: 45px;
   cursor: pointer;
   border: 6px solid #e4e4e4;
 }
@@ -391,17 +392,23 @@ input {
   border-color: #e3d2c2 !important;
 }
 
-.row:nth-child(even) .tile-wrapper:nth-child(odd),
-.row:nth-child(odd) .tile-wrapper:nth-child(even) {
-  background-color: #28a2b4;
-  border-color: #28a2b4;
+.player1 .row:nth-child(odd) .tile-wrapper:nth-child(even),
+.player1 .row:nth-child(even) .tile-wrapper:nth-child(odd) {
+  background-color: #6f53e4;
+  border-color: #6f53e4;
+}
+
+.player2 .row:nth-child(even) .tile-wrapper:nth-child(even),
+.player2 .row:nth-child(odd) .tile-wrapper:nth-child(odd) {
+  background-color: #6f53e4;
+  border-color: #6f53e4;
 }
 
 .tile,
 .tile-result {
-  width: 48px;
-  height: 48px;
-  background-color: #fbfaf9;
+  padding: 3px;
+  width: 45px;
+  height: 45px;
   border-radius: 12px;
   display: flex;
   justify-content: center;

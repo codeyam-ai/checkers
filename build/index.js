@@ -1,5 +1,5 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
-const { pieces } = require("./constants");
+const { piece } = require("./constants");
 const { eByClass, removeClass } = require("./utils");
 
 let active;
@@ -8,11 +8,12 @@ module.exports = {
   active: () => active,
 
   display: (board, player1) => {
+    console.log("HI")
     const spaces = board.spaces
     const spaceElements = eByClass('tile-wrapper');
     
     for (let i=0; i<spaces.length; ++i) {
-      const playerI = player1 ? spaces.length - i - 1 : i;
+      const playerI = player1 ? i : spaces.length - i - 1;
       const row = spaces[i];
 
       for (let j=0; j<row.length; ++j) {
@@ -24,13 +25,11 @@ module.exports = {
 
         removeClass(spaceElement, ['selected', 'destination']);
         if (column) {
-          spaceElement.innerHTML = pieces[`${column.player_number}${column.type}`]
-          spaceElement.dataset.player = column.player_number;
-          spaceElement.dataset.type = column.type;
+          spaceElement.innerHTML = piece(column === 1 ? "white" : "black")
+          spaceElement.dataset.player = column;
         } else {
           spaceElement.innerHTML = '';
           spaceElement.dataset.player = null;
-          spaceElement.dataset.type = null;
         }
         
       }
@@ -59,7 +58,7 @@ module.exports = {
     const spaces = (rawSpaces || rawBoardSpaces).map(
       (rawRow) => rawRow.map(
         (rawSpace) => {
-          return rawSpace?.fields
+          return rawSpace
         }
       )
     )
@@ -68,10 +67,13 @@ module.exports = {
 }
 },{"./constants":2,"./utils":6}],2:[function(require,module,exports){
 module.exports = {
-  contractAddress: "0xe48e7d0bb591e3463fcbd5937436a623ba7c8552",
-  pieces: {
-    
-  }
+    contractAddress: "0x982e7a0e86c65180f798b4924ecedd3439641a07",
+    piece: (color) => (`
+        <svg width="45" height="44" viewBox="0 0 45 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="22.25" cy="22" r="20" fill="${color}" fill-opacity="0.6"/>
+            <circle cx="22.25" cy="22" r="20.9556" stroke="${color}" stroke-opacity="0.6" stroke-width="1.91122" stroke-dasharray="1.91 1.91"/>
+        </svg>
+    `)
 }
 },{}],3:[function(require,module,exports){
 const React = require('react');
@@ -378,7 +380,9 @@ async function setActiveGame(game) {
     return;
   }
   
-  const playerColor = game.player1 === address ? 'white' : 'black';
+  addClass(eById('board'), game.player1 === address ? 'player1' : 'player2')
+  removeClass(eById('board'), game.player1 === address ? 'player2' : 'player1')
+  const playerColor = game.player1 === address ? 'dark' : 'light';
   eById('player-color').innerHTML = playerColor;
  
   if (game.current_player === address) {
@@ -661,6 +665,7 @@ const { contractAddress } = require("./constants");
 const board = require('./board');
 
 const constructTransaction = (selected, destination, activeGameAddress) => {
+    console.log("MOVE",selected, destination)
   return {
     kind: "moveCall",
     data: {

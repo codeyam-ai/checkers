@@ -135,6 +135,10 @@ module ethos::checker_board {
         vector::borrow_mut(row, column_index)
     }
 
+    public(friend) fun spaces(board: &CheckerBoard): &vector<vector<Option<u8>>> {
+        &board.spaces
+    }
+
     public(friend) fun space_at(board: &CheckerBoard, row_index: u64, column_index: u64): &Option<u8> {
         spaces_at(&board.spaces, row_index, column_index)
     }

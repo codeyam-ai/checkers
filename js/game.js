@@ -302,7 +302,9 @@ async function setActiveGame(game) {
     return;
   }
   
-  const playerColor = game.player1 === address ? 'white' : 'black';
+  addClass(eById('board'), game.player1 === address ? 'player1' : 'player2')
+  removeClass(eById('board'), game.player1 === address ? 'player2' : 'player1')
+  const playerColor = game.player1 === address ? 'dark' : 'light';
   eById('player-color').innerHTML = playerColor;
  
   if (game.current_player === address) {

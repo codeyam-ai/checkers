@@ -1,4 +1,4 @@
-const { pieces } = require("./constants");
+const { piece } = require("./constants");
 const { eByClass, removeClass } = require("./utils");
 
 let active;
@@ -11,7 +11,7 @@ module.exports = {
     const spaceElements = eByClass('tile-wrapper');
     
     for (let i=0; i<spaces.length; ++i) {
-      const playerI = player1 ? spaces.length - i - 1 : i;
+      const playerI = player1 ? i : spaces.length - i - 1;
       const row = spaces[i];
 
       for (let j=0; j<row.length; ++j) {
@@ -23,13 +23,11 @@ module.exports = {
 
         removeClass(spaceElement, ['selected', 'destination']);
         if (column) {
-          spaceElement.innerHTML = pieces[`${column.player_number}${column.type}`]
-          spaceElement.dataset.player = column.player_number;
-          spaceElement.dataset.type = column.type;
+          spaceElement.innerHTML = piece(column === 1 ? "white" : "black")
+          spaceElement.dataset.player = column;
         } else {
           spaceElement.innerHTML = '';
           spaceElement.dataset.player = null;
-          spaceElement.dataset.type = null;
         }
         
       }
@@ -58,7 +56,7 @@ module.exports = {
     const spaces = (rawSpaces || rawBoardSpaces).map(
       (rawRow) => rawRow.map(
         (rawSpace) => {
-          return rawSpace?.fields
+          return rawSpace
         }
       )
     )

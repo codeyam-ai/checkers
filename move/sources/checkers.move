@@ -51,7 +51,8 @@ module ethos::checkers {
     struct NewCheckersGameEvent has copy, drop {
         game_id: ID,
         player1: address,
-        player2: address
+        player2: address,
+        board_spaces: vector<vector<Option<u8>>>
     }
 
     struct CheckersMoveEvent has copy, drop {
@@ -81,7 +82,7 @@ module ethos::checkers {
         
         let name = string::utf8(b"Ethos Checkers");
         let description = string::utf8(b"Checkers - built on Sui  - by Ethos");
-        let url = url::new_unsafe_from_bytes(b"https://CheckerBoard.png");
+        let url = url::new_unsafe_from_bytes(b"https://arweave.net/jTdGvMfpIpLdXofNAjbl0l9_PuFopa0xpMXYwfbIaS4");
         
         let game = CheckersGame {
             id: game_uid,
@@ -114,10 +115,12 @@ module ethos::checkers {
             url,
         };
 
+        let board_spaces = *checker_board::spaces(&board);
         event::emit(NewCheckersGameEvent {
             game_id,
             player1,
-            player2
+            player2,
+            board_spaces
         });
         
         transfer::share_object(game);
