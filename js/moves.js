@@ -32,7 +32,7 @@ const execute = async (walletSigner, selected, destination, activeGameAddress, o
 
     console.log("DATA", data)
     
-    ethos.hideWallet();
+    ethos.hideWallet(walletSigner);
 
     if (data?.effects?.status?.error === "InsufficientGas") {
         onError({})

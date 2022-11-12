@@ -1,22 +1,21 @@
 {
-    "name": "ethos-checkers",
-    "version": "0.0.1",
-    "main": "index.js",
-    "repository": "https://github.com/EthosWallet/checkers.git",
-    "author": "Jared Cosulich <jared.cosulich@gmail.com>",
-    "license": "MIT",
-    "dependencies": {
-      "@mysten/sui.js": "^0.15.0",
-      "bignumber.js": "^9.1.0",
-      "browserify": "^17.0.0",
-      "ethos-connect": "^0.0.9",
-      "react": "^18.2.0",
-      "react-dom": "^18.2.0",
-      "static-server": "^2.2.1"
-    },
-    "scripts": {
-      "build": "mkdir -p build && npx browserify js/* > build/index.js",
-      "start": "yarn && yarn build && npx browser-sync start --server"
-    }
+  "name": "ethos-checkers",
+  "version": "0.0.1",
+  "main": "index.js",
+  "repository": "https://github.com/EthosWallet/checkers.git",
+  "author": "Jared Cosulich <jared.cosulich@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@mysten/sui.js": "^0.15.0",
+    "bignumber.js": "^9.1.0",
+    "browserify": "^17.0.0",
+    "ethos-connect": "^0.0.25",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "static-server": "^2.2.1"
+  },
+  "scripts": {
+    "build": "mkdir -p build && npx browserify js/* > build/index.js",
+    "start": "yarn && yarn build && npx browser-sync start --server"
   }
-  
+}

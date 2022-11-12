@@ -1,6 +1,6 @@
 const React = require('react');
 const ReactDOM = require('react-dom/client');
-const { EthosWrapper, SignInButton, ethos } = require('ethos-connect');
+const { EthosConnectProvider, SignInButton, ethos } = require('ethos-connect');
 const { JsonRpcProvider, Network } = require("@mysten/sui.js");
 
 const { contractAddress } = require('./constants');
@@ -46,7 +46,7 @@ function init() {
   )
 
   const wrapper = React.createElement(
-    EthosWrapper,
+    EthosConnectProvider,
     {
       ethosConfiguration,
       onWalletConnected,
@@ -131,12 +131,22 @@ async function handleResult(newBoard) {
 }
 
 function handleError({ gameOver, error }) {
+    if (gameOver) {
+        showGameOver();
+        return;
+    }
+
     if (!error) {
         showGasError();
         return;
     }
 
-    if (error.indexOf(`Identifier(checkers_board") }, 1`) > -1) {
+    if (
+        error.indexOf(`Identifier("checker_board") }, 0`) > -1 ||
+        error.indexOf(`Identifier("checker_board") }, 1`) > -1 ||
+        error.indexOf(`Identifier("checker_board") }, 2`) > -1 ||
+        error.indexOf(`Identifier("checker_board") }, 3`) > -1 
+    ) {
         showInvalidMoveError();
         reset();
         return;
@@ -146,9 +156,17 @@ function handleError({ gameOver, error }) {
     removeClass(eById("error-unknown"), 'hidden');
 }
 
+function showGameOver() {
+  removeClass(eById("error-game-over"), "hidden");
+}
+
 function showGasError() {
   removeClass(eById("error-gas"), 'hidden');
 }
+
+function showGameOver() {
+    removeClass(eById("error-gas"), 'hidden');
+  }
 
 function showInvalidMoveError() {
   removeClass(eById("error-invalid-move"), 'hidden');
@@ -486,7 +504,7 @@ const onWalletConnected = async ({ signer }) => {
               games.push(game);
               await listGames();
               setActiveGame(game);
-              ethos.hideWallet();
+              ethos.hideWallet(walletSigner);
             } catch (e) {
               console.log("Error creating new game", e);
               modal.open('create-error', 'container');
