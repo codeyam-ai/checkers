@@ -8,12 +8,11 @@ module.exports = {
   active: () => active,
 
   display: (board, player1) => {
-    console.log("HI")
     const spaces = board.spaces
     const spaceElements = eByClass('tile-wrapper');
     
     for (let i=0; i<spaces.length; ++i) {
-      const playerI = player1 ? i : spaces.length - i - 1;
+      const playerI = player1 ? spaces.length - i - 1 : i;
       const row = spaces[i];
 
       for (let j=0; j<row.length; ++j) {
@@ -22,7 +21,7 @@ module.exports = {
 
         spaceElement.dataset.row = i;
         spaceElement.dataset.column = j;
-
+        
         removeClass(spaceElement, ['selected', 'destination']);
         if (column) {
           spaceElement.innerHTML = piece(column === 1 ? "white" : "black")
@@ -67,7 +66,7 @@ module.exports = {
 }
 },{"./constants":2,"./utils":6}],2:[function(require,module,exports){
 module.exports = {
-    contractAddress: "0x982e7a0e86c65180f798b4924ecedd3439641a07",
+    contractAddress: "0xb0b2c3ad9f911b51276548ccb7071160cab0014a",
     piece: (color) => (`
         <svg width="45" height="44" viewBox="0 0 45 44" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="22.25" cy="22" r="20" fill="${color}" fill-opacity="0.6"/>
@@ -284,7 +283,7 @@ async function loadGames() {
     setTimeout(loadGames, 500);
     return;
   }
-  
+
   await loadWalletContents();
 
   const playerCaps = walletContents.nfts.filter(
@@ -665,7 +664,6 @@ const { contractAddress } = require("./constants");
 const board = require('./board');
 
 const constructTransaction = (selected, destination, activeGameAddress) => {
-    console.log("MOVE",selected, destination)
   return {
     kind: "moveCall",
     data: {
@@ -692,6 +690,8 @@ const execute = async (walletSigner, selected, destination, activeGameAddress, o
         signer: walletSigner,
         signableTransaction
     });
+
+    console.log("DATA", data)
     
     ethos.hideWallet();
 

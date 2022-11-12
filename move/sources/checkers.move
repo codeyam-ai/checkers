@@ -40,11 +40,12 @@ module ethos::checkers {
     }
 
     struct CheckersMove has store {
-        from_row: u8,
-        from_column: u8,
-        to_row: u8,
-        to_column: u8,
+        from_row: u64,
+        from_column: u64,
+        to_row: u64,
+        to_column: u64,
         player: address,
+        player_number: u8,
         epoch: u64
     }
 
@@ -57,11 +58,12 @@ module ethos::checkers {
 
     struct CheckersMoveEvent has copy, drop {
         game_id: ID,
-        from_row: u8,
-        from_column: u8,
-        to_row: u8,
-        to_column: u8,
+        from_row: u64,
+        from_column: u64,
+        to_row: u64,
+        to_column: u64,
         player: address,
+        player_number: u8,
         board_spaces: vector<vector<Option<u8>>>,
         epoch: u64
     }
@@ -128,7 +130,7 @@ module ethos::checkers {
         transfer::transfer(player2_cap, player2);
     }
 
-    public entry fun make_move(game: &mut CheckersGame, fromRow: u64, fromColumn: u64, toRow: u64, toColumn: u64, ctx: &mut TxContext) {
+    public entry fun make_move(game: &mut CheckersGame, from_row: u64, from_column: u64, to_row: u64, to_column: u64, ctx: &mut TxContext) {
         let player = tx_context::sender(ctx);  
         assert!(game.current_player == player, EINVALID_PLAYER);
         assert!(option::is_none(&game.winner), EGAME_OVER);
@@ -139,8 +141,9 @@ module ethos::checkers {
         };
 
         let mut_board = current_board_mut(game);
+        let new_board = *mut_board;
         {
-            checker_board::modify(mut_board, player_number, fromRow, fromColumn, toRow, toColumn);
+            checker_board::modify(&mut new_board, player_number, from_row, from_column, to_row, to_column);
         };
         
         if (player == game.player1) {
@@ -149,10 +152,42 @@ module ethos::checkers {
             game.current_player = *&game.player1;
         };
 
-        let board = current_board(game);
-        if (*checker_board::game_over(board)) {
+        let game_id = object::uid_to_inner(&game.id);
+        let board_spaces = *checker_board::spaces(&new_board);
+        let epoch = tx_context::epoch(ctx);
+        event::emit(CheckersMoveEvent {
+            game_id,
+            from_row,
+            from_column,
+            to_row,
+            to_column,
+            player,
+            player_number,
+            board_spaces,
+            epoch
+        });
+
+        if (*checker_board::game_over(&new_board)) {
             option::fill(&mut game.winner, player);
-        }
+
+            event::emit(CheckersGameOverEvent {
+                game_id,
+                winner: player
+            });
+        };
+
+        let new_move = CheckersMove {
+          from_row,
+          from_column,
+          to_row,
+          to_column,
+          player,
+          player_number,
+          epoch
+        };
+
+        vector::push_back(&mut game.moves, new_move);
+        vector::push_back(&mut game.boards, new_board);
     }
 
     public fun game_id(game: &CheckersGame): &UID {

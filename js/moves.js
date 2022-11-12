@@ -3,7 +3,6 @@ const { contractAddress } = require("./constants");
 const board = require('./board');
 
 const constructTransaction = (selected, destination, activeGameAddress) => {
-    console.log("MOVE",selected, destination)
   return {
     kind: "moveCall",
     data: {
@@ -30,6 +29,8 @@ const execute = async (walletSigner, selected, destination, activeGameAddress, o
         signer: walletSigner,
         signableTransaction
     });
+
+    console.log("DATA", data)
     
     ethos.hideWallet();
 

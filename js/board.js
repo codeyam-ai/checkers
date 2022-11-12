@@ -11,7 +11,7 @@ module.exports = {
     const spaceElements = eByClass('tile-wrapper');
     
     for (let i=0; i<spaces.length; ++i) {
-      const playerI = player1 ? i : spaces.length - i - 1;
+      const playerI = player1 ? spaces.length - i - 1 : i;
       const row = spaces[i];
 
       for (let j=0; j<row.length; ++j) {
@@ -20,7 +20,7 @@ module.exports = {
 
         spaceElement.dataset.row = i;
         spaceElement.dataset.column = j;
-
+        
         removeClass(spaceElement, ['selected', 'destination']);
         if (column) {
           spaceElement.innerHTML = piece(column === 1 ? "white" : "black")

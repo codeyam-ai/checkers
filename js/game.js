@@ -206,7 +206,7 @@ async function loadGames() {
     setTimeout(loadGames, 500);
     return;
   }
-  
+
   await loadWalletContents();
 
   const playerCaps = walletContents.nfts.filter(

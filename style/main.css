@@ -392,14 +392,14 @@ input {
   border-color: #e3d2c2 !important;
 }
 
-.player1 .row:nth-child(odd) .tile-wrapper:nth-child(even),
-.player1 .row:nth-child(even) .tile-wrapper:nth-child(odd) {
+.player1 .row:nth-child(even) .tile-wrapper:nth-child(even),
+.player1 .row:nth-child(odd) .tile-wrapper:nth-child(odd) {
   background-color: #6f53e4;
   border-color: #6f53e4;
 }
 
-.player2 .row:nth-child(even) .tile-wrapper:nth-child(even),
-.player2 .row:nth-child(odd) .tile-wrapper:nth-child(odd) {
+.player2 .row:nth-child(odd) .tile-wrapper:nth-child(even),
+.player2 .row:nth-child(even) .tile-wrapper:nth-child(odd) {
   background-color: #6f53e4;
   border-color: #6f53e4;
 }
