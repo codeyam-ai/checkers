@@ -66,7 +66,7 @@ module.exports = {
 }
 },{"./constants":2,"./utils":6}],2:[function(require,module,exports){
 module.exports = {
-    contractAddress: "0xb0b2c3ad9f911b51276548ccb7071160cab0014a",
+    contractAddress: "0xd87250ff0d69611932685a303887433f7a958e37",
     piece: (color) => (`
         <svg width="45" height="44" viewBox="0 0 45 44" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="22.25" cy="22" r="20" fill="${color}" fill-opacity="0.6"/>
@@ -381,7 +381,7 @@ async function setActiveGame(game) {
   
   addClass(eById('board'), game.player1 === address ? 'player1' : 'player2')
   removeClass(eById('board'), game.player1 === address ? 'player2' : 'player1')
-  const playerColor = game.player1 === address ? 'dark' : 'light';
+  const playerColor = game.player1 === address ? 'light' : 'dark';
   eById('player-color').innerHTML = playerColor;
  
   if (game.current_player === address) {

@@ -304,7 +304,7 @@ async function setActiveGame(game) {
   
   addClass(eById('board'), game.player1 === address ? 'player1' : 'player2')
   removeClass(eById('board'), game.player1 === address ? 'player2' : 'player1')
-  const playerColor = game.player1 === address ? 'dark' : 'light';
+  const playerColor = game.player1 === address ? 'light' : 'dark';
   eById('player-color').innerHTML = playerColor;
  
   if (game.current_player === address) {
