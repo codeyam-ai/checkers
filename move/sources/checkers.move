@@ -84,13 +84,14 @@ module ethos::checkers {
         
         let name = string::utf8(b"Ethos Checkers");
         let description = string::utf8(b"Checkers - built on Sui  - by Ethos");
-        let url = url::new_unsafe_from_bytes(b"https://arweave.net/jTdGvMfpIpLdXofNAjbl0l9_PuFopa0xpMXYwfbIaS4");
-        
+        let player1Url = url::new_unsafe_from_bytes(b"https://arweave.net/Gc7bH5KpVnMgDXVPZFiPv_1oC6OfymXy2I4PaCepM_Q");
+        let player2Url = url::new_unsafe_from_bytes(b"https://arweave.net/E3RLUWKgnXv79YRQL_0Wo4HsHwLzUA7NTxtZhVhXWO4");
+
         let game = CheckersGame {
             id: game_uid,
             name,
             description,
-            url,
+            url: player1Url,
             player1,
             player2,
             moves: vector[],
@@ -106,7 +107,7 @@ module ethos::checkers {
             game_id,
             name,
             description,
-            url,
+            url: player1Url,
         };
 
         let player2_cap = CheckersPlayerCap {
@@ -114,7 +115,7 @@ module ethos::checkers {
             game_id,
             name,
             description,
-            url,
+            url: player2Url,
         };
 
         let board_spaces = *checker_board::spaces(&board);
