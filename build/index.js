@@ -67,7 +67,7 @@ module.exports = {
 }
 },{"./constants":2,"./utils":6}],2:[function(require,module,exports){
 module.exports = {
-    contractAddress: "0x12e20f0fbf5ca17d293e0deab4efac90edc4a6c0",
+    contractAddress: "0xa5df9078c909e37dd6476b66aa1c11fbefe6c930",
     piece: (color, king) => (`
         <svg width="44" height="44" viewBox="0 0 525 525" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g filter="url(#filter0_d_359_466)">
