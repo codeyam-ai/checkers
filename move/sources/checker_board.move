@@ -108,6 +108,9 @@ module ethos::checker_board {
         );
 
         let new_space = space_at_mut(board, to_row, to_col);
+        if ((player_number == PLAYER1 && to_row == 7) || (player_number == PLAYER2 && to_row == 0)) {
+            piece.king = true;
+        };
         option::swap(new_space, piece);
 
         let jump_index = 0;
