@@ -239,14 +239,16 @@ async function pollForNextMove() {
   }
 }
 
-async function handleResult(newBoard) { 
+async function handleResult({ cancelled, newBoard }) { 
   const address = await walletSigner.getAddress();
   selectedPiece = null;
 
-  if (!newBoard) {
-    showInvalidMoveError();
+  if (cancelled || !newBoard) {
     removeClass(eByClass('selected'), 'selected')
     removeClass(eByClass('destination'), 'destination')
+    if (!cancelled) {
+        showInvalidMoveError();
+    }
     return;
   }
 
@@ -772,11 +774,17 @@ const constructTransaction = (selected, destination, activeGameAddress) => {
 const execute = async (walletSigner, selected, destination, activeGameAddress, onComplete, onError) => {
     const signableTransaction = constructTransaction(selected, destination, activeGameAddress);
 
-    const data = await ethos.transact({
-        signer: walletSigner,
-        signableTransaction
-    });
-
+    let data;
+    try {
+        data = await ethos.transact({
+            signer: walletSigner,
+            signableTransaction
+        });
+    } catch (e) {
+        onComplete({ cancelled: true })
+        return;
+    }
+    
     console.log("DATA", data)
     
     ethos.hideWallet(walletSigner);
@@ -802,12 +810,12 @@ const execute = async (walletSigner, selected, destination, activeGameAddress, o
     // const { computationCost, storageCost, storageRebate } = gasUsed;
 
     if (!events) {
-        onComplete();
+        onComplete({});
         return;
     }
 
     const { moveEvent } = events.find((e) => e.moveEvent && e.moveEvent.type.indexOf('CheckersMoveEvent') > -1);
-    onComplete(board.convertInfo(moveEvent));
+    onComplete({ newBoard: board.convertInfo(moveEvent) });
     
     // const { fields } = event;
     // const { last_tile: lastTile } = fields;
