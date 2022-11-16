@@ -175,14 +175,20 @@ module ethos::checker_board {
         option::borrow(space_at(board, row, column))
     }
 
-    public(friend) fun game_over(board: &CheckerBoard): &bool {
-        &board.game_over
-    }
-
     public(friend) fun player_at(board: &CheckerBoard, row: u64, column: u64): &u8 {
         let space = space_at(board, row, column);
         let piece = option::borrow(space);
         &piece.player_number
+    }
+
+    public(friend) fun king_at(board: &CheckerBoard, row: u64, column: u64): &bool {
+        let space = space_at(board, row, column);
+        let piece = option::borrow(space);
+        &piece.king
+    }
+
+    public(friend) fun game_over(board: &CheckerBoard): &bool {
+        &board.game_over
     }
 
     public(friend) fun empty_space_positions(game_board: &CheckerBoard): vector<SpacePosition> {

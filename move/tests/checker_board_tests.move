@@ -156,16 +156,18 @@ module ethos::checker_board_tests {
 
     #[test]
     fun test_modify_king_player1() {
-        use ethos::checker_board::{new, modify, empty_space_count};
+        use ethos::checker_board::{new, modify, king_at};
 
         let board = new();
         modify(&mut board, PLAYER2, 5, 4, 4, 3);
         modify(&mut board, PLAYER2, 4, 3, 3, 2);
         modify(&mut board, PLAYER2, 6, 3, 5, 4);
-
-        assert!(empty_space_count(&board) == 8, empty_space_count(&board));
         modify(&mut board, PLAYER1, 2, 3, 6, 3);
-        assert!(empty_space_count(&board) == 10, empty_space_count(&board));
+        modify(&mut board, PLAYER2, 6, 1, 5, 2);
+        modify(&mut board, PLAYER2, 7, 2, 6, 1);
+        modify(&mut board, PLAYER1, 6, 3, 7, 2);
+
+        assert!(*king_at(&board, 7, 2), 1);
     }
 
     // #[test]
