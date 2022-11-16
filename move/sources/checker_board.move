@@ -293,22 +293,27 @@ module ethos::checker_board {
                           (player2_move && from_row >= 4 && from_row - 4 == to_row);
 
         if (jump || double_jump) {
+            let over_piece = PLAYER2;
             let over_row = from_row + 1;
             let over_col = from_col + 1;
-            let over_piece = PLAYER2;
-
+            
             let landing_row = from_row + 2;
-            let landing_col = from_row + 2;
+            let landing_col = from_col + 2;
 
             if (player2_move) {
-                over_row = from_row - 1;
                 over_piece = PLAYER1;
+                over_row = from_row - 1;
                 landing_row = from_row - 2;
             };
             
-            if (from_col > to_col) {
+            if (from_col > to_col ) {
+                assert!(from_col >= 2, EBAD_DESTINATION);
                 over_col = from_col - 1;
                 landing_col = from_col - 2;
+            } else if (from_col < to_col) {
+                assert!(from_col <= 5, EBAD_DESTINATION);
+                over_col = from_col + 1;
+                landing_col = from_col + 2;
             } else if (from_col == to_col) {
                 let over_option1 = player_at(board, over_row, over_col);
                 if (over_option1 != &over_piece) {

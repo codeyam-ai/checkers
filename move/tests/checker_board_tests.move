@@ -195,6 +195,23 @@ module ethos::checker_board_tests {
         assert!(*king_at(&board, 0, 1), 1);
     }
 
+    #[test]
+    fun test_modify_king_player2_double_jump() {
+        use ethos::checker_board::{new, modify, king_at};
+
+        let board = new();
+        modify(&mut board, PLAYER1, 2, 1, 3, 2);
+        modify(&mut board, PLAYER2, 5, 2, 4, 3);
+        modify(&mut board, PLAYER1, 2, 3, 3, 4);
+        modify(&mut board, PLAYER2, 5, 6, 4, 5);
+        modify(&mut board, PLAYER1, 1, 4, 2, 3);
+        modify(&mut board, PLAYER2, 6, 7, 5, 6);
+        modify(&mut board, PLAYER1, 0, 3, 1, 4);
+        modify(&mut board, PLAYER2, 4, 3, 0, 3);
+
+        assert!(*king_at(&board, 0, 3), 1);
+    }
+
     // #[test]
     // fun test_modify_full_game() {
     //     use ethos::checker_board::{new, modify, empty_space_count};
