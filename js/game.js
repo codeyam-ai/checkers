@@ -248,6 +248,7 @@ async function loadGames() {
     }
   )
 
+  console.log("games", games)
   listGames();
 }
 

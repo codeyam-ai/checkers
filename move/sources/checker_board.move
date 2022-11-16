@@ -286,10 +286,10 @@ module ethos::checker_board {
 
         assert!(new_space_player == &EMPTY, EOCCUPIED_SPACE);
 
-        let jump = (player1_move && from_row + 2 == to_row) || 
-                   (player2_move && from_row - 2 == to_row);
+        let jump = (player1_move && from_row <= 5 && from_row + 2 == to_row) || 
+                   (player2_move && from_row >= 2 && from_row - 2 == to_row);
 
-        let double_jump = (player1_move && from_row + 4 == to_row) || 
+        let double_jump = (player1_move && from_row <= 3 && from_row + 4 == to_row) || 
                           (player2_move && from_row >= 4 && from_row - 4 == to_row);
 
         if (jump || double_jump) {
