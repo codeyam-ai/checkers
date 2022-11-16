@@ -40,7 +40,7 @@ module ethos::checkers_tests {
         )
     }
 
-    fun o(value: u8): Option<u8> {
+    fun o(value: u8): Option<CheckerBoardPiece> {
         option::some(value)
     }
 

@@ -25,8 +25,13 @@ module ethos::checker_board {
     const EINVALID_PLAYER: u64 = 4;
     
     struct CheckerBoard has store, copy, drop {
-        spaces: vector<vector<Option<u8>>>,
+        spaces: vector<vector<Option<CheckerBoardPiece>>>,
         game_over: bool
+    }
+
+    struct CheckerBoardPiece has store, copy, drop {
+        player_number: u8,
+        king: bool
     }
 
     struct SpacePosition has copy, drop {
@@ -59,11 +64,23 @@ module ethos::checker_board {
             while (j < COLUMN_COUNT) {
                 if (valid_space(i, j)) {
                     if (i < 3) {
-                        vector::push_back(&mut row, option::some(PLAYER1))
+                        let piece = CheckerBoardPiece {
+                            player_number: PLAYER1,
+                            king: false
+                        };
+                        vector::push_back(&mut row, option::some(piece))
                     } else if (i > 4) {
-                        vector::push_back(&mut row, option::some(PLAYER2))
+                        let piece = CheckerBoardPiece {
+                            player_number: PLAYER2,
+                            king: false
+                        };
+                        vector::push_back(&mut row, option::some(piece))
                     } else {
-                        vector::push_back(&mut row, option::some(EMPTY))
+                        let piece = CheckerBoardPiece {
+                            player_number: EMPTY,
+                            king: false
+                        };
+                        vector::push_back(&mut row, option::some(piece))
                     }        
                 } else {
                     vector::push_back(&mut row, option::none())
@@ -82,7 +99,7 @@ module ethos::checker_board {
         game_board 
     }
  
-    public(friend) fun create_board(spaces: vector<vector<Option<u8>>>): CheckerBoard {
+    public(friend) fun create_board(spaces: vector<vector<Option<CheckerBoardPiece>>>): CheckerBoard {
         CheckerBoard { 
             spaces, 
             game_over: false
@@ -94,7 +111,13 @@ module ethos::checker_board {
         let move_effects = analyze_move(board, player_number, piece, from_row, from_col, to_row, to_col);
         
         let old_space = space_at_mut(board, from_row, from_col);
-        let piece = option::swap(old_space, EMPTY);
+        let piece = option::swap(
+            old_space, 
+            CheckerBoardPiece { 
+                player_number: EMPTY, 
+                king: false
+            }
+        );
 
         let new_space = space_at_mut(board, to_row, to_col);
         option::swap(new_space, piece);
@@ -104,7 +127,13 @@ module ethos::checker_board {
         while (jump_index < jumps_count) {
             let position = vector::borrow(&move_effects.jumps, jump_index);
             let jump_space = space_at_mut(board, position.row, position.column);
-            option::swap(jump_space, EMPTY);
+            option::swap(
+                jump_space, 
+                CheckerBoardPiece { 
+                    player_number: EMPTY, 
+                    king: false
+                }
+            );
 
             jump_index = jump_index + 1;
         };
@@ -125,34 +154,44 @@ module ethos::checker_board {
         COLUMN_COUNT
     }
 
-    fun spaces_at(spaces: &vector<vector<Option<u8>>>, row_index: u64, column_index: u64): &Option<u8> {
+    fun spaces_at(spaces: &vector<vector<Option<CheckerBoardPiece>>>, row_index: u64, column_index: u64): &Option<CheckerBoardPiece> {
         let row = vector::borrow(spaces, row_index);
         vector::borrow(row, column_index)
     }
 
-    fun spaces_at_mut(spaces: &mut vector<vector<Option<u8>>>, row_index: u64, column_index: u64): &mut Option<u8> {
+    fun spaces_at_mut(spaces: &mut vector<vector<Option<CheckerBoardPiece>>>, row_index: u64, column_index: u64): &mut Option<CheckerBoardPiece> {
         let row = vector::borrow_mut(spaces, row_index);
         vector::borrow_mut(row, column_index)
     }
 
-    public(friend) fun spaces(board: &CheckerBoard): &vector<vector<Option<u8>>> {
+    public(friend) fun spaces(board: &CheckerBoard): &vector<vector<Option<CheckerBoardPiece>>> {
         &board.spaces
     }
 
-    public(friend) fun space_at(board: &CheckerBoard, row_index: u64, column_index: u64): &Option<u8> {
+    public(friend) fun space_at(board: &CheckerBoard, row_index: u64, column_index: u64): &Option<CheckerBoardPiece> {
         spaces_at(&board.spaces, row_index, column_index)
     }
 
-    public(friend) fun space_at_mut(board: &mut CheckerBoard, row_index: u64, column_index: u64): &mut Option<u8> {
+    public(friend) fun space_at_mut(board: &mut CheckerBoard, row_index: u64, column_index: u64): &mut Option<CheckerBoardPiece> {
         spaces_at_mut(&mut board.spaces, row_index, column_index)
     }
 
-    public(friend) fun piece_at(board: &CheckerBoard, row: u64, column: u64): &u8 {
+    public(friend) fun piece_at(board: &CheckerBoard, row: u64, column: u64): &CheckerBoardPiece {
         option::borrow(space_at(board, row, column))
     }
 
     public(friend) fun game_over(board: &CheckerBoard): &bool {
         &board.game_over
+    }
+
+    public(friend) fun player_at(game_board: &GameBoard, row: u64, column: u64): &u8 {
+        let space = space_at(game_board, row, column);
+        if (option::is_none()) {
+            option::none()
+        } else {
+            let piece = option::borrow(space);
+            piece.player_number
+        }
     }
 
     public(friend) fun empty_space_positions(game_board: &CheckerBoard): vector<SpacePosition> {
@@ -162,8 +201,8 @@ module ethos::checker_board {
         while (row < ROW_COUNT) {
           let column = 0;
           while (column < COLUMN_COUNT) {
-            let space = space_at(game_board, row, column);
-            if (option::contains(space, &EMPTY)) {
+            let player = player_at(game_board, row, column);
+            if (option::contains(player, &EMPTY)) {
               vector::push_back(&mut empty_spaces, SpacePosition { row, column })
             };
             column = column + 1;

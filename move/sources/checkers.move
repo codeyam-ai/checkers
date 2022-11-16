@@ -7,7 +7,7 @@ module ethos::checkers {
     use sui::transfer;
     use std::vector;
     use std::option::{Self, Option};
-    use ethos::checker_board::{Self, CheckerBoard};
+    use ethos::checker_board::{Self, CheckerBoard, CheckerBoardPiece};
 
     #[test_only]
     friend ethos::checkers_tests;
@@ -53,7 +53,7 @@ module ethos::checkers {
         game_id: ID,
         player1: address,
         player2: address,
-        board_spaces: vector<vector<Option<u8>>>
+        board_spaces: vector<vector<Option<CheckerBoardPiece>>>
     }
 
     struct CheckersMoveEvent has copy, drop {
@@ -64,7 +64,7 @@ module ethos::checkers {
         to_column: u64,
         player: address,
         player_number: u8,
-        board_spaces: vector<vector<Option<u8>>>,
+        board_spaces: vector<vector<Option<CheckerBoardPiece>>>,
         epoch: u64
     }
 
@@ -225,9 +225,14 @@ module ethos::checkers {
         board_at_mut(game, last_board_index)
     }
 
-    public fun piece_at(game: &CheckersGame, row: u64, column: u64): &u8 {
+    public fun piece_at(game: &CheckersGame, row: u64, column: u64): &CheckerBoardPiece {
         let board = current_board(game);
         checker_board::piece_at(board, row, column)
+    }
+
+    public fun player_at(game: &CheckersGame, row: u64, column: u64): &u8 {
+        let board = current_board(game);
+        checker_board::player_at(board, row, column)
     }
 
     public fun current_player(game: &CheckersGame): &address {
