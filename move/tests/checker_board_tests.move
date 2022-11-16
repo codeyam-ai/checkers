@@ -230,8 +230,7 @@ module ethos::checker_board_tests {
 
     #[test]
     fun test_king_can_double_jump() {
-        use ethos::checker_board::{new, modify, spaces};
-        use std::vector::borrow;
+        use ethos::checker_board::{new, modify};
 
         let board = new();
         modify(&mut board, PLAYER1, 2, 1, 3, 2);
