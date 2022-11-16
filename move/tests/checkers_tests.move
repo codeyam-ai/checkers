@@ -7,7 +7,7 @@ module ethos::checkers_tests {
     use std::option::{Self, Option};
 
     use ethos::checkers::{Self, CheckersGame, CheckersPlayerCap};
-    use ethos::checker_board;
+    use ethos::checker_board::{Self, CheckerBoardPiece};
    
     const PLAYER1: address = @0xCAFE;
     const PLAYER2: address = @0xA1C05;
@@ -41,7 +41,8 @@ module ethos::checkers_tests {
     }
 
     fun o(value: u8): Option<CheckerBoardPiece> {
-        option::some(value)
+        use ethos::checker_board::create_piece;
+        option::some(create_piece(value))
     }
 
     #[test]
@@ -88,7 +89,7 @@ module ethos::checkers_tests {
 
     #[test]
     fun test_make_move() {
-        use ethos::checkers::{create_game, make_move, piece_at, current_player};
+        use ethos::checkers::{create_game, make_move, player_at, current_player};
 
         let scenario = test_scenario::begin(PLAYER1);
         {
@@ -108,8 +109,8 @@ module ethos::checkers_tests {
         {
             let game = test_scenario::take_shared<CheckersGame>(&mut scenario);
 
-            assert!(piece_at(&game, 2, 1) == &0, (*piece_at(&game, 2, 1) as u64));
-            assert!(piece_at(&game, 3, 2) == &1, (*piece_at(&game, 3, 2) as u64));
+            assert!(player_at(&game, 2, 1) == &0, (*player_at(&game, 2, 1) as u64));
+            assert!(player_at(&game, 3, 2) == &1, (*player_at(&game, 3, 2) as u64));
             assert!(current_player(&game) == &PLAYER2, 1);
 
             make_move(&mut game, 5, 4, 4, 3, test_scenario::ctx(&mut scenario));
@@ -121,8 +122,8 @@ module ethos::checkers_tests {
         {
             let game = test_scenario::take_shared<CheckersGame>(&mut scenario);
 
-            assert!(piece_at(&game, 5, 4) == &0, (*piece_at(&game, 5, 4) as u64));
-            assert!(piece_at(&game, 4, 3) == &2, (*piece_at(&game, 4, 3) as u64));
+            assert!(player_at(&game, 5, 4) == &0, (*player_at(&game, 5, 4) as u64));
+            assert!(player_at(&game, 4, 3) == &2, (*player_at(&game, 4, 3) as u64));
             assert!(current_player(&game) == &PLAYER1, 2);
 
             test_scenario::return_shared<CheckersGame>(game);
