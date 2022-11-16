@@ -212,6 +212,39 @@ module ethos::checker_board_tests {
         assert!(*king_at(&board, 0, 3), 1);
     }
 
+    #[test]
+    fun test_king_can_jump() {
+        use ethos::checker_board::{new, modify};
+        
+        let board = new();
+        modify(&mut board, PLAYER1, 2, 1, 3, 2);
+        modify(&mut board, PLAYER2, 5, 2, 4, 3);
+        modify(&mut board, PLAYER1, 2, 3, 3, 4);
+        modify(&mut board, PLAYER2, 5, 6, 4, 5);
+        modify(&mut board, PLAYER1, 1, 4, 2, 3);
+        modify(&mut board, PLAYER2, 6, 7, 5, 6);
+        modify(&mut board, PLAYER1, 0, 3, 1, 4);
+        modify(&mut board, PLAYER2, 4, 3, 0, 3);
+        modify(&mut board, PLAYER2, 0, 3, 2, 1);
+    }
+
+    #[test]
+    fun test_king_can_double_jump() {
+        use ethos::checker_board::{new, modify, spaces};
+        use std::vector::borrow;
+
+        let board = new();
+        modify(&mut board, PLAYER1, 2, 1, 3, 2);
+        modify(&mut board, PLAYER2, 5, 2, 4, 3);
+        modify(&mut board, PLAYER1, 2, 3, 3, 4);
+        modify(&mut board, PLAYER2, 5, 6, 4, 5);
+        modify(&mut board, PLAYER1, 1, 4, 2, 3);
+        modify(&mut board, PLAYER2, 6, 7, 5, 6);
+        modify(&mut board, PLAYER1, 0, 3, 1, 4);
+        modify(&mut board, PLAYER2, 4, 3, 0, 3);
+        modify(&mut board, PLAYER2, 0, 3, 4, 3);
+    }
+
     // #[test]
     // fun test_modify_full_game() {
     //     use ethos::checker_board::{new, modify, empty_space_count};
