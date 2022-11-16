@@ -22,8 +22,9 @@ module.exports = {
         spaceElement.dataset.column = j;
         
         removeClass(spaceElement, ['selected', 'destination']);
-        if (column) {
-          spaceElement.innerHTML = piece(column === 1 ? "white" : "black")
+        if (column?.fields?.player_number) {
+          const { player_number, king } = column.fields
+          spaceElement.innerHTML = piece(player_number === 1 ? "white" : "black", king)
           spaceElement.dataset.player = column;
         } else {
           spaceElement.innerHTML = '';

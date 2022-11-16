@@ -375,7 +375,7 @@ input {
 .tile-wrapper {
   background-color: #e4e4e4;
   border-radius: 12px;
-  padding: 3px;
+  padding: 4px 4px 2px 2px;
   width: 45px;
   height: 45px;
   cursor: pointer;
@@ -406,7 +406,7 @@ input {
 
 .tile,
 .tile-result {
-  padding: 3px;
+  padding: 4px 4px 2px 2px;
   width: 45px;
   height: 45px;
   border-radius: 12px;
