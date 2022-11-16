@@ -25,8 +25,13 @@ module ethos::checker_board {
     const EINVALID_PLAYER: u64 = 4;
     
     struct CheckerBoard has store, copy, drop {
-        spaces: vector<vector<Option<u8>>>,
+        spaces: vector<vector<Option<CheckerBoardPiece>>>,
         game_over: bool
+    }
+
+    struct CheckerBoardPiece has store, copy, drop {
+        player_number: u8,
+        king: bool
     }
 
     struct SpacePosition has copy, drop {
@@ -59,11 +64,11 @@ module ethos::checker_board {
             while (j < COLUMN_COUNT) {
                 if (valid_space(i, j)) {
                     if (i < 3) {
-                        vector::push_back(&mut row, option::some(PLAYER1))
+                        vector::push_back(&mut row, option::some(create_piece(PLAYER1)))
                     } else if (i > 4) {
-                        vector::push_back(&mut row, option::some(PLAYER2))
+                        vector::push_back(&mut row, option::some(create_piece(PLAYER2)))
                     } else {
-                        vector::push_back(&mut row, option::some(EMPTY))
+                        vector::push_back(&mut row, option::some(create_piece(EMPTY)))
                     }        
                 } else {
                     vector::push_back(&mut row, option::none())
@@ -82,7 +87,7 @@ module ethos::checker_board {
         game_board 
     }
  
-    public(friend) fun create_board(spaces: vector<vector<Option<u8>>>): CheckerBoard {
+    public(friend) fun create_board(spaces: vector<vector<Option<CheckerBoardPiece>>>): CheckerBoard {
         CheckerBoard { 
             spaces, 
             game_over: false
@@ -90,13 +95,22 @@ module ethos::checker_board {
     }
 
     public(friend) fun modify(board: &mut CheckerBoard, player_number: u8, from_row: u64, from_col: u64, to_row: u64, to_col: u64): bool {
-        let piece = piece_at(board, from_row, from_col);
-        let move_effects = analyze_move(board, player_number, piece, from_row, from_col, to_row, to_col);
+        let player = player_at(board, from_row, from_col);
+        let move_effects = analyze_move(board, player_number, player, from_row, from_col, to_row, to_col);
         
         let old_space = space_at_mut(board, from_row, from_col);
-        let piece = option::swap(old_space, EMPTY);
+        let piece = option::swap(
+            old_space, 
+            CheckerBoardPiece { 
+                player_number: EMPTY, 
+                king: false
+            }
+        );
 
         let new_space = space_at_mut(board, to_row, to_col);
+        if ((player_number == PLAYER1 && to_row == 7) || (player_number == PLAYER2 && to_row == 0)) {
+            piece.king = true;
+        };
         option::swap(new_space, piece);
 
         let jump_index = 0;
@@ -104,7 +118,13 @@ module ethos::checker_board {
         while (jump_index < jumps_count) {
             let position = vector::borrow(&move_effects.jumps, jump_index);
             let jump_space = space_at_mut(board, position.row, position.column);
-            option::swap(jump_space, EMPTY);
+            option::swap(
+                jump_space, 
+                CheckerBoardPiece { 
+                    player_number: EMPTY, 
+                    king: false
+                }
+            );
 
             jump_index = jump_index + 1;
         };
@@ -116,6 +136,13 @@ module ethos::checker_board {
 
         true
     }
+
+    public(friend) fun create_piece(player_number: u8): CheckerBoardPiece {
+        CheckerBoardPiece {
+            player_number,
+            king: false
+        }
+    }
     
     public fun row_count(): u64 {
         ROW_COUNT
@@ -125,30 +152,42 @@ module ethos::checker_board {
         COLUMN_COUNT
     }
 
-    fun spaces_at(spaces: &vector<vector<Option<u8>>>, row_index: u64, column_index: u64): &Option<u8> {
+    fun spaces_at(spaces: &vector<vector<Option<CheckerBoardPiece>>>, row_index: u64, column_index: u64): &Option<CheckerBoardPiece> {
         let row = vector::borrow(spaces, row_index);
         vector::borrow(row, column_index)
     }
 
-    fun spaces_at_mut(spaces: &mut vector<vector<Option<u8>>>, row_index: u64, column_index: u64): &mut Option<u8> {
+    fun spaces_at_mut(spaces: &mut vector<vector<Option<CheckerBoardPiece>>>, row_index: u64, column_index: u64): &mut Option<CheckerBoardPiece> {
         let row = vector::borrow_mut(spaces, row_index);
         vector::borrow_mut(row, column_index)
     }
 
-    public(friend) fun spaces(board: &CheckerBoard): &vector<vector<Option<u8>>> {
+    public(friend) fun spaces(board: &CheckerBoard): &vector<vector<Option<CheckerBoardPiece>>> {
         &board.spaces
     }
 
-    public(friend) fun space_at(board: &CheckerBoard, row_index: u64, column_index: u64): &Option<u8> {
+    public(friend) fun space_at(board: &CheckerBoard, row_index: u64, column_index: u64): &Option<CheckerBoardPiece> {
         spaces_at(&board.spaces, row_index, column_index)
     }
 
-    public(friend) fun space_at_mut(board: &mut CheckerBoard, row_index: u64, column_index: u64): &mut Option<u8> {
+    public(friend) fun space_at_mut(board: &mut CheckerBoard, row_index: u64, column_index: u64): &mut Option<CheckerBoardPiece> {
         spaces_at_mut(&mut board.spaces, row_index, column_index)
     }
 
-    public(friend) fun piece_at(board: &CheckerBoard, row: u64, column: u64): &u8 {
+    public(friend) fun piece_at(board: &CheckerBoard, row: u64, column: u64): &CheckerBoardPiece {
         option::borrow(space_at(board, row, column))
+    }
+
+    public(friend) fun player_at(board: &CheckerBoard, row: u64, column: u64): &u8 {
+        let space = space_at(board, row, column);
+        let piece = option::borrow(space);
+        &piece.player_number
+    }
+
+    public(friend) fun king_at(board: &CheckerBoard, row: u64, column: u64): &bool {
+        let space = space_at(board, row, column);
+        let piece = option::borrow(space);
+        &piece.king
     }
 
     public(friend) fun game_over(board: &CheckerBoard): &bool {
@@ -162,9 +201,11 @@ module ethos::checker_board {
         while (row < ROW_COUNT) {
           let column = 0;
           while (column < COLUMN_COUNT) {
-            let space = space_at(game_board, row, column);
-            if (option::contains(space, &EMPTY)) {
-              vector::push_back(&mut empty_spaces, SpacePosition { row, column })
+            if (valid_space(row, column)) {
+                let player = player_at(game_board, row, column);
+                if (player == &EMPTY) {
+                    vector::push_back(&mut empty_spaces, SpacePosition { row, column })
+                };
             };
             column = column + 1;
           };
@@ -186,11 +227,13 @@ module ethos::checker_board {
         while (row < ROW_COUNT) {
             let column = 0;
             while (column < COLUMN_COUNT) {
-                let space = space_at(game_board, row, column);
-                if (option::contains(space, &PLAYER1)) {
-                    vector::push_back(&mut positions1, SpacePosition { row, column })
-                } else if (option::contains(space, &PLAYER2)) {
-                    vector::push_back(&mut positions2, SpacePosition { row, column })
+                if (valid_space(row, column)) {
+                    let player = player_at(game_board, row, column);
+                    if (player == &PLAYER1) {
+                        vector::push_back(&mut positions1, SpacePosition { row, column })
+                    } else if (player == &PLAYER2) {
+                        vector::push_back(&mut positions2, SpacePosition { row, column })
+                    };
                 };
                 column = column + 1;
             };
@@ -220,8 +263,8 @@ module ethos::checker_board {
         }
     }
 
-    fun analyze_move(board: &CheckerBoard, player_number: u8, piece: &u8, from_row: u64, from_col: u64, to_row: u64, to_col: u64): MoveEffects {
-        assert!(piece == &player_number, EINVALID_PLAYER);
+    fun analyze_move(board: &CheckerBoard, player_number: u8, piece_player: &u8, from_row: u64, from_col: u64, to_row: u64, to_col: u64): MoveEffects {
+        assert!(piece_player == &player_number, EINVALID_PLAYER);
         assert!(to_row < ROW_COUNT, EBAD_DESTINATION);
         assert!(to_col < COLUMN_COUNT, EBAD_DESTINATION);
         
@@ -229,10 +272,10 @@ module ethos::checker_board {
             jumps: vector[]
         };
 
-        let new_space = space_at(board, to_row, to_col);
+        let new_space_player = player_at(board, to_row, to_col);
 
-        let player1_move = (piece == &PLAYER1);
-        let player2_move = (piece == &PLAYER2);
+        let player1_move = (piece_player == &PLAYER1);
+        let player2_move = (piece_player == &PLAYER2);
         assert!(player1_move || player2_move, EEMPTY_SPACE);
 
         if (player1_move) {
@@ -241,12 +284,12 @@ module ethos::checker_board {
             assert!(to_row < from_row, EBAD_DESTINATION);
         };
 
-        assert!(option::contains(new_space, &EMPTY), EOCCUPIED_SPACE);
+        assert!(new_space_player == &EMPTY, EOCCUPIED_SPACE);
 
-        let jump = (player1_move && from_row + 2 == to_row) || 
-                   (player2_move && from_row - 2 == to_row);
+        let jump = (player1_move && from_row <= 5 && from_row + 2 == to_row) || 
+                   (player2_move && from_row >= 2 && from_row - 2 == to_row);
 
-        let double_jump = (player1_move && from_row + 4 == to_row) || 
+        let double_jump = (player1_move && from_row <= 3 && from_row + 4 == to_row) || 
                           (player2_move && from_row >= 4 && from_row - 4 == to_row);
 
         if (jump || double_jump) {
@@ -267,14 +310,14 @@ module ethos::checker_board {
                 over_col = from_col - 1;
                 landing_col = from_col - 2;
             } else if (from_col == to_col) {
-                let over_option1 = piece_at(board, over_row, over_col);
+                let over_option1 = player_at(board, over_row, over_col);
                 if (over_option1 != &over_piece) {
                     over_col = from_col - 1;
                     landing_col = from_col - 2;
                 }
             };
             
-            assert!(piece_at(board, over_row, over_col) == &over_piece, EBAD_JUMP);
+            assert!(player_at(board, over_row, over_col) == &over_piece, EBAD_JUMP);
 
             let over_position = SpacePosition {
                 row: over_row,
@@ -286,7 +329,7 @@ module ethos::checker_board {
                 let double_jump_effects = analyze_move(
                     board, 
                     player_number,
-                    piece,
+                    piece_player,
                     landing_row, 
                     landing_col, 
                     to_row, 

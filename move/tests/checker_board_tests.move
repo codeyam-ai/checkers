@@ -18,13 +18,13 @@ module ethos::checker_board_tests {
 
     #[test]
     fun test_modify() {
-        use ethos::checker_board::{new, modify, piece_at};
+        use ethos::checker_board::{new, modify, player_at};
 
         let board = new();
         modify(&mut board, PLAYER1, 2, 1, 3, 2);
 
-        assert!(piece_at(&board, 2, 1) == &0, (*piece_at(&board, 2, 1) as u64));
-        assert!(piece_at(&board, 3, 2) == &1, (*piece_at(&board, 3, 2) as u64));
+        assert!(player_at(&board, 2, 1) == &0, (*player_at(&board, 2, 1) as u64));
+        assert!(player_at(&board, 3, 2) == &1, (*player_at(&board, 3, 2) as u64));
 
     }
 
@@ -154,21 +154,46 @@ module ethos::checker_board_tests {
         assert!(empty_space_count(&board) == 10, empty_space_count(&board));
     }
 
-    // #[test]
-    // fun test_modify_king_player1() {
-    //     use ethos::checker_board::{new, modify, empty_space_count};
+    #[test]
+    fun test_modify_king_player1() {
+        use ethos::checker_board::{new, modify, king_at};
 
-    //     let board = new();
-    //     modify(&mut board, 5, 4, 4, 3);
-    //     modify(&mut board, 4, 3, 3, 2);
-    //     modify(&mut board, 6, 3, 5, 4);
+        let board = new();
+        modify(&mut board, PLAYER2, 5, 4, 4, 3);
+        modify(&mut board, PLAYER2, 4, 3, 3, 2);
+        modify(&mut board, PLAYER2, 6, 3, 5, 4);
+        modify(&mut board, PLAYER1, 2, 3, 6, 3);
+        modify(&mut board, PLAYER2, 6, 1, 5, 2);
+        modify(&mut board, PLAYER2, 7, 2, 6, 1);
+        modify(&mut board, PLAYER1, 6, 3, 7, 2);
 
-    //     assert!(empty_space_count(&board) == 8, empty_space_count(&board));
-    //     modify(&mut board, 2, 3, 6, 3);
-    //     assert!(empty_space_count(&board) == 10, empty_space_count(&board));
+        assert!(*king_at(&board, 7, 2), 1);
+    }
 
-    //     transfer::share_object(TestCheckerBoard { board });
-    // }
+    #[test]
+    fun test_modify_king_player2() {
+        use ethos::checker_board::{new, modify, king_at};
+
+        let board = new();
+        modify(&mut board, PLAYER1, 2, 1, 3, 2);
+        modify(&mut board, PLAYER2, 5, 2, 4, 3);
+        modify(&mut board, PLAYER1, 3, 2, 4, 1);
+        modify(&mut board, PLAYER2, 5, 0, 3, 2);
+        modify(&mut board, PLAYER1, 2, 3, 4, 1);
+        modify(&mut board, PLAYER2, 4, 3, 3, 2);
+        modify(&mut board, PLAYER1, 1, 2, 2, 1);
+        modify(&mut board, PLAYER2, 6, 3, 5, 2);
+        modify(&mut board, PLAYER1, 2, 5, 3, 4);
+        modify(&mut board, PLAYER2, 5, 2, 1, 2);
+        modify(&mut board, PLAYER1, 0, 1, 2, 3);
+        modify(&mut board, PLAYER2, 6, 1, 5, 2);
+        modify(&mut board, PLAYER1, 1, 0, 2, 1);
+        modify(&mut board, PLAYER2, 3, 2, 1, 0);
+        modify(&mut board, PLAYER1, 3, 4, 4, 3);
+        modify(&mut board, PLAYER2, 1, 0, 0, 1);
+
+        assert!(*king_at(&board, 0, 1), 1);
+    }
 
     // #[test]
     // fun test_modify_full_game() {
