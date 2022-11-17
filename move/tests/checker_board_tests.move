@@ -176,7 +176,7 @@ module ethos::checker_board_tests {
         modify(&mut board, PLAYER1, vector[vector[1, 2], vector[2, 3]]);
 
         assert!(empty_space_count(&board) == 8, empty_space_count(&board));
-        modify(&mut board, PLAYER2, vector[vector[5, 2], vector[1, 2]]);
+        modify(&mut board, PLAYER2, vector[vector[5, 2], vector[3, 0], vector[1, 2]]);
         assert!(empty_space_count(&board) == 10, empty_space_count(&board));
     }
 
@@ -190,7 +190,7 @@ module ethos::checker_board_tests {
         modify(&mut board, PLAYER2, vector[vector[6, 3], vector[5, 4]]);
 
         assert!(empty_space_count(&board) == 8, empty_space_count(&board));
-        modify(&mut board, PLAYER1, vector[vector[2, 3], vector[6, 3]]);
+        modify(&mut board, PLAYER1, vector[vector[2, 3], vector[4, 1], vector[6, 3]]);
         assert!(empty_space_count(&board) == 10, empty_space_count(&board));
     }
 
@@ -202,7 +202,7 @@ module ethos::checker_board_tests {
         modify(&mut board, PLAYER2, vector[vector[5, 4], vector[4, 3]]);
         modify(&mut board, PLAYER2, vector[vector[4, 3], vector[3, 2]]);
         modify(&mut board, PLAYER2, vector[vector[6, 3], vector[5, 4]]);
-        modify(&mut board, PLAYER1, vector[vector[2, 3], vector[6, 3]]);
+        modify(&mut board, PLAYER1, vector[vector[2, 3], vector[4, 1], vector[6, 3]]);
         modify(&mut board, PLAYER2, vector[vector[6, 1], vector[5, 2]]);
         modify(&mut board, PLAYER2, vector[vector[7, 2], vector[6, 1]]);
         modify(&mut board, PLAYER1, vector[vector[6, 3], vector[7, 2]]);
@@ -224,7 +224,7 @@ module ethos::checker_board_tests {
         modify(&mut board, PLAYER1, vector[vector[1, 2], vector[2, 1]]);
         modify(&mut board, PLAYER2, vector[vector[6, 3], vector[5, 2]]);
         modify(&mut board, PLAYER1, vector[vector[2, 5], vector[3, 4]]);
-        modify(&mut board, PLAYER2, vector[vector[5, 2], vector[1, 2]]);
+        modify(&mut board, PLAYER2, vector[vector[5, 2], vector[3, 0], vector[1, 2]]);
         modify(&mut board, PLAYER1, vector[vector[0, 1], vector[2, 3]]);
         modify(&mut board, PLAYER2, vector[vector[6, 1], vector[5, 2]]);
         modify(&mut board, PLAYER1, vector[vector[1, 0], vector[2, 1]]);
@@ -247,7 +247,7 @@ module ethos::checker_board_tests {
         modify(&mut board, PLAYER1, vector[vector[1, 4], vector[2, 3]]);
         modify(&mut board, PLAYER2, vector[vector[6, 7], vector[5, 6]]);
         modify(&mut board, PLAYER1, vector[vector[0, 3], vector[1, 4]]);
-        modify(&mut board, PLAYER2, vector[vector[4, 3], vector[0, 3]]);
+        modify(&mut board, PLAYER2, vector[vector[4, 3], vector[2, 1], vector[0, 3]]);
 
         assert!(*king_at(&board, &vector[0, 3]), 1);
     }
@@ -264,8 +264,9 @@ module ethos::checker_board_tests {
         modify(&mut board, PLAYER1, vector[vector[1, 4], vector[2, 3]]);
         modify(&mut board, PLAYER2, vector[vector[6, 7], vector[5, 6]]);
         modify(&mut board, PLAYER1, vector[vector[0, 3], vector[1, 4]]);
-        modify(&mut board, PLAYER2, vector[vector[4, 3], vector[0, 3]]);
-        modify(&mut board, PLAYER2, vector[vector[0, 3], vector[2, 1]]);
+        modify(&mut board, PLAYER2, vector[vector[4, 3], vector[2, 1], vector[0, 3]]);
+        modify(&mut board, PLAYER1, vector[vector[2, 5], vector[3, 6]]);
+        modify(&mut board, PLAYER2, vector[vector[0, 3], vector[2, 5]]);
     }
 
     #[test]
@@ -280,8 +281,9 @@ module ethos::checker_board_tests {
         modify(&mut board, PLAYER1, vector[vector[1, 4], vector[2, 3]]);
         modify(&mut board, PLAYER2, vector[vector[6, 7], vector[5, 6]]);
         modify(&mut board, PLAYER1, vector[vector[0, 3], vector[1, 4]]);
-        modify(&mut board, PLAYER2, vector[vector[4, 3], vector[0, 3]]);
-        modify(&mut board, PLAYER2, vector[vector[0, 3], vector[4, 3]]);
+        modify(&mut board, PLAYER2, vector[vector[4, 3], vector[2, 1], vector[0, 3]]);
+        modify(&mut board, PLAYER1, vector[vector[2, 5], vector[3, 6]]);
+        modify(&mut board, PLAYER2, vector[vector[0, 3], vector[2, 5], vector[4, 7]]);
     }
 
     #[test]
@@ -296,7 +298,7 @@ module ethos::checker_board_tests {
         modify(&mut board, PLAYER1, vector[vector[1, 4], vector[2, 3]]);
         modify(&mut board, PLAYER2, vector[vector[6, 7], vector[5, 6]]);
         modify(&mut board, PLAYER1, vector[vector[0, 3], vector[1, 4]]);
-        modify(&mut board, PLAYER2, vector[vector[4, 3], vector[0, 3]]);
+        modify(&mut board, PLAYER2, vector[vector[4, 3], vector[2, 1], vector[0, 3]]);
         modify(&mut board, PLAYER1, vector[vector[2, 3], vector[3, 4]]);
         modify(&mut board, PLAYER1, vector[vector[2, 5], vector[3, 6]]);
         print_board(&board);

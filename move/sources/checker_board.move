@@ -339,7 +339,7 @@ module ethos::checker_board {
             vector::push_back(&mut move_effects.jumps, jump_position);
         } else {
             if (king) {
-                assert!(from_row + 1 == to_row || from_row - 1 == to_row, EBAD_DESTINATION);
+                assert!(from_row + 1 == to_row || from_row > 0 && from_row - 1 == to_row, EBAD_DESTINATION);
             } else if (player1_move) {
                 assert!(from_row + 1 == to_row, EBAD_DESTINATION);
             } else {
