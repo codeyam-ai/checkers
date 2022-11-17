@@ -1,9 +1,49 @@
 
 #[test_only]
 module ethos::checker_board_tests {
+    use ethos::checker_board::{CheckerBoard};
 
     const PLAYER1: u8 = 1;
     const PLAYER2: u8 = 2;
+
+    #[test_only]
+    fun print_board(board: &CheckerBoard) {
+        use ethos::checker_board::{spaces, valid_space, player_at, king_at};
+        use std::debug::print;
+        use std::vector::{length, borrow, push_back};
+
+        let s = spaces(board);
+        let row_count = length(s);
+
+        let row_index = 0;
+        while (row_index < row_count) {
+            let row = borrow(s, row_index);
+            let column_count = length(row);
+
+            let print_row = vector<vector<u8>>[];
+
+            let column_index = 0;
+            while (column_index < column_count) {
+                if (valid_space(row_index, column_index)) {
+                    let player = *player_at(board, row_index, column_index);
+                    let king = *king_at(board, row_index, column_index);
+                    if (king) {
+                        push_back(&mut print_row, vector[9, player]);
+                    } else {
+                        push_back(&mut print_row, vector[1, player]);
+                    };
+                } else {
+                    push_back(&mut print_row, 
+                    vector[0, 0]);
+                };
+                
+                column_index = column_index + 1;
+            };
+
+            print(&print_row);
+            row_index = row_index + 1;
+        }
+    }
 
     #[test]
     fun test_new() {
@@ -243,6 +283,15 @@ module ethos::checker_board_tests {
         modify(&mut board, PLAYER2, 4, 3, 0, 3);
         modify(&mut board, PLAYER2, 0, 3, 4, 3);
     }
+
+    // #[test]
+    // fun test_failed_double_jump() {
+    //     use ethos::checker_board::{new, modify};
+
+    //     let board = new();
+    //     modify(&mut board, PLAYER1, 2, 1, 3, 2);
+    //     print_board(&board);
+    // }
 
     // #[test]
     // fun test_modify_full_game() {

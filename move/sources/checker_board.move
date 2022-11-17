@@ -256,7 +256,7 @@ module ethos::checker_board {
     }
 
 
-    fun valid_space(row: u64, column: u64): bool {
+    public(friend) fun valid_space(row: u64, column: u64): bool {
         if (row % 2 == 1) {
             column % 2 == 0
         } else {
