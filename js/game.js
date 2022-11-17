@@ -101,7 +101,6 @@ async function handleResult({ cancelled, newBoard }) {
 
   if (cancelled || !newBoard) {
     removeClass(eByClass('selected'), 'selected')
-    removeClass(eByClass('destination'), 'destination')
     if (!cancelled) {
         showInvalidMoveError();
     }
@@ -367,9 +366,10 @@ async function setPieceToMove(e) {
     node = node.parentNode;
   }
 
-  if (selectedPieces.length && selectedPieces[selectedPieces.length - 1] !== node) {
+  const lastSelected = selectedPieces[selectedPieces.length - 1]
+  if (selectedPieces.length && lastSelected !== node) {
     selectedPieces.push(node);
-    addClass(node, 'destination');
+    addClass(node, 'selected');
     removeClass(eById('submit-move'), 'disabled');
     setOnClick(eById('submit-move'), () => {
         moves.execute(
@@ -381,12 +381,12 @@ async function setPieceToMove(e) {
         )
     })    
     
-  } else if (selectedPiece === node) {
-    removeClass(node, 'selected');
-    selectedPiece = null;
+  } else if (lastSelected === node) {
+    removeClass(eByClass('selected'), 'selected');
+    selectedPieces = [];
   } else {
     addClass(node, 'selected');
-    selectedPiece = node;
+    selectedPieces.push(node)
   }
 }
 

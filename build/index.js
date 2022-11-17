@@ -67,7 +67,7 @@ module.exports = {
 }
 },{"./constants":2,"./utils":6}],2:[function(require,module,exports){
 module.exports = {
-    contractAddress: "0xa5df9078c909e37dd6476b66aa1c11fbefe6c930",
+    contractAddress: "0x9915e408fa0e6dc93582453ce93fb62771bb3869",
     piece: (color, king) => (`
         <svg width="44" height="44" viewBox="0 0 525 525" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g filter="url(#filter0_d_359_466)">
@@ -169,7 +169,7 @@ let games;
 let activeGame;
 let walletContents = {};
 let contentsInterval;
-let selectedPiece;
+let selectedPieces = [];
 let faucetUsed = false;
 
 function init() {
@@ -241,7 +241,7 @@ async function pollForNextMove() {
 
 async function handleResult({ cancelled, newBoard }) { 
   const address = await walletSigner.getAddress();
-  selectedPiece = null;
+  selectedPieces = [];
 
   if (cancelled || !newBoard) {
     removeClass(eByClass('selected'), 'selected')
@@ -444,7 +444,9 @@ async function listGames() {
 function reset() {
     removeClass(eByClass('destination'), 'destination');
     removeClass(eByClass('selected'), 'selected');
-    selectedPiece = null;
+    addClass(eById('submit-move'), 'disabled');
+    setOnClick(eById('submit-move'), () => null);
+    selectedPieces = [];
 }
 
 async function setActiveGame(game) {
@@ -509,15 +511,27 @@ async function setPieceToMove(e) {
     node = node.parentNode;
   }
 
-  if (selectedPiece && selectedPiece !== node) {
-    addClass(node, 'destination');
-    moves.execute(walletSigner, selectedPiece.dataset, node.dataset, activeGame.address, handleResult, handleError)
-  } else if (selectedPiece === node) {
-    removeClass(node, 'selected');
-    selectedPiece = null;
+  const lastSelected = selectedPieces[selectedPieces.length - 1]
+  if (selectedPieces.length && lastSelected !== node) {
+    selectedPieces.push(node);
+    addClass(node, 'selected');
+    removeClass(eById('submit-move'), 'disabled');
+    setOnClick(eById('submit-move'), () => {
+        moves.execute(
+            walletSigner, 
+            selectedPieces.map(piece => piece.dataset),
+            activeGame.address, 
+            handleResult, 
+            handleError
+        )
+    })    
+    
+  } else if (lastSelected === node) {
+    removeClass(eByClass('selected'), 'selected');
+    selectedPieces = [];
   } else {
     addClass(node, 'selected');
-    selectedPiece = node;
+    selectedPieces.push(node)
   }
 }
 
@@ -751,7 +765,7 @@ const { ethos } = require("ethos-connect");
 const { contractAddress } = require("./constants");
 const board = require('./board');
 
-const constructTransaction = (selected, destination, activeGameAddress) => {
+const constructTransaction = (positions, activeGameAddress) => {
   return {
     kind: "moveCall",
     data: {
@@ -761,18 +775,15 @@ const constructTransaction = (selected, destination, activeGameAddress) => {
         typeArguments: [],
         arguments: [
           activeGameAddress,
-          selected.row,
-          selected.column,
-          destination.row,
-          destination.column
+          positions.map(p => [p.row, p.column])
         ],
         gasBudget: 20000
     }
   }
 }
 
-const execute = async (walletSigner, selected, destination, activeGameAddress, onComplete, onError) => {
-    const signableTransaction = constructTransaction(selected, destination, activeGameAddress);
+const execute = async (walletSigner, positions, activeGameAddress, onComplete, onError) => {
+    const signableTransaction = constructTransaction(positions, activeGameAddress);
 
     let data;
     try {

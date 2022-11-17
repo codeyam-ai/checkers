@@ -186,10 +186,11 @@
 
           <div class="instructions">
             <div id="current-player" class="hidden">
-              <b>Your Move (<span id='player-color'></span>):</b> 
-              Click on a piece and then click on each space you want to move it to 
-              (for a double jump click on the first jump and then the second jump):
-              <button id="submit-move">
+              <b>Your Move (<span id='player-color'></span>)</b> 
+              <div>Click on a piece and then click on each space you want to move it to.</div>
+              <div>(for a double jump select each space you want to move to)</div>
+              <br/>
+              <button id="submit-move" class="primary-button disabled">
                 Submit Move
               </button>
             </div>
@@ -197,15 +198,6 @@
               <b>Waiting On Your Opponent:</b> 
               We'll let you know when it's your move!
             </div>
-            <div>
-                <b>Your Move (<span id='player-color'></span>):</b> 
-                Click on a piece and then
-                the space you want to move it to.
-              </div>
-              <div id="not-current-player" class="hidden">
-                <b>Waiting On Your Opponent:</b> 
-                We'll let you know when it's your move!
-              </div>
           </div>
           <div id="error-unknown" class="error hidden">
             <div class="close-error">

@@ -1,5 +1,5 @@
 module.exports = {
-    contractAddress: "0xa5df9078c909e37dd6476b66aa1c11fbefe6c930",
+    contractAddress: "0x9915e408fa0e6dc93582453ce93fb62771bb3869",
     piece: (color, king) => (`
         <svg width="44" height="44" viewBox="0 0 525 525" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g filter="url(#filter0_d_359_466)">
