@@ -144,7 +144,9 @@ module ethos::checkers {
         let mut_board = current_board_mut(game);
         let new_board = *mut_board;
         {
-            checker_board::modify(&mut new_board, player_number, from_row, from_column, to_row, to_column);
+            let startPosition = vector[from_row, from_column];
+            let endPosition = vector[to_row, to_column];
+            checker_board::modify(&mut new_board, player_number, vector[startPosition, endPosition]);
         };
         
         if (player == game.player1) {
@@ -225,14 +227,14 @@ module ethos::checkers {
         board_at_mut(game, last_board_index)
     }
 
-    public fun piece_at(game: &CheckersGame, row: u64, column: u64): &CheckerBoardPiece {
+    public fun piece_at(game: &CheckersGame, position: &vector<u64>): &CheckerBoardPiece {
         let board = current_board(game);
-        checker_board::piece_at(board, row, column)
+        checker_board::piece_at(board, position)
     }
 
-    public fun player_at(game: &CheckersGame, row: u64, column: u64): &u8 {
+    public fun player_at(game: &CheckersGame, position: &vector<u64>): &u8 {
         let board = current_board(game);
-        checker_board::player_at(board, row, column)
+        checker_board::player_at(board, position)
     }
 
     public fun current_player(game: &CheckersGame): &address {

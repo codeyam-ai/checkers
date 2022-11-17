@@ -109,8 +109,8 @@ module ethos::checkers_tests {
         {
             let game = test_scenario::take_shared<CheckersGame>(&mut scenario);
 
-            assert!(player_at(&game, 2, 1) == &0, (*player_at(&game, 2, 1) as u64));
-            assert!(player_at(&game, 3, 2) == &1, (*player_at(&game, 3, 2) as u64));
+            assert!(player_at(&game, &vector[2, 1]) == &0, (*player_at(&game, &vector[2, 1]) as u64));
+            assert!(player_at(&game, &vector[3, 2]) == &1, (*player_at(&game, &vector[3, 2]) as u64));
             assert!(current_player(&game) == &PLAYER2, 1);
 
             make_move(&mut game, 5, 4, 4, 3, test_scenario::ctx(&mut scenario));
@@ -122,8 +122,8 @@ module ethos::checkers_tests {
         {
             let game = test_scenario::take_shared<CheckersGame>(&mut scenario);
 
-            assert!(player_at(&game, 5, 4) == &0, (*player_at(&game, 5, 4) as u64));
-            assert!(player_at(&game, 4, 3) == &2, (*player_at(&game, 4, 3) as u64));
+            assert!(player_at(&game, &vector[5, 4]) == &0, (*player_at(&game, &vector[5, 4]) as u64));
+            assert!(player_at(&game, &vector[4, 3]) == &2, (*player_at(&game, &vector[4, 3]) as u64));
             assert!(current_player(&game) == &PLAYER1, 2);
 
             test_scenario::return_shared<CheckersGame>(game);
