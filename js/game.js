@@ -25,7 +25,7 @@ let games;
 let activeGame;
 let walletContents = {};
 let contentsInterval;
-let selectedPiece;
+let selectedPieces = [];
 let faucetUsed = false;
 
 function init() {
@@ -97,11 +97,10 @@ async function pollForNextMove() {
 
 async function handleResult({ cancelled, newBoard }) { 
   const address = await walletSigner.getAddress();
-  selectedPiece = null;
+  selectedPieces = [];
 
   if (cancelled || !newBoard) {
     removeClass(eByClass('selected'), 'selected')
-    removeClass(eByClass('destination'), 'destination')
     if (!cancelled) {
         showInvalidMoveError();
     }
@@ -300,7 +299,9 @@ async function listGames() {
 function reset() {
     removeClass(eByClass('destination'), 'destination');
     removeClass(eByClass('selected'), 'selected');
-    selectedPiece = null;
+    addClass(eById('submit-move'), 'disabled');
+    setOnClick(eById('submit-move'), () => null);
+    selectedPieces = [];
 }
 
 async function setActiveGame(game) {
@@ -365,15 +366,27 @@ async function setPieceToMove(e) {
     node = node.parentNode;
   }
 
-  if (selectedPiece && selectedPiece !== node) {
-    addClass(node, 'destination');
-    moves.execute(walletSigner, selectedPiece.dataset, node.dataset, activeGame.address, handleResult, handleError)
-  } else if (selectedPiece === node) {
-    removeClass(node, 'selected');
-    selectedPiece = null;
+  const lastSelected = selectedPieces[selectedPieces.length - 1]
+  if (selectedPieces.length && lastSelected !== node) {
+    selectedPieces.push(node);
+    addClass(node, 'selected');
+    removeClass(eById('submit-move'), 'disabled');
+    setOnClick(eById('submit-move'), () => {
+        moves.execute(
+            walletSigner, 
+            selectedPieces.map(piece => piece.dataset),
+            activeGame.address, 
+            handleResult, 
+            handleError
+        )
+    })    
+    
+  } else if (lastSelected === node) {
+    removeClass(eByClass('selected'), 'selected');
+    selectedPieces = [];
   } else {
     addClass(node, 'selected');
-    selectedPiece = node;
+    selectedPieces.push(node)
   }
 }
 

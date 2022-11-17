@@ -541,6 +541,13 @@ a:visited.link-button {
   font-size: 14px;
 }
 
+.disabled {
+  background-color: #ccc;
+  color: #333;
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
 .games-title {
   height: 48px;
   display: flex;
