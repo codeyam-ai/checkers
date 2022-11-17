@@ -2,7 +2,7 @@ const { ethos } = require("ethos-connect");
 const { contractAddress } = require("./constants");
 const board = require('./board');
 
-const constructTransaction = (selected, destination, activeGameAddress) => {
+const constructTransaction = (positions, activeGameAddress) => {
   return {
     kind: "moveCall",
     data: {
@@ -12,18 +12,15 @@ const constructTransaction = (selected, destination, activeGameAddress) => {
         typeArguments: [],
         arguments: [
           activeGameAddress,
-          selected.row,
-          selected.column,
-          destination.row,
-          destination.column
+          positions.map(p => [p.row, p.column])
         ],
         gasBudget: 20000
     }
   }
 }
 
-const execute = async (walletSigner, selected, destination, activeGameAddress, onComplete, onError) => {
-    const signableTransaction = constructTransaction(selected, destination, activeGameAddress);
+const execute = async (walletSigner, positions, activeGameAddress, onComplete, onError) => {
+    const signableTransaction = constructTransaction(positions, activeGameAddress);
 
     let data;
     try {

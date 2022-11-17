@@ -32,10 +32,7 @@ module ethos::checkers_tests {
     fun test_move(game: &mut CheckersGame, m: &CheckersMove, scenario: &mut Scenario) {
         checkers::make_move(
             game, 
-            m.start.row, 
-            m.start.col,
-            m.end.row,
-            m.end.col,
+            vector[vector[m.start.row, m.start.col], vector[m.end.row, m.end.col]],
             test_scenario::ctx(scenario)
         )
     }
@@ -100,7 +97,7 @@ module ethos::checkers_tests {
         {
             let game = test_scenario::take_shared<CheckersGame>(&mut scenario);
            
-            make_move(&mut game, 2, 1, 3, 2, test_scenario::ctx(&mut scenario));
+            make_move(&mut game, vector[vector[2, 1], vector[3, 2]], test_scenario::ctx(&mut scenario));
 
             test_scenario::return_shared<CheckersGame>(game);
         };
@@ -113,7 +110,7 @@ module ethos::checkers_tests {
             assert!(player_at(&game, &vector[3, 2]) == &1, (*player_at(&game, &vector[3, 2]) as u64));
             assert!(current_player(&game) == &PLAYER2, 1);
 
-            make_move(&mut game, 5, 4, 4, 3, test_scenario::ctx(&mut scenario));
+            make_move(&mut game, vector[vector[5, 4], vector[4, 3]], test_scenario::ctx(&mut scenario));
 
             test_scenario::return_shared<CheckersGame>(game);
         };
@@ -146,7 +143,7 @@ module ethos::checkers_tests {
         {
             let game = test_scenario::take_shared<CheckersGame>(&mut scenario);
             
-            make_move(&mut game, 2, 1, 3, 2, test_scenario::ctx(&mut scenario));
+            make_move(&mut game, vector[vector[2, 1], vector[3, 2]], test_scenario::ctx(&mut scenario));
 
             test_scenario::return_shared<CheckersGame>(game);
         };
@@ -155,7 +152,7 @@ module ethos::checkers_tests {
         {
             let game = test_scenario::take_shared<CheckersGame>(&mut scenario);
             
-            make_move(&mut game, 5, 4, 4, 3, test_scenario::ctx(&mut scenario));
+            make_move(&mut game, vector[vector[5, 4], vector[4, 3]], test_scenario::ctx(&mut scenario));
 
             test_scenario::return_shared<CheckersGame>(game);
         };
@@ -177,7 +174,7 @@ module ethos::checkers_tests {
         {
             let game = test_scenario::take_shared<CheckersGame>(&mut scenario);
             
-            make_move(&mut game, 2, 1, 3, 2, test_scenario::ctx(&mut scenario));
+            make_move(&mut game, vector[vector[2, 1], vector[3, 2]], test_scenario::ctx(&mut scenario));
 
             test_scenario::return_shared<CheckersGame>(game);
         };
@@ -210,7 +207,7 @@ module ethos::checkers_tests {
         {
             let game = test_scenario::take_shared<CheckersGame>(&mut scenario);
             
-            make_move(&mut game, 2, 2, 4, 0, test_scenario::ctx(&mut scenario));
+            make_move(&mut game, vector[vector[2, 2], vector[4, 0]], test_scenario::ctx(&mut scenario));
 
             test_scenario::return_shared<CheckersGame>(game);
         };

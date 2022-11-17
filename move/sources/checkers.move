@@ -40,10 +40,7 @@ module ethos::checkers {
     }
 
     struct CheckersMove has store {
-        from_row: u64,
-        from_column: u64,
-        to_row: u64,
-        to_column: u64,
+        positions: vector<vector<u64>>,
         player: address,
         player_number: u8,
         epoch: u64
@@ -58,10 +55,7 @@ module ethos::checkers {
 
     struct CheckersMoveEvent has copy, drop {
         game_id: ID,
-        from_row: u64,
-        from_column: u64,
-        to_row: u64,
-        to_column: u64,
+        positions: vector<vector<u64>>,
         player: address,
         player_number: u8,
         board_spaces: vector<vector<Option<CheckerBoardPiece>>>,
@@ -131,7 +125,7 @@ module ethos::checkers {
         transfer::transfer(player2_cap, player2);
     }
 
-    public entry fun make_move(game: &mut CheckersGame, from_row: u64, from_column: u64, to_row: u64, to_column: u64, ctx: &mut TxContext) {
+    public entry fun make_move(game: &mut CheckersGame, positions: vector<vector<u64>>, ctx: &mut TxContext) {
         let player = tx_context::sender(ctx);  
         assert!(game.current_player == player, EINVALID_PLAYER);
         assert!(option::is_none(&game.winner), EGAME_OVER);
@@ -144,9 +138,7 @@ module ethos::checkers {
         let mut_board = current_board_mut(game);
         let new_board = *mut_board;
         {
-            let startPosition = vector[from_row, from_column];
-            let endPosition = vector[to_row, to_column];
-            checker_board::modify(&mut new_board, player_number, vector[startPosition, endPosition]);
+            checker_board::modify(&mut new_board, player_number, positions);
         };
         
         if (player == game.player1) {
@@ -160,10 +152,7 @@ module ethos::checkers {
         let epoch = tx_context::epoch(ctx);
         event::emit(CheckersMoveEvent {
             game_id,
-            from_row,
-            from_column,
-            to_row,
-            to_column,
+            positions,
             player,
             player_number,
             board_spaces,
@@ -180,10 +169,7 @@ module ethos::checkers {
         };
 
         let new_move = CheckersMove {
-          from_row,
-          from_column,
-          to_row,
-          to_column,
+          positions,
           player,
           player_number,
           epoch

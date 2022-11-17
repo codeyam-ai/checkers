@@ -25,7 +25,7 @@ let games;
 let activeGame;
 let walletContents = {};
 let contentsInterval;
-let selectedPiece;
+let selectedPieces = [];
 let faucetUsed = false;
 
 function init() {
@@ -97,7 +97,7 @@ async function pollForNextMove() {
 
 async function handleResult({ cancelled, newBoard }) { 
   const address = await walletSigner.getAddress();
-  selectedPiece = null;
+  selectedPieces = [];
 
   if (cancelled || !newBoard) {
     removeClass(eByClass('selected'), 'selected')
@@ -300,7 +300,9 @@ async function listGames() {
 function reset() {
     removeClass(eByClass('destination'), 'destination');
     removeClass(eByClass('selected'), 'selected');
-    selectedPiece = null;
+    addClass(eById('submit-move'), 'disabled');
+    setOnClick(eById('submit-move'), () => null);
+    selectedPieces = [];
 }
 
 async function setActiveGame(game) {
@@ -365,9 +367,20 @@ async function setPieceToMove(e) {
     node = node.parentNode;
   }
 
-  if (selectedPiece && selectedPiece !== node) {
+  if (selectedPieces.length && selectedPieces[selectedPieces.length - 1] !== node) {
+    selectedPieces.push(node);
     addClass(node, 'destination');
-    moves.execute(walletSigner, selectedPiece.dataset, node.dataset, activeGame.address, handleResult, handleError)
+    removeClass(eById('submit-move'), 'disabled');
+    setOnClick(eById('submit-move'), () => {
+        moves.execute(
+            walletSigner, 
+            selectedPieces.map(piece => piece.dataset),
+            activeGame.address, 
+            handleResult, 
+            handleError
+        )
+    })    
+    
   } else if (selectedPiece === node) {
     removeClass(node, 'selected');
     selectedPiece = null;

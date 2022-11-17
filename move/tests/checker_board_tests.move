@@ -267,9 +267,9 @@ module ethos::checker_board_tests {
         modify(&mut board, PLAYER2, vector[vector[4, 3], vector[2, 1], vector[0, 3]]);
         modify(&mut board, PLAYER1, vector[vector[2, 5], vector[3, 6]]);
 
-        assert!(empty_space_count(&board) == 8, empty_space_count(&board));
+        assert!(empty_space_count(&board) == 10, empty_space_count(&board));
         modify(&mut board, PLAYER2, vector[vector[0, 3], vector[2, 5]]);
-        assert!(empty_space_count(&board) == 9, empty_space_count(&board));
+        assert!(empty_space_count(&board) == 11, empty_space_count(&board));
     }
 
     #[test]
@@ -287,9 +287,9 @@ module ethos::checker_board_tests {
         modify(&mut board, PLAYER2, vector[vector[4, 3], vector[2, 1], vector[0, 3]]);
         modify(&mut board, PLAYER1, vector[vector[2, 5], vector[3, 6]]);
 
-        assert!(empty_space_count(&board) == 8, empty_space_count(&board));
+        assert!(empty_space_count(&board) == 10, empty_space_count(&board));
         modify(&mut board, PLAYER2, vector[vector[0, 3], vector[2, 5], vector[4, 7]]);
-        assert!(empty_space_count(&board) == 10, empty_space_count(&board));  
+        assert!(empty_space_count(&board) == 12, empty_space_count(&board));  
     }
 
     #[test]
