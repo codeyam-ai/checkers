@@ -110,11 +110,19 @@ module ethos::checker_board {
         );
 
         let to_position = vector::borrow(&positions, vector::length(&positions) - 1);
-        let to_row = *vector::borrow(to_position, 0);
         let new_space = space_at_mut(board, to_position);
-        if ((player_number == PLAYER1 && to_row == 7) || (player_number == PLAYER2 && to_row == 0)) {
-            piece.king = true;
+        
+        let position_index = 0;
+        while (position_index < vector::length(&positions)) {
+            let position = vector::borrow(&positions, position_index);
+            let row = *vector::borrow(position, 0);
+            if ((player_number == PLAYER1 && row == 7) || (player_number == PLAYER2 && row == 0)) {
+                piece.king = true;
+            };
+
+            position_index = position_index + 1;
         };
+
         option::swap(new_space, piece);
 
         let jump_index = 0;
@@ -346,6 +354,10 @@ module ethos::checker_board {
                 assert!(from_row - 1 == to_row, EBAD_DESTINATION);
             };
             assert!(from_col + 1 == to_col || from_col == to_col + 1, EBAD_DESTINATION);
+        };
+
+        if ((player1_move && to_row == 7) || (player2_move && to_row == 0)) {
+            king = true;
         };
 
         if (position_index + 1 < vector::length(positions) - 1) {

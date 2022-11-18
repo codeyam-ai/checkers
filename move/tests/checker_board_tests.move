@@ -20,7 +20,7 @@ module ethos::checker_board_tests {
             let row = borrow(s, row_index);
             let column_count = length(row);
 
-            let print_row = vector<u8>[];
+            let print_row = vector<u64>[];
 
             let column_index = 0;
             while (column_index < column_count) {
@@ -29,9 +29,9 @@ module ethos::checker_board_tests {
                     let player = *player_at(board, position);
                     let king = *king_at(board, position);
                     if (king) {
-                        push_back(&mut print_row, player + 7);
+                        push_back(&mut print_row, (player as u64) + 7);
                     } else {
-                        push_back(&mut print_row, player);
+                        push_back(&mut print_row, (player as u64));
                     };
                 } else {
                     push_back(&mut print_row, 0);
@@ -39,6 +39,7 @@ module ethos::checker_board_tests {
                 
                 column_index = column_index + 1;
             };
+
 
             print(&print_row);
             row_index = row_index + 1;
@@ -311,6 +312,29 @@ module ethos::checker_board_tests {
         assert!(empty_space_count(&board) == 10, empty_space_count(&board));
         modify(&mut board, PLAYER2, vector[vector[0, 3], vector[2, 5], vector[4, 3], vector[2, 1]]);
         assert!(empty_space_count(&board) == 13, empty_space_count(&board));  
+    }
+
+    #[test]
+    fun test_triple_jump__king_in_middle() {
+        use ethos::checker_board::{new, modify, empty_space_count, king_at};
+
+        let board = new();
+        modify(&mut board, PLAYER1, vector[vector[2, 1], vector[3, 2]]);
+        modify(&mut board, PLAYER2, vector[vector[5, 2], vector[4, 3]]);
+        modify(&mut board, PLAYER1, vector[vector[2, 3], vector[3, 4]]);
+        modify(&mut board, PLAYER2, vector[vector[5, 6], vector[4, 5]]);
+        modify(&mut board, PLAYER1, vector[vector[1, 4], vector[2, 3]]);
+        modify(&mut board, PLAYER2, vector[vector[6, 7], vector[5, 6]]);
+        modify(&mut board, PLAYER1, vector[vector[0, 3], vector[1, 4]]);
+        modify(&mut board, PLAYER1, vector[vector[2, 5], vector[3, 6]]);
+        
+        assert!(!*king_at(&board, &vector[4, 3]), 1);
+
+        assert!(empty_space_count(&board) == 8, empty_space_count(&board));
+        modify(&mut board, PLAYER2, vector[vector[4, 3], vector[2, 1], vector[0, 3], vector[2, 5]]);
+        assert!(empty_space_count(&board) == 11, empty_space_count(&board));  
+
+        assert!(*king_at(&board, &vector[2, 5]), 2);
     }
 
     // #[test]
