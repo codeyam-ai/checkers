@@ -1,12 +1,14 @@
 module ethos::checkers {
+    use std::string::{Self, String};
+    use std::option::{Self, Option};
+    
     use sui::object::{Self, ID, UID};
     use sui::tx_context::{Self, TxContext};
     use sui::url::{Self, Url};
-    use std::string::{Self, String};
     use sui::event;
     use sui::transfer;
-    use std::vector;
-    use std::option::{Self, Option};
+    use sui::table::{Self, Table};
+   
     use ethos::checker_board::{Self, CheckerBoard, CheckerBoardPiece};
 
     #[test_only]
@@ -25,8 +27,8 @@ module ethos::checkers {
         url: Url,
         player1: address,
         player2: address,
-        moves: vector<CheckersMove>,
-        boards: vector<CheckerBoard>,
+        moves: Table<u64, CheckersMove>,
+        boards: Table<u64, CheckerBoard>,
         current_player: address,
         winner: Option<address>
     }
@@ -81,6 +83,10 @@ module ethos::checkers {
         let player1Url = url::new_unsafe_from_bytes(b"https://arweave.net/Gc7bH5KpVnMgDXVPZFiPv_1oC6OfymXy2I4PaCepM_Q");
         let player2Url = url::new_unsafe_from_bytes(b"https://arweave.net/E3RLUWKgnXv79YRQL_0Wo4HsHwLzUA7NTxtZhVhXWO4");
 
+        let moves = table::new<u64, CheckersMove>(ctx);
+        let boards = table::new<u64, CheckerBoard>(ctx);
+        table::add(&mut boards, 0, board);
+
         let game = CheckersGame {
             id: game_uid,
             name,
@@ -88,8 +94,8 @@ module ethos::checkers {
             url: player1Url,
             player1,
             player2,
-            moves: vector[],
-            boards: vector[board],
+            moves,
+            boards,
             current_player: player1,
             winner: option::none()
         };
@@ -175,8 +181,11 @@ module ethos::checkers {
           epoch
         };
 
-        vector::push_back(&mut game.moves, new_move);
-        vector::push_back(&mut game.boards, new_board);
+        let total_moves = table::length(&game.moves);
+        table::add(&mut game.moves, total_moves, new_move);
+
+        let total_boards = table::length(&game.boards);
+        table::add(&mut game.boards, total_boards, new_board);
     }
 
     public fun game_id(game: &CheckersGame): &UID {
@@ -192,24 +201,24 @@ module ethos::checkers {
     }
 
     public fun move_count(game: &CheckersGame): u64 {
-        vector::length(&game.moves)
+        table::length(&game.moves)
     }
 
     public fun board_at(game: &CheckersGame, index: u64): &CheckerBoard {
-        vector::borrow(&game.boards, index)
+        table::borrow(&game.boards, index)
     }
 
     public fun board_at_mut(game: &mut CheckersGame, index: u64): &mut CheckerBoard {
-        vector::borrow_mut(&mut game.boards, index)
+        table::borrow_mut(&mut game.boards, index)
     }
 
     public fun current_board(game: &CheckersGame): &CheckerBoard {
-        let last_board_index = vector::length(&game.boards) - 1;
+        let last_board_index = table::length(&game.boards) - 1;
         board_at(game, last_board_index)
     }
 
     public fun current_board_mut(game: &mut CheckersGame): &mut CheckerBoard {
-        let last_board_index = vector::length(&game.boards) - 1;
+        let last_board_index = table::length(&game.boards) - 1;
         board_at_mut(game, last_board_index)
     }
 
