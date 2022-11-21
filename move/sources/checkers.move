@@ -29,6 +29,7 @@ module ethos::checkers {
         player2: address,
         moves: Table<u64, CheckersMove>,
         boards: Table<u64, CheckerBoard>,
+        active_board: CheckerBoard,
         current_player: address,
         winner: Option<address>
     }
@@ -96,6 +97,7 @@ module ethos::checkers {
             player2,
             moves,
             boards,
+            active_board: board,
             current_player: player1,
             winner: option::none()
         };
@@ -146,6 +148,8 @@ module ethos::checkers {
         {
             checker_board::modify(&mut new_board, player_number, positions);
         };
+
+        game.active_board = new_board;
         
         if (player == game.player1) {
             game.current_player = *&game.player2;
