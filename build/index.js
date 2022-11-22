@@ -48,6 +48,7 @@ module.exports = {
   },
 
   convertInfo: (board) => {
+    console.log("BOARD", board)
     const { 
       spaces: rawSpaces, 
       board_spaces: rawBoardSpaces,
@@ -67,7 +68,7 @@ module.exports = {
 }
 },{"./constants":2,"./utils":6}],2:[function(require,module,exports){
 module.exports = {
-    contractAddress: "0x89c05b0dc46ae427327031b35066040ba970f3ab",
+    contractAddress: "0xc702069465d873ac68e0b0ecc681df984a03d702",
     piece: (color, king) => (`
         <svg width="44" height="44" viewBox="0 0 525 525" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g filter="url(#filter0_d_359_466)">
@@ -218,12 +219,10 @@ async function pollForNextMove() {
     removeClass(eById('current-player'), 'hidden');
     addClass(eById('not-current-player'), 'hidden')
 
-    const boards = game.boards;
-    const activeBoard = board.convertInfo(boards[boards.length - 1]);
+    const activeBoard = board.convertInfo(game.active_board);
     const gameInGames = games.find(
         (g) => g.address === activeGame.address
     )
-    gameInGames.boards.push(activeBoard);
     gameInGames.current_player = address;
     board.display(activeBoard, game.player1 === address);
 
@@ -269,7 +268,7 @@ async function handleResult({ cancelled, newBoard }) {
     (g) => g.address === activeGame.address
   )
   game.current_player = game.current_player === game.player1 ? game.player2 : game.player1;
-  game.boards.push(newBoard)
+  game.active_board = newBoard
   listGames();
 
   pollForNextMove();
@@ -485,8 +484,7 @@ async function setActiveGame(game) {
 
   eById('transactions-list').innerHTML = "";
   
-  const boards = game.boards;
-  const activeBoard = board.convertInfo(boards[boards.length - 1]);
+  const activeBoard = board.convertInfo(game.active_board);
 
   board.display(activeBoard, game.player1 === address);
   setOnClick(eByClass('tile-wrapper'), setPieceToMove)
@@ -653,12 +651,10 @@ const onWalletConnected = async ({ signer }) => {
                 player2,
                 current_player: address,
                 winner: null,
-                boards: [
-                  {
-                    board_spaces,
-                    game_over: false
-                  }
-                ]
+                active_board: {
+                  board_spaces,
+                  game_over: false
+                }
               }
               
               games.push(game);
