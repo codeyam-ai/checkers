@@ -141,10 +141,7 @@ function handleError({ gameOver, error }) {
     }
 
     if (
-        error.indexOf(`Identifier("checker_board") }, 0`) > -1 ||
-        error.indexOf(`Identifier("checker_board") }, 1`) > -1 ||
-        error.indexOf(`Identifier("checker_board") }, 2`) > -1 ||
-        error.indexOf(`Identifier("checker_board") }, 3`) > -1 
+        error.indexOf(`Identifier("checker_board")`) > -1
     ) {
         showInvalidMoveError();
         reset();
@@ -247,7 +244,6 @@ async function loadGames() {
     }
   )
 
-  console.log("games", games)
   listGames();
 }
 

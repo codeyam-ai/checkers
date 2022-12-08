@@ -48,7 +48,6 @@ module.exports = {
   },
 
   convertInfo: (board) => {
-    console.log("BOARD", board)
     const { 
       spaces: rawSpaces, 
       board_spaces: rawBoardSpaces,
@@ -68,7 +67,7 @@ module.exports = {
 }
 },{"./constants":2,"./utils":6}],2:[function(require,module,exports){
 module.exports = {
-    contractAddress: "0x6e2c961f48dab535cedbfb97f0470e0b7525d3ae",
+    contractAddress: "0x4285c6ee67ece81df8c5cc003c568ed7c49770d9",
     piece: (color, king) => (`
         <svg width="44" height="44" viewBox="0 0 525 525" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g filter="url(#filter0_d_359_466)">
@@ -286,10 +285,7 @@ function handleError({ gameOver, error }) {
     }
 
     if (
-        error.indexOf(`Identifier("checker_board") }, 0`) > -1 ||
-        error.indexOf(`Identifier("checker_board") }, 1`) > -1 ||
-        error.indexOf(`Identifier("checker_board") }, 2`) > -1 ||
-        error.indexOf(`Identifier("checker_board") }, 3`) > -1 
+        error.indexOf(`Identifier("checker_board")`) > -1
     ) {
         showInvalidMoveError();
         reset();
@@ -392,7 +388,6 @@ async function loadGames() {
     }
   )
 
-  console.log("games", games)
   listGames();
 }
 
@@ -790,8 +785,6 @@ const execute = async (walletSigner, positions, activeGameAddress, onComplete, o
         onComplete({ cancelled: true })
         return;
     }
-    
-    console.log("DATA", data)
     
     ethos.hideWallet(walletSigner);
 
