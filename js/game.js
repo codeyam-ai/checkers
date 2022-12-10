@@ -23,7 +23,7 @@ let walletSigner;
 let isCurrentPlayer;
 let games;
 let activeGame;
-let walletContents = {};
+let walletContents;
 let contentsInterval;
 let selectedPieces = [];
 let faucetUsed = false;
@@ -187,7 +187,10 @@ async function tryDrip(address, balance) {
   }
 
   if (!success) {
-    const { balance: balanceCheck } = await ethos.getWalletContents(address, 'sui')
+    const { balance: balanceCheck } = await ethos.getWalletContents({ 
+      address, 
+      existingContents: walletContents 
+    })
     if (balance !== balanceCheck) {
       success = true;      
     }
@@ -205,7 +208,13 @@ async function loadWalletContents() {
   if (!walletSigner) return;
   const address = await walletSigner.getAddress();
   eById('wallet-address').innerHTML = truncateMiddle(address, 4);
-  walletContents = await ethos.getWalletContents(address, 'sui');
+  const contents = await ethos.getWalletContents({ 
+    address, 
+    existingContents: walletContents
+  });
+
+  if (contents) walletContents = contents;
+
   const balance = (walletContents.suiBalance || "").toString();
 
   if (balance < 5000000) {

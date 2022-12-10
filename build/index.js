@@ -167,7 +167,7 @@ let walletSigner;
 let isCurrentPlayer;
 let games;
 let activeGame;
-let walletContents = {};
+let walletContents;
 let contentsInterval;
 let selectedPieces = [];
 let faucetUsed = false;
@@ -331,7 +331,10 @@ async function tryDrip(address, balance) {
   }
 
   if (!success) {
-    const { balance: balanceCheck } = await ethos.getWalletContents(address, 'sui')
+    const { balance: balanceCheck } = await ethos.getWalletContents({ 
+      address, 
+      existingContents: walletContents 
+    })
     if (balance !== balanceCheck) {
       success = true;      
     }
@@ -349,7 +352,13 @@ async function loadWalletContents() {
   if (!walletSigner) return;
   const address = await walletSigner.getAddress();
   eById('wallet-address').innerHTML = truncateMiddle(address, 4);
-  walletContents = await ethos.getWalletContents(address, 'sui');
+  const contents = await ethos.getWalletContents({ 
+    address, 
+    existingContents: walletContents
+  });
+
+  if (contents) walletContents = contents;
+
   const balance = (walletContents.suiBalance || "").toString();
 
   if (balance < 5000000) {
@@ -17896,6 +17905,331 @@ var __toModule = (module2) => {
   return __reExport(__markAsModule(__defProp(module2 != null ? __create(__getProtoOf(module2)) : {}, "default", module2 && module2.__esModule && "default" in module2 ? {get: () => module2.default, enumerable: true} : {value: module2, enumerable: true})), module2);
 };
 
+// node_modules/store2/dist/store2.js
+var require_store2 = __commonJS({
+  "node_modules/store2/dist/store2.js"(exports, module2) {
+    (function(window2, define2) {
+      var _ = {
+        version: "2.14.2",
+        areas: {},
+        apis: {},
+        nsdelim: ".",
+        inherit: function(api, o) {
+          for (var p in api) {
+            if (!o.hasOwnProperty(p)) {
+              Object.defineProperty(o, p, Object.getOwnPropertyDescriptor(api, p));
+            }
+          }
+          return o;
+        },
+        stringify: function(d, fn) {
+          return d === void 0 || typeof d === "function" ? d + "" : JSON.stringify(d, fn || _.replace);
+        },
+        parse: function(s, fn) {
+          try {
+            return JSON.parse(s, fn || _.revive);
+          } catch (e) {
+            return s;
+          }
+        },
+        fn: function(name, fn) {
+          _.storeAPI[name] = fn;
+          for (var api in _.apis) {
+            _.apis[api][name] = fn;
+          }
+        },
+        get: function(area, key) {
+          return area.getItem(key);
+        },
+        set: function(area, key, string) {
+          area.setItem(key, string);
+        },
+        remove: function(area, key) {
+          area.removeItem(key);
+        },
+        key: function(area, i) {
+          return area.key(i);
+        },
+        length: function(area) {
+          return area.length;
+        },
+        clear: function(area) {
+          area.clear();
+        },
+        Store: function(id, area, namespace) {
+          var store11 = _.inherit(_.storeAPI, function(key, data, overwrite) {
+            if (arguments.length === 0) {
+              return store11.getAll();
+            }
+            if (typeof data === "function") {
+              return store11.transact(key, data, overwrite);
+            }
+            if (data !== void 0) {
+              return store11.set(key, data, overwrite);
+            }
+            if (typeof key === "string" || typeof key === "number") {
+              return store11.get(key);
+            }
+            if (typeof key === "function") {
+              return store11.each(key);
+            }
+            if (!key) {
+              return store11.clear();
+            }
+            return store11.setAll(key, data);
+          });
+          store11._id = id;
+          try {
+            var testKey = "__store2_test";
+            area.setItem(testKey, "ok");
+            store11._area = area;
+            area.removeItem(testKey);
+          } catch (e) {
+            store11._area = _.storage("fake");
+          }
+          store11._ns = namespace || "";
+          if (!_.areas[id]) {
+            _.areas[id] = store11._area;
+          }
+          if (!_.apis[store11._ns + store11._id]) {
+            _.apis[store11._ns + store11._id] = store11;
+          }
+          return store11;
+        },
+        storeAPI: {
+          area: function(id, area) {
+            var store11 = this[id];
+            if (!store11 || !store11.area) {
+              store11 = _.Store(id, area, this._ns);
+              if (!this[id]) {
+                this[id] = store11;
+              }
+            }
+            return store11;
+          },
+          namespace: function(namespace, singleArea, delim) {
+            delim = delim || this._delim || _.nsdelim;
+            if (!namespace) {
+              return this._ns ? this._ns.substring(0, this._ns.length - delim.length) : "";
+            }
+            var ns = namespace, store11 = this[ns];
+            if (!store11 || !store11.namespace) {
+              store11 = _.Store(this._id, this._area, this._ns + ns + delim);
+              store11._delim = delim;
+              if (!this[ns]) {
+                this[ns] = store11;
+              }
+              if (!singleArea) {
+                for (var name in _.areas) {
+                  store11.area(name, _.areas[name]);
+                }
+              }
+            }
+            return store11;
+          },
+          isFake: function(force) {
+            if (force) {
+              this._real = this._area;
+              this._area = _.storage("fake");
+            } else if (force === false) {
+              this._area = this._real || this._area;
+            }
+            return this._area.name === "fake";
+          },
+          toString: function() {
+            return "store" + (this._ns ? "." + this.namespace() : "") + "[" + this._id + "]";
+          },
+          has: function(key) {
+            if (this._area.has) {
+              return this._area.has(this._in(key));
+            }
+            return !!(this._in(key) in this._area);
+          },
+          size: function() {
+            return this.keys().length;
+          },
+          each: function(fn, fill) {
+            for (var i = 0, m = _.length(this._area); i < m; i++) {
+              var key = this._out(_.key(this._area, i));
+              if (key !== void 0) {
+                if (fn.call(this, key, this.get(key), fill) === false) {
+                  break;
+                }
+              }
+              if (m > _.length(this._area)) {
+                m--;
+                i--;
+              }
+            }
+            return fill || this;
+          },
+          keys: function(fillList) {
+            return this.each(function(k, v, list) {
+              list.push(k);
+            }, fillList || []);
+          },
+          get: function(key, alt) {
+            var s = _.get(this._area, this._in(key)), fn;
+            if (typeof alt === "function") {
+              fn = alt;
+              alt = null;
+            }
+            return s !== null ? _.parse(s, fn) : alt != null ? alt : s;
+          },
+          getAll: function(fillObj) {
+            return this.each(function(k, v, all) {
+              all[k] = v;
+            }, fillObj || {});
+          },
+          transact: function(key, fn, alt) {
+            var val = this.get(key, alt), ret = fn(val);
+            this.set(key, ret === void 0 ? val : ret);
+            return this;
+          },
+          set: function(key, data, overwrite) {
+            var d = this.get(key), replacer;
+            if (d != null && overwrite === false) {
+              return data;
+            }
+            if (typeof overwrite === "function") {
+              replacer = overwrite;
+              overwrite = void 0;
+            }
+            return _.set(this._area, this._in(key), _.stringify(data, replacer), overwrite) || d;
+          },
+          setAll: function(data, overwrite) {
+            var changed, val;
+            for (var key in data) {
+              val = data[key];
+              if (this.set(key, val, overwrite) !== val) {
+                changed = true;
+              }
+            }
+            return changed;
+          },
+          add: function(key, data, replacer) {
+            var d = this.get(key);
+            if (d instanceof Array) {
+              data = d.concat(data);
+            } else if (d !== null) {
+              var type = typeof d;
+              if (type === typeof data && type === "object") {
+                for (var k in data) {
+                  d[k] = data[k];
+                }
+                data = d;
+              } else {
+                data = d + data;
+              }
+            }
+            _.set(this._area, this._in(key), _.stringify(data, replacer));
+            return data;
+          },
+          remove: function(key, alt) {
+            var d = this.get(key, alt);
+            _.remove(this._area, this._in(key));
+            return d;
+          },
+          clear: function() {
+            if (!this._ns) {
+              _.clear(this._area);
+            } else {
+              this.each(function(k) {
+                _.remove(this._area, this._in(k));
+              }, 1);
+            }
+            return this;
+          },
+          clearAll: function() {
+            var area = this._area;
+            for (var id in _.areas) {
+              if (_.areas.hasOwnProperty(id)) {
+                this._area = _.areas[id];
+                this.clear();
+              }
+            }
+            this._area = area;
+            return this;
+          },
+          _in: function(k) {
+            if (typeof k !== "string") {
+              k = _.stringify(k);
+            }
+            return this._ns ? this._ns + k : k;
+          },
+          _out: function(k) {
+            return this._ns ? k && k.indexOf(this._ns) === 0 ? k.substring(this._ns.length) : void 0 : k;
+          }
+        },
+        storage: function(name) {
+          return _.inherit(_.storageAPI, {items: {}, name});
+        },
+        storageAPI: {
+          length: 0,
+          has: function(k) {
+            return this.items.hasOwnProperty(k);
+          },
+          key: function(i) {
+            var c = 0;
+            for (var k in this.items) {
+              if (this.has(k) && i === c++) {
+                return k;
+              }
+            }
+          },
+          setItem: function(k, v) {
+            if (!this.has(k)) {
+              this.length++;
+            }
+            this.items[k] = v;
+          },
+          removeItem: function(k) {
+            if (this.has(k)) {
+              delete this.items[k];
+              this.length--;
+            }
+          },
+          getItem: function(k) {
+            return this.has(k) ? this.items[k] : null;
+          },
+          clear: function() {
+            for (var k in this.items) {
+              this.removeItem(k);
+            }
+          }
+        }
+      };
+      var store10 = _.Store("local", function() {
+        try {
+          return localStorage;
+        } catch (e) {
+        }
+      }());
+      store10.local = store10;
+      store10._ = _;
+      store10.area("session", function() {
+        try {
+          return sessionStorage;
+        } catch (e) {
+        }
+      }());
+      store10.area("page", _.storage("page"));
+      if (typeof define2 === "function" && define2.amd !== void 0) {
+        define2("store2", [], function() {
+          return store10;
+        });
+      } else if (typeof module2 !== "undefined" && module2.exports) {
+        module2.exports = store10;
+      } else {
+        if (window2.store) {
+          _.conflict = window2.store;
+        }
+        window2.store = store10;
+      }
+    })(exports, exports && exports.define);
+  }
+});
+
 // (disabled):crypto
 var require_crypto = __commonJS({
   "(disabled):crypto"() {
@@ -29082,11 +29416,11 @@ var require_websocket_browser = __commonJS({
     var WebSocketBrowserImpl = /* @__PURE__ */ function(_EventEmitter) {
       (0, _inherits2["default"])(WebSocketBrowserImpl2, _EventEmitter);
       var _super = _createSuper(WebSocketBrowserImpl2);
-      function WebSocketBrowserImpl2(address, options, protocols) {
+      function WebSocketBrowserImpl2(address2, options, protocols) {
         var _this;
         (0, _classCallCheck2["default"])(this, WebSocketBrowserImpl2);
         _this = _super.call(this);
-        _this.socket = new window.WebSocket(address, protocols);
+        _this.socket = new window.WebSocket(address2, protocols);
         _this.socket.onopen = function() {
           return _this.emit("open");
         };
@@ -29125,8 +29459,8 @@ var require_websocket_browser = __commonJS({
       }]);
       return WebSocketBrowserImpl2;
     }(_eventemitter.EventEmitter);
-    function _default(address, options) {
-      return new WebSocketBrowserImpl(address, options);
+    function _default(address2, options) {
+      return new WebSocketBrowserImpl(address2, options);
     }
   }
 });
@@ -29569,7 +29903,7 @@ var require_client = __commonJS({
       var _super = _createSuper(CommonClient2);
       function CommonClient2(webSocketFactory) {
         var _this;
-        var address = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : "ws://localhost:8080";
+        var address2 = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : "ws://localhost:8080";
         var _a = arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : {};
         var generate_request_id = arguments.length > 3 ? arguments[3] : void 0;
         (0, _classCallCheck2["default"])(this, CommonClient2);
@@ -29578,7 +29912,7 @@ var require_client = __commonJS({
         _this.webSocketFactory = webSocketFactory;
         _this.queue = {};
         _this.rpc_id = 0;
-        _this.address = address;
+        _this.address = address2;
         _this.autoconnect = autoconnect;
         _this.ready = false;
         _this.reconnect = reconnect;
@@ -29793,9 +30127,9 @@ var require_client = __commonJS({
         }
       }, {
         key: "_connect",
-        value: function _connect(address, options) {
+        value: function _connect(address2, options) {
           var _this4 = this;
-          this.socket = this.webSocketFactory(address, options);
+          this.socket = this.webSocketFactory(address2, options);
           this.socket.addEventListener("open", function() {
             _this4.ready = true;
             _this4.emit("open");
@@ -29858,7 +30192,7 @@ var require_client = __commonJS({
             _this4.current_reconnects++;
             if (_this4.reconnect && (_this4.max_reconnects > _this4.current_reconnects || _this4.max_reconnects === 0))
               setTimeout(function() {
-                return _this4._connect(address, options);
+                return _this4._connect(address2, options);
               }, _this4.reconnect_interval);
           });
         }
@@ -29917,11 +30251,11 @@ var require_index_browser = __commonJS({
       (0, _inherits2["default"])(Client2, _CommonClient);
       var _super = _createSuper(Client2);
       function Client2() {
-        var address = arguments.length > 0 && arguments[0] !== void 0 ? arguments[0] : "ws://localhost:8080";
+        var address2 = arguments.length > 0 && arguments[0] !== void 0 ? arguments[0] : "ws://localhost:8080";
         var _ref = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {}, _ref$autoconnect = _ref.autoconnect, autoconnect = _ref$autoconnect === void 0 ? true : _ref$autoconnect, _ref$reconnect = _ref.reconnect, reconnect = _ref$reconnect === void 0 ? true : _ref$reconnect, _ref$reconnect_interv = _ref.reconnect_interval, reconnect_interval = _ref$reconnect_interv === void 0 ? 1e3 : _ref$reconnect_interv, _ref$max_reconnects = _ref.max_reconnects, max_reconnects = _ref$max_reconnects === void 0 ? 5 : _ref$max_reconnects;
         var generate_request_id = arguments.length > 2 ? arguments[2] : void 0;
         (0, _classCallCheck2["default"])(this, Client2);
-        return _super.call(this, _websocket["default"], address, {
+        return _super.call(this, _websocket["default"], address2, {
           autoconnect,
           reconnect,
           reconnect_interval,
@@ -29934,328 +30268,1463 @@ var require_index_browser = __commonJS({
   }
 });
 
-// node_modules/store2/dist/store2.js
-var require_store2 = __commonJS({
-  "node_modules/store2/dist/store2.js"(exports, module2) {
-    (function(window2, define2) {
-      var _ = {
-        version: "2.14.2",
-        areas: {},
-        apis: {},
-        nsdelim: ".",
-        inherit: function(api, o) {
-          for (var p in api) {
-            if (!o.hasOwnProperty(p)) {
-              Object.defineProperty(o, p, Object.getOwnPropertyDescriptor(api, p));
+// node_modules/bignumber.js/bignumber.js
+var require_bignumber = __commonJS({
+  "node_modules/bignumber.js/bignumber.js"(exports, module2) {
+    (function(globalObject) {
+      "use strict";
+      var BigNumber2, isNumeric = /^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i, mathceil = Math.ceil, mathfloor = Math.floor, bignumberError = "[BigNumber Error] ", tooManyDigits = bignumberError + "Number primitive has more than 15 significant digits: ", BASE = 1e14, LOG_BASE = 14, MAX_SAFE_INTEGER = 9007199254740991, POWS_TEN = [1, 10, 100, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13], SQRT_BASE = 1e7, MAX = 1e9;
+      function clone(configObject) {
+        var div, convertBase, parseNumeric, P = BigNumber3.prototype = {constructor: BigNumber3, toString: null, valueOf: null}, ONE = new BigNumber3(1), DECIMAL_PLACES = 20, ROUNDING_MODE = 4, TO_EXP_NEG = -7, TO_EXP_POS = 21, MIN_EXP = -1e7, MAX_EXP = 1e7, CRYPTO = false, MODULO_MODE = 1, POW_PRECISION = 0, FORMAT = {
+          prefix: "",
+          groupSize: 3,
+          secondaryGroupSize: 0,
+          groupSeparator: ",",
+          decimalSeparator: ".",
+          fractionGroupSize: 0,
+          fractionGroupSeparator: "\xA0",
+          suffix: ""
+        }, ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz", alphabetHasNormalDecimalDigits = true;
+        function BigNumber3(v, b) {
+          var alphabet, c, caseChanged, e, i, isNum, len, str, x = this;
+          if (!(x instanceof BigNumber3))
+            return new BigNumber3(v, b);
+          if (b == null) {
+            if (v && v._isBigNumber === true) {
+              x.s = v.s;
+              if (!v.c || v.e > MAX_EXP) {
+                x.c = x.e = null;
+              } else if (v.e < MIN_EXP) {
+                x.c = [x.e = 0];
+              } else {
+                x.e = v.e;
+                x.c = v.c.slice();
+              }
+              return;
             }
-          }
-          return o;
-        },
-        stringify: function(d, fn) {
-          return d === void 0 || typeof d === "function" ? d + "" : JSON.stringify(d, fn || _.replace);
-        },
-        parse: function(s, fn) {
-          try {
-            return JSON.parse(s, fn || _.revive);
-          } catch (e) {
-            return s;
-          }
-        },
-        fn: function(name, fn) {
-          _.storeAPI[name] = fn;
-          for (var api in _.apis) {
-            _.apis[api][name] = fn;
-          }
-        },
-        get: function(area, key) {
-          return area.getItem(key);
-        },
-        set: function(area, key, string) {
-          area.setItem(key, string);
-        },
-        remove: function(area, key) {
-          area.removeItem(key);
-        },
-        key: function(area, i) {
-          return area.key(i);
-        },
-        length: function(area) {
-          return area.length;
-        },
-        clear: function(area) {
-          area.clear();
-        },
-        Store: function(id, area, namespace) {
-          var store11 = _.inherit(_.storeAPI, function(key, data, overwrite) {
-            if (arguments.length === 0) {
-              return store11.getAll();
+            if ((isNum = typeof v == "number") && v * 0 == 0) {
+              x.s = 1 / v < 0 ? (v = -v, -1) : 1;
+              if (v === ~~v) {
+                for (e = 0, i = v; i >= 10; i /= 10, e++)
+                  ;
+                if (e > MAX_EXP) {
+                  x.c = x.e = null;
+                } else {
+                  x.e = e;
+                  x.c = [v];
+                }
+                return;
+              }
+              str = String(v);
+            } else {
+              if (!isNumeric.test(str = String(v)))
+                return parseNumeric(x, str, isNum);
+              x.s = str.charCodeAt(0) == 45 ? (str = str.slice(1), -1) : 1;
             }
-            if (typeof data === "function") {
-              return store11.transact(key, data, overwrite);
+            if ((e = str.indexOf(".")) > -1)
+              str = str.replace(".", "");
+            if ((i = str.search(/e/i)) > 0) {
+              if (e < 0)
+                e = i;
+              e += +str.slice(i + 1);
+              str = str.substring(0, i);
+            } else if (e < 0) {
+              e = str.length;
             }
-            if (data !== void 0) {
-              return store11.set(key, data, overwrite);
+          } else {
+            intCheck(b, 2, ALPHABET.length, "Base");
+            if (b == 10 && alphabetHasNormalDecimalDigits) {
+              x = new BigNumber3(v);
+              return round(x, DECIMAL_PLACES + x.e + 1, ROUNDING_MODE);
             }
-            if (typeof key === "string" || typeof key === "number") {
-              return store11.get(key);
+            str = String(v);
+            if (isNum = typeof v == "number") {
+              if (v * 0 != 0)
+                return parseNumeric(x, str, isNum, b);
+              x.s = 1 / v < 0 ? (str = str.slice(1), -1) : 1;
+              if (BigNumber3.DEBUG && str.replace(/^0\.0*|\./, "").length > 15) {
+                throw Error(tooManyDigits + v);
+              }
+            } else {
+              x.s = str.charCodeAt(0) === 45 ? (str = str.slice(1), -1) : 1;
             }
-            if (typeof key === "function") {
-              return store11.each(key);
-            }
-            if (!key) {
-              return store11.clear();
-            }
-            return store11.setAll(key, data);
-          });
-          store11._id = id;
-          try {
-            var testKey = "__store2_test";
-            area.setItem(testKey, "ok");
-            store11._area = area;
-            area.removeItem(testKey);
-          } catch (e) {
-            store11._area = _.storage("fake");
-          }
-          store11._ns = namespace || "";
-          if (!_.areas[id]) {
-            _.areas[id] = store11._area;
-          }
-          if (!_.apis[store11._ns + store11._id]) {
-            _.apis[store11._ns + store11._id] = store11;
-          }
-          return store11;
-        },
-        storeAPI: {
-          area: function(id, area) {
-            var store11 = this[id];
-            if (!store11 || !store11.area) {
-              store11 = _.Store(id, area, this._ns);
-              if (!this[id]) {
-                this[id] = store11;
+            alphabet = ALPHABET.slice(0, b);
+            e = i = 0;
+            for (len = str.length; i < len; i++) {
+              if (alphabet.indexOf(c = str.charAt(i)) < 0) {
+                if (c == ".") {
+                  if (i > e) {
+                    e = len;
+                    continue;
+                  }
+                } else if (!caseChanged) {
+                  if (str == str.toUpperCase() && (str = str.toLowerCase()) || str == str.toLowerCase() && (str = str.toUpperCase())) {
+                    caseChanged = true;
+                    i = -1;
+                    e = 0;
+                    continue;
+                  }
+                }
+                return parseNumeric(x, String(v), isNum, b);
               }
             }
-            return store11;
-          },
-          namespace: function(namespace, singleArea, delim) {
-            delim = delim || this._delim || _.nsdelim;
-            if (!namespace) {
-              return this._ns ? this._ns.substring(0, this._ns.length - delim.length) : "";
+            isNum = false;
+            str = convertBase(str, b, 10, x.s);
+            if ((e = str.indexOf(".")) > -1)
+              str = str.replace(".", "");
+            else
+              e = str.length;
+          }
+          for (i = 0; str.charCodeAt(i) === 48; i++)
+            ;
+          for (len = str.length; str.charCodeAt(--len) === 48; )
+            ;
+          if (str = str.slice(i, ++len)) {
+            len -= i;
+            if (isNum && BigNumber3.DEBUG && len > 15 && (v > MAX_SAFE_INTEGER || v !== mathfloor(v))) {
+              throw Error(tooManyDigits + x.s * v);
             }
-            var ns = namespace, store11 = this[ns];
-            if (!store11 || !store11.namespace) {
-              store11 = _.Store(this._id, this._area, this._ns + ns + delim);
-              store11._delim = delim;
-              if (!this[ns]) {
-                this[ns] = store11;
+            if ((e = e - i - 1) > MAX_EXP) {
+              x.c = x.e = null;
+            } else if (e < MIN_EXP) {
+              x.c = [x.e = 0];
+            } else {
+              x.e = e;
+              x.c = [];
+              i = (e + 1) % LOG_BASE;
+              if (e < 0)
+                i += LOG_BASE;
+              if (i < len) {
+                if (i)
+                  x.c.push(+str.slice(0, i));
+                for (len -= LOG_BASE; i < len; ) {
+                  x.c.push(+str.slice(i, i += LOG_BASE));
+                }
+                i = LOG_BASE - (str = str.slice(i)).length;
+              } else {
+                i -= len;
               }
-              if (!singleArea) {
-                for (var name in _.areas) {
-                  store11.area(name, _.areas[name]);
+              for (; i--; str += "0")
+                ;
+              x.c.push(+str);
+            }
+          } else {
+            x.c = [x.e = 0];
+          }
+        }
+        BigNumber3.clone = clone;
+        BigNumber3.ROUND_UP = 0;
+        BigNumber3.ROUND_DOWN = 1;
+        BigNumber3.ROUND_CEIL = 2;
+        BigNumber3.ROUND_FLOOR = 3;
+        BigNumber3.ROUND_HALF_UP = 4;
+        BigNumber3.ROUND_HALF_DOWN = 5;
+        BigNumber3.ROUND_HALF_EVEN = 6;
+        BigNumber3.ROUND_HALF_CEIL = 7;
+        BigNumber3.ROUND_HALF_FLOOR = 8;
+        BigNumber3.EUCLID = 9;
+        BigNumber3.config = BigNumber3.set = function(obj) {
+          var p, v;
+          if (obj != null) {
+            if (typeof obj == "object") {
+              if (obj.hasOwnProperty(p = "DECIMAL_PLACES")) {
+                v = obj[p];
+                intCheck(v, 0, MAX, p);
+                DECIMAL_PLACES = v;
+              }
+              if (obj.hasOwnProperty(p = "ROUNDING_MODE")) {
+                v = obj[p];
+                intCheck(v, 0, 8, p);
+                ROUNDING_MODE = v;
+              }
+              if (obj.hasOwnProperty(p = "EXPONENTIAL_AT")) {
+                v = obj[p];
+                if (v && v.pop) {
+                  intCheck(v[0], -MAX, 0, p);
+                  intCheck(v[1], 0, MAX, p);
+                  TO_EXP_NEG = v[0];
+                  TO_EXP_POS = v[1];
+                } else {
+                  intCheck(v, -MAX, MAX, p);
+                  TO_EXP_NEG = -(TO_EXP_POS = v < 0 ? -v : v);
+                }
+              }
+              if (obj.hasOwnProperty(p = "RANGE")) {
+                v = obj[p];
+                if (v && v.pop) {
+                  intCheck(v[0], -MAX, -1, p);
+                  intCheck(v[1], 1, MAX, p);
+                  MIN_EXP = v[0];
+                  MAX_EXP = v[1];
+                } else {
+                  intCheck(v, -MAX, MAX, p);
+                  if (v) {
+                    MIN_EXP = -(MAX_EXP = v < 0 ? -v : v);
+                  } else {
+                    throw Error(bignumberError + p + " cannot be zero: " + v);
+                  }
+                }
+              }
+              if (obj.hasOwnProperty(p = "CRYPTO")) {
+                v = obj[p];
+                if (v === !!v) {
+                  if (v) {
+                    if (typeof crypto != "undefined" && crypto && (crypto.getRandomValues || crypto.randomBytes)) {
+                      CRYPTO = v;
+                    } else {
+                      CRYPTO = !v;
+                      throw Error(bignumberError + "crypto unavailable");
+                    }
+                  } else {
+                    CRYPTO = v;
+                  }
+                } else {
+                  throw Error(bignumberError + p + " not true or false: " + v);
+                }
+              }
+              if (obj.hasOwnProperty(p = "MODULO_MODE")) {
+                v = obj[p];
+                intCheck(v, 0, 9, p);
+                MODULO_MODE = v;
+              }
+              if (obj.hasOwnProperty(p = "POW_PRECISION")) {
+                v = obj[p];
+                intCheck(v, 0, MAX, p);
+                POW_PRECISION = v;
+              }
+              if (obj.hasOwnProperty(p = "FORMAT")) {
+                v = obj[p];
+                if (typeof v == "object")
+                  FORMAT = v;
+                else
+                  throw Error(bignumberError + p + " not an object: " + v);
+              }
+              if (obj.hasOwnProperty(p = "ALPHABET")) {
+                v = obj[p];
+                if (typeof v == "string" && !/^.?$|[+\-.\s]|(.).*\1/.test(v)) {
+                  alphabetHasNormalDecimalDigits = v.slice(0, 10) == "0123456789";
+                  ALPHABET = v;
+                } else {
+                  throw Error(bignumberError + p + " invalid: " + v);
+                }
+              }
+            } else {
+              throw Error(bignumberError + "Object expected: " + obj);
+            }
+          }
+          return {
+            DECIMAL_PLACES,
+            ROUNDING_MODE,
+            EXPONENTIAL_AT: [TO_EXP_NEG, TO_EXP_POS],
+            RANGE: [MIN_EXP, MAX_EXP],
+            CRYPTO,
+            MODULO_MODE,
+            POW_PRECISION,
+            FORMAT,
+            ALPHABET
+          };
+        };
+        BigNumber3.isBigNumber = function(v) {
+          if (!v || v._isBigNumber !== true)
+            return false;
+          if (!BigNumber3.DEBUG)
+            return true;
+          var i, n, c = v.c, e = v.e, s = v.s;
+          out:
+            if ({}.toString.call(c) == "[object Array]") {
+              if ((s === 1 || s === -1) && e >= -MAX && e <= MAX && e === mathfloor(e)) {
+                if (c[0] === 0) {
+                  if (e === 0 && c.length === 1)
+                    return true;
+                  break out;
+                }
+                i = (e + 1) % LOG_BASE;
+                if (i < 1)
+                  i += LOG_BASE;
+                if (String(c[0]).length == i) {
+                  for (i = 0; i < c.length; i++) {
+                    n = c[i];
+                    if (n < 0 || n >= BASE || n !== mathfloor(n))
+                      break out;
+                  }
+                  if (n !== 0)
+                    return true;
+                }
+              }
+            } else if (c === null && e === null && (s === null || s === 1 || s === -1)) {
+              return true;
+            }
+          throw Error(bignumberError + "Invalid BigNumber: " + v);
+        };
+        BigNumber3.maximum = BigNumber3.max = function() {
+          return maxOrMin(arguments, P.lt);
+        };
+        BigNumber3.minimum = BigNumber3.min = function() {
+          return maxOrMin(arguments, P.gt);
+        };
+        BigNumber3.random = function() {
+          var pow2_53 = 9007199254740992;
+          var random53bitInt = Math.random() * pow2_53 & 2097151 ? function() {
+            return mathfloor(Math.random() * pow2_53);
+          } : function() {
+            return (Math.random() * 1073741824 | 0) * 8388608 + (Math.random() * 8388608 | 0);
+          };
+          return function(dp) {
+            var a, b, e, k, v, i = 0, c = [], rand = new BigNumber3(ONE);
+            if (dp == null)
+              dp = DECIMAL_PLACES;
+            else
+              intCheck(dp, 0, MAX);
+            k = mathceil(dp / LOG_BASE);
+            if (CRYPTO) {
+              if (crypto.getRandomValues) {
+                a = crypto.getRandomValues(new Uint32Array(k *= 2));
+                for (; i < k; ) {
+                  v = a[i] * 131072 + (a[i + 1] >>> 11);
+                  if (v >= 9e15) {
+                    b = crypto.getRandomValues(new Uint32Array(2));
+                    a[i] = b[0];
+                    a[i + 1] = b[1];
+                  } else {
+                    c.push(v % 1e14);
+                    i += 2;
+                  }
+                }
+                i = k / 2;
+              } else if (crypto.randomBytes) {
+                a = crypto.randomBytes(k *= 7);
+                for (; i < k; ) {
+                  v = (a[i] & 31) * 281474976710656 + a[i + 1] * 1099511627776 + a[i + 2] * 4294967296 + a[i + 3] * 16777216 + (a[i + 4] << 16) + (a[i + 5] << 8) + a[i + 6];
+                  if (v >= 9e15) {
+                    crypto.randomBytes(7).copy(a, i);
+                  } else {
+                    c.push(v % 1e14);
+                    i += 7;
+                  }
+                }
+                i = k / 7;
+              } else {
+                CRYPTO = false;
+                throw Error(bignumberError + "crypto unavailable");
+              }
+            }
+            if (!CRYPTO) {
+              for (; i < k; ) {
+                v = random53bitInt();
+                if (v < 9e15)
+                  c[i++] = v % 1e14;
+              }
+            }
+            k = c[--i];
+            dp %= LOG_BASE;
+            if (k && dp) {
+              v = POWS_TEN[LOG_BASE - dp];
+              c[i] = mathfloor(k / v) * v;
+            }
+            for (; c[i] === 0; c.pop(), i--)
+              ;
+            if (i < 0) {
+              c = [e = 0];
+            } else {
+              for (e = -1; c[0] === 0; c.splice(0, 1), e -= LOG_BASE)
+                ;
+              for (i = 1, v = c[0]; v >= 10; v /= 10, i++)
+                ;
+              if (i < LOG_BASE)
+                e -= LOG_BASE - i;
+            }
+            rand.e = e;
+            rand.c = c;
+            return rand;
+          };
+        }();
+        BigNumber3.sum = function() {
+          var i = 1, args = arguments, sum = new BigNumber3(args[0]);
+          for (; i < args.length; )
+            sum = sum.plus(args[i++]);
+          return sum;
+        };
+        convertBase = function() {
+          var decimal = "0123456789";
+          function toBaseOut(str, baseIn, baseOut, alphabet) {
+            var j, arr = [0], arrL, i = 0, len = str.length;
+            for (; i < len; ) {
+              for (arrL = arr.length; arrL--; arr[arrL] *= baseIn)
+                ;
+              arr[0] += alphabet.indexOf(str.charAt(i++));
+              for (j = 0; j < arr.length; j++) {
+                if (arr[j] > baseOut - 1) {
+                  if (arr[j + 1] == null)
+                    arr[j + 1] = 0;
+                  arr[j + 1] += arr[j] / baseOut | 0;
+                  arr[j] %= baseOut;
                 }
               }
             }
-            return store11;
-          },
-          isFake: function(force) {
-            if (force) {
-              this._real = this._area;
-              this._area = _.storage("fake");
-            } else if (force === false) {
-              this._area = this._real || this._area;
+            return arr.reverse();
+          }
+          return function(str, baseIn, baseOut, sign2, callerIsToString) {
+            var alphabet, d, e, k, r, x, xc, y, i = str.indexOf("."), dp = DECIMAL_PLACES, rm = ROUNDING_MODE;
+            if (i >= 0) {
+              k = POW_PRECISION;
+              POW_PRECISION = 0;
+              str = str.replace(".", "");
+              y = new BigNumber3(baseIn);
+              x = y.pow(str.length - i);
+              POW_PRECISION = k;
+              y.c = toBaseOut(toFixedPoint(coeffToString(x.c), x.e, "0"), 10, baseOut, decimal);
+              y.e = y.c.length;
             }
-            return this._area.name === "fake";
-          },
-          toString: function() {
-            return "store" + (this._ns ? "." + this.namespace() : "") + "[" + this._id + "]";
-          },
-          has: function(key) {
-            if (this._area.has) {
-              return this._area.has(this._in(key));
+            xc = toBaseOut(str, baseIn, baseOut, callerIsToString ? (alphabet = ALPHABET, decimal) : (alphabet = decimal, ALPHABET));
+            e = k = xc.length;
+            for (; xc[--k] == 0; xc.pop())
+              ;
+            if (!xc[0])
+              return alphabet.charAt(0);
+            if (i < 0) {
+              --e;
+            } else {
+              x.c = xc;
+              x.e = e;
+              x.s = sign2;
+              x = div(x, y, dp, rm, baseOut);
+              xc = x.c;
+              r = x.r;
+              e = x.e;
             }
-            return !!(this._in(key) in this._area);
-          },
-          size: function() {
-            return this.keys().length;
-          },
-          each: function(fn, fill) {
-            for (var i = 0, m = _.length(this._area); i < m; i++) {
-              var key = this._out(_.key(this._area, i));
-              if (key !== void 0) {
-                if (fn.call(this, key, this.get(key), fill) === false) {
+            d = e + dp + 1;
+            i = xc[d];
+            k = baseOut / 2;
+            r = r || d < 0 || xc[d + 1] != null;
+            r = rm < 4 ? (i != null || r) && (rm == 0 || rm == (x.s < 0 ? 3 : 2)) : i > k || i == k && (rm == 4 || r || rm == 6 && xc[d - 1] & 1 || rm == (x.s < 0 ? 8 : 7));
+            if (d < 1 || !xc[0]) {
+              str = r ? toFixedPoint(alphabet.charAt(1), -dp, alphabet.charAt(0)) : alphabet.charAt(0);
+            } else {
+              xc.length = d;
+              if (r) {
+                for (--baseOut; ++xc[--d] > baseOut; ) {
+                  xc[d] = 0;
+                  if (!d) {
+                    ++e;
+                    xc = [1].concat(xc);
+                  }
+                }
+              }
+              for (k = xc.length; !xc[--k]; )
+                ;
+              for (i = 0, str = ""; i <= k; str += alphabet.charAt(xc[i++]))
+                ;
+              str = toFixedPoint(str, e, alphabet.charAt(0));
+            }
+            return str;
+          };
+        }();
+        div = function() {
+          function multiply(x, k, base) {
+            var m, temp, xlo, xhi, carry = 0, i = x.length, klo = k % SQRT_BASE, khi = k / SQRT_BASE | 0;
+            for (x = x.slice(); i--; ) {
+              xlo = x[i] % SQRT_BASE;
+              xhi = x[i] / SQRT_BASE | 0;
+              m = khi * xlo + xhi * klo;
+              temp = klo * xlo + m % SQRT_BASE * SQRT_BASE + carry;
+              carry = (temp / base | 0) + (m / SQRT_BASE | 0) + khi * xhi;
+              x[i] = temp % base;
+            }
+            if (carry)
+              x = [carry].concat(x);
+            return x;
+          }
+          function compare2(a, b, aL, bL) {
+            var i, cmp;
+            if (aL != bL) {
+              cmp = aL > bL ? 1 : -1;
+            } else {
+              for (i = cmp = 0; i < aL; i++) {
+                if (a[i] != b[i]) {
+                  cmp = a[i] > b[i] ? 1 : -1;
                   break;
                 }
               }
-              if (m > _.length(this._area)) {
-                m--;
-                i--;
-              }
             }
-            return fill || this;
-          },
-          keys: function(fillList) {
-            return this.each(function(k, v, list) {
-              list.push(k);
-            }, fillList || []);
-          },
-          get: function(key, alt) {
-            var s = _.get(this._area, this._in(key)), fn;
-            if (typeof alt === "function") {
-              fn = alt;
-              alt = null;
+            return cmp;
+          }
+          function subtract(a, b, aL, base) {
+            var i = 0;
+            for (; aL--; ) {
+              a[aL] -= i;
+              i = a[aL] < b[aL] ? 1 : 0;
+              a[aL] = i * base + a[aL] - b[aL];
             }
-            return s !== null ? _.parse(s, fn) : alt != null ? alt : s;
-          },
-          getAll: function(fillObj) {
-            return this.each(function(k, v, all) {
-              all[k] = v;
-            }, fillObj || {});
-          },
-          transact: function(key, fn, alt) {
-            var val = this.get(key, alt), ret = fn(val);
-            this.set(key, ret === void 0 ? val : ret);
-            return this;
-          },
-          set: function(key, data, overwrite) {
-            var d = this.get(key), replacer;
-            if (d != null && overwrite === false) {
-              return data;
+            for (; !a[0] && a.length > 1; a.splice(0, 1))
+              ;
+          }
+          return function(x, y, dp, rm, base) {
+            var cmp, e, i, more, n, prod, prodL, q, qc, rem, remL, rem0, xi, xL, yc0, yL, yz, s = x.s == y.s ? 1 : -1, xc = x.c, yc = y.c;
+            if (!xc || !xc[0] || !yc || !yc[0]) {
+              return new BigNumber3(!x.s || !y.s || (xc ? yc && xc[0] == yc[0] : !yc) ? NaN : xc && xc[0] == 0 || !yc ? s * 0 : s / 0);
             }
-            if (typeof overwrite === "function") {
-              replacer = overwrite;
-              overwrite = void 0;
+            q = new BigNumber3(s);
+            qc = q.c = [];
+            e = x.e - y.e;
+            s = dp + e + 1;
+            if (!base) {
+              base = BASE;
+              e = bitFloor(x.e / LOG_BASE) - bitFloor(y.e / LOG_BASE);
+              s = s / LOG_BASE | 0;
             }
-            return _.set(this._area, this._in(key), _.stringify(data, replacer), overwrite) || d;
-          },
-          setAll: function(data, overwrite) {
-            var changed, val;
-            for (var key in data) {
-              val = data[key];
-              if (this.set(key, val, overwrite) !== val) {
-                changed = true;
-              }
-            }
-            return changed;
-          },
-          add: function(key, data, replacer) {
-            var d = this.get(key);
-            if (d instanceof Array) {
-              data = d.concat(data);
-            } else if (d !== null) {
-              var type = typeof d;
-              if (type === typeof data && type === "object") {
-                for (var k in data) {
-                  d[k] = data[k];
-                }
-                data = d;
-              } else {
-                data = d + data;
-              }
-            }
-            _.set(this._area, this._in(key), _.stringify(data, replacer));
-            return data;
-          },
-          remove: function(key, alt) {
-            var d = this.get(key, alt);
-            _.remove(this._area, this._in(key));
-            return d;
-          },
-          clear: function() {
-            if (!this._ns) {
-              _.clear(this._area);
+            for (i = 0; yc[i] == (xc[i] || 0); i++)
+              ;
+            if (yc[i] > (xc[i] || 0))
+              e--;
+            if (s < 0) {
+              qc.push(1);
+              more = true;
             } else {
-              this.each(function(k) {
-                _.remove(this._area, this._in(k));
-              }, 1);
+              xL = xc.length;
+              yL = yc.length;
+              i = 0;
+              s += 2;
+              n = mathfloor(base / (yc[0] + 1));
+              if (n > 1) {
+                yc = multiply(yc, n, base);
+                xc = multiply(xc, n, base);
+                yL = yc.length;
+                xL = xc.length;
+              }
+              xi = yL;
+              rem = xc.slice(0, yL);
+              remL = rem.length;
+              for (; remL < yL; rem[remL++] = 0)
+                ;
+              yz = yc.slice();
+              yz = [0].concat(yz);
+              yc0 = yc[0];
+              if (yc[1] >= base / 2)
+                yc0++;
+              do {
+                n = 0;
+                cmp = compare2(yc, rem, yL, remL);
+                if (cmp < 0) {
+                  rem0 = rem[0];
+                  if (yL != remL)
+                    rem0 = rem0 * base + (rem[1] || 0);
+                  n = mathfloor(rem0 / yc0);
+                  if (n > 1) {
+                    if (n >= base)
+                      n = base - 1;
+                    prod = multiply(yc, n, base);
+                    prodL = prod.length;
+                    remL = rem.length;
+                    while (compare2(prod, rem, prodL, remL) == 1) {
+                      n--;
+                      subtract(prod, yL < prodL ? yz : yc, prodL, base);
+                      prodL = prod.length;
+                      cmp = 1;
+                    }
+                  } else {
+                    if (n == 0) {
+                      cmp = n = 1;
+                    }
+                    prod = yc.slice();
+                    prodL = prod.length;
+                  }
+                  if (prodL < remL)
+                    prod = [0].concat(prod);
+                  subtract(rem, prod, remL, base);
+                  remL = rem.length;
+                  if (cmp == -1) {
+                    while (compare2(yc, rem, yL, remL) < 1) {
+                      n++;
+                      subtract(rem, yL < remL ? yz : yc, remL, base);
+                      remL = rem.length;
+                    }
+                  }
+                } else if (cmp === 0) {
+                  n++;
+                  rem = [0];
+                }
+                qc[i++] = n;
+                if (rem[0]) {
+                  rem[remL++] = xc[xi] || 0;
+                } else {
+                  rem = [xc[xi]];
+                  remL = 1;
+                }
+              } while ((xi++ < xL || rem[0] != null) && s--);
+              more = rem[0] != null;
+              if (!qc[0])
+                qc.splice(0, 1);
             }
-            return this;
-          },
-          clearAll: function() {
-            var area = this._area;
-            for (var id in _.areas) {
-              if (_.areas.hasOwnProperty(id)) {
-                this._area = _.areas[id];
-                this.clear();
+            if (base == BASE) {
+              for (i = 1, s = qc[0]; s >= 10; s /= 10, i++)
+                ;
+              round(q, dp + (q.e = i + e * LOG_BASE - 1) + 1, rm, more);
+            } else {
+              q.e = e;
+              q.r = +more;
+            }
+            return q;
+          };
+        }();
+        function format(n, i, rm, id) {
+          var c0, e, ne, len, str;
+          if (rm == null)
+            rm = ROUNDING_MODE;
+          else
+            intCheck(rm, 0, 8);
+          if (!n.c)
+            return n.toString();
+          c0 = n.c[0];
+          ne = n.e;
+          if (i == null) {
+            str = coeffToString(n.c);
+            str = id == 1 || id == 2 && (ne <= TO_EXP_NEG || ne >= TO_EXP_POS) ? toExponential(str, ne) : toFixedPoint(str, ne, "0");
+          } else {
+            n = round(new BigNumber3(n), i, rm);
+            e = n.e;
+            str = coeffToString(n.c);
+            len = str.length;
+            if (id == 1 || id == 2 && (i <= e || e <= TO_EXP_NEG)) {
+              for (; len < i; str += "0", len++)
+                ;
+              str = toExponential(str, e);
+            } else {
+              i -= ne;
+              str = toFixedPoint(str, e, "0");
+              if (e + 1 > len) {
+                if (--i > 0)
+                  for (str += "."; i--; str += "0")
+                    ;
+              } else {
+                i += e - len;
+                if (i > 0) {
+                  if (e + 1 == len)
+                    str += ".";
+                  for (; i--; str += "0")
+                    ;
+                }
               }
             }
-            this._area = area;
-            return this;
-          },
-          _in: function(k) {
-            if (typeof k !== "string") {
-              k = _.stringify(k);
-            }
-            return this._ns ? this._ns + k : k;
-          },
-          _out: function(k) {
-            return this._ns ? k && k.indexOf(this._ns) === 0 ? k.substring(this._ns.length) : void 0 : k;
           }
-        },
-        storage: function(name) {
-          return _.inherit(_.storageAPI, {items: {}, name});
-        },
-        storageAPI: {
-          length: 0,
-          has: function(k) {
-            return this.items.hasOwnProperty(k);
-          },
-          key: function(i) {
-            var c = 0;
-            for (var k in this.items) {
-              if (this.has(k) && i === c++) {
-                return k;
+          return n.s < 0 && c0 ? "-" + str : str;
+        }
+        function maxOrMin(args, method) {
+          var n, i = 1, m = new BigNumber3(args[0]);
+          for (; i < args.length; i++) {
+            n = new BigNumber3(args[i]);
+            if (!n.s) {
+              m = n;
+              break;
+            } else if (method.call(m, n)) {
+              m = n;
+            }
+          }
+          return m;
+        }
+        function normalise(n, c, e) {
+          var i = 1, j = c.length;
+          for (; !c[--j]; c.pop())
+            ;
+          for (j = c[0]; j >= 10; j /= 10, i++)
+            ;
+          if ((e = i + e * LOG_BASE - 1) > MAX_EXP) {
+            n.c = n.e = null;
+          } else if (e < MIN_EXP) {
+            n.c = [n.e = 0];
+          } else {
+            n.e = e;
+            n.c = c;
+          }
+          return n;
+        }
+        parseNumeric = function() {
+          var basePrefix = /^(-?)0([xbo])(?=\w[\w.]*$)/i, dotAfter = /^([^.]+)\.$/, dotBefore = /^\.([^.]+)$/, isInfinityOrNaN = /^-?(Infinity|NaN)$/, whitespaceOrPlus = /^\s*\+(?=[\w.])|^\s+|\s+$/g;
+          return function(x, str, isNum, b) {
+            var base, s = isNum ? str : str.replace(whitespaceOrPlus, "");
+            if (isInfinityOrNaN.test(s)) {
+              x.s = isNaN(s) ? null : s < 0 ? -1 : 1;
+            } else {
+              if (!isNum) {
+                s = s.replace(basePrefix, function(m, p1, p2) {
+                  base = (p2 = p2.toLowerCase()) == "x" ? 16 : p2 == "b" ? 2 : 8;
+                  return !b || b == base ? p1 : m;
+                });
+                if (b) {
+                  base = b;
+                  s = s.replace(dotAfter, "$1").replace(dotBefore, "0.$1");
+                }
+                if (str != s)
+                  return new BigNumber3(s, base);
+              }
+              if (BigNumber3.DEBUG) {
+                throw Error(bignumberError + "Not a" + (b ? " base " + b : "") + " number: " + str);
+              }
+              x.s = null;
+            }
+            x.c = x.e = null;
+          };
+        }();
+        function round(x, sd, rm, r) {
+          var d, i, j, k, n, ni, rd, xc = x.c, pows10 = POWS_TEN;
+          if (xc) {
+            out: {
+              for (d = 1, k = xc[0]; k >= 10; k /= 10, d++)
+                ;
+              i = sd - d;
+              if (i < 0) {
+                i += LOG_BASE;
+                j = sd;
+                n = xc[ni = 0];
+                rd = n / pows10[d - j - 1] % 10 | 0;
+              } else {
+                ni = mathceil((i + 1) / LOG_BASE);
+                if (ni >= xc.length) {
+                  if (r) {
+                    for (; xc.length <= ni; xc.push(0))
+                      ;
+                    n = rd = 0;
+                    d = 1;
+                    i %= LOG_BASE;
+                    j = i - LOG_BASE + 1;
+                  } else {
+                    break out;
+                  }
+                } else {
+                  n = k = xc[ni];
+                  for (d = 1; k >= 10; k /= 10, d++)
+                    ;
+                  i %= LOG_BASE;
+                  j = i - LOG_BASE + d;
+                  rd = j < 0 ? 0 : n / pows10[d - j - 1] % 10 | 0;
+                }
+              }
+              r = r || sd < 0 || xc[ni + 1] != null || (j < 0 ? n : n % pows10[d - j - 1]);
+              r = rm < 4 ? (rd || r) && (rm == 0 || rm == (x.s < 0 ? 3 : 2)) : rd > 5 || rd == 5 && (rm == 4 || r || rm == 6 && (i > 0 ? j > 0 ? n / pows10[d - j] : 0 : xc[ni - 1]) % 10 & 1 || rm == (x.s < 0 ? 8 : 7));
+              if (sd < 1 || !xc[0]) {
+                xc.length = 0;
+                if (r) {
+                  sd -= x.e + 1;
+                  xc[0] = pows10[(LOG_BASE - sd % LOG_BASE) % LOG_BASE];
+                  x.e = -sd || 0;
+                } else {
+                  xc[0] = x.e = 0;
+                }
+                return x;
+              }
+              if (i == 0) {
+                xc.length = ni;
+                k = 1;
+                ni--;
+              } else {
+                xc.length = ni + 1;
+                k = pows10[LOG_BASE - i];
+                xc[ni] = j > 0 ? mathfloor(n / pows10[d - j] % pows10[j]) * k : 0;
+              }
+              if (r) {
+                for (; ; ) {
+                  if (ni == 0) {
+                    for (i = 1, j = xc[0]; j >= 10; j /= 10, i++)
+                      ;
+                    j = xc[0] += k;
+                    for (k = 1; j >= 10; j /= 10, k++)
+                      ;
+                    if (i != k) {
+                      x.e++;
+                      if (xc[0] == BASE)
+                        xc[0] = 1;
+                    }
+                    break;
+                  } else {
+                    xc[ni] += k;
+                    if (xc[ni] != BASE)
+                      break;
+                    xc[ni--] = 0;
+                    k = 1;
+                  }
+                }
+              }
+              for (i = xc.length; xc[--i] === 0; xc.pop())
+                ;
+            }
+            if (x.e > MAX_EXP) {
+              x.c = x.e = null;
+            } else if (x.e < MIN_EXP) {
+              x.c = [x.e = 0];
+            }
+          }
+          return x;
+        }
+        function valueOf(n) {
+          var str, e = n.e;
+          if (e === null)
+            return n.toString();
+          str = coeffToString(n.c);
+          str = e <= TO_EXP_NEG || e >= TO_EXP_POS ? toExponential(str, e) : toFixedPoint(str, e, "0");
+          return n.s < 0 ? "-" + str : str;
+        }
+        P.absoluteValue = P.abs = function() {
+          var x = new BigNumber3(this);
+          if (x.s < 0)
+            x.s = 1;
+          return x;
+        };
+        P.comparedTo = function(y, b) {
+          return compare(this, new BigNumber3(y, b));
+        };
+        P.decimalPlaces = P.dp = function(dp, rm) {
+          var c, n, v, x = this;
+          if (dp != null) {
+            intCheck(dp, 0, MAX);
+            if (rm == null)
+              rm = ROUNDING_MODE;
+            else
+              intCheck(rm, 0, 8);
+            return round(new BigNumber3(x), dp + x.e + 1, rm);
+          }
+          if (!(c = x.c))
+            return null;
+          n = ((v = c.length - 1) - bitFloor(this.e / LOG_BASE)) * LOG_BASE;
+          if (v = c[v])
+            for (; v % 10 == 0; v /= 10, n--)
+              ;
+          if (n < 0)
+            n = 0;
+          return n;
+        };
+        P.dividedBy = P.div = function(y, b) {
+          return div(this, new BigNumber3(y, b), DECIMAL_PLACES, ROUNDING_MODE);
+        };
+        P.dividedToIntegerBy = P.idiv = function(y, b) {
+          return div(this, new BigNumber3(y, b), 0, 1);
+        };
+        P.exponentiatedBy = P.pow = function(n, m) {
+          var half, isModExp, i, k, more, nIsBig, nIsNeg, nIsOdd, y, x = this;
+          n = new BigNumber3(n);
+          if (n.c && !n.isInteger()) {
+            throw Error(bignumberError + "Exponent not an integer: " + valueOf(n));
+          }
+          if (m != null)
+            m = new BigNumber3(m);
+          nIsBig = n.e > 14;
+          if (!x.c || !x.c[0] || x.c[0] == 1 && !x.e && x.c.length == 1 || !n.c || !n.c[0]) {
+            y = new BigNumber3(Math.pow(+valueOf(x), nIsBig ? 2 - isOdd(n) : +valueOf(n)));
+            return m ? y.mod(m) : y;
+          }
+          nIsNeg = n.s < 0;
+          if (m) {
+            if (m.c ? !m.c[0] : !m.s)
+              return new BigNumber3(NaN);
+            isModExp = !nIsNeg && x.isInteger() && m.isInteger();
+            if (isModExp)
+              x = x.mod(m);
+          } else if (n.e > 9 && (x.e > 0 || x.e < -1 || (x.e == 0 ? x.c[0] > 1 || nIsBig && x.c[1] >= 24e7 : x.c[0] < 8e13 || nIsBig && x.c[0] <= 9999975e7))) {
+            k = x.s < 0 && isOdd(n) ? -0 : 0;
+            if (x.e > -1)
+              k = 1 / k;
+            return new BigNumber3(nIsNeg ? 1 / k : k);
+          } else if (POW_PRECISION) {
+            k = mathceil(POW_PRECISION / LOG_BASE + 2);
+          }
+          if (nIsBig) {
+            half = new BigNumber3(0.5);
+            if (nIsNeg)
+              n.s = 1;
+            nIsOdd = isOdd(n);
+          } else {
+            i = Math.abs(+valueOf(n));
+            nIsOdd = i % 2;
+          }
+          y = new BigNumber3(ONE);
+          for (; ; ) {
+            if (nIsOdd) {
+              y = y.times(x);
+              if (!y.c)
+                break;
+              if (k) {
+                if (y.c.length > k)
+                  y.c.length = k;
+              } else if (isModExp) {
+                y = y.mod(m);
               }
             }
-          },
-          setItem: function(k, v) {
-            if (!this.has(k)) {
-              this.length++;
+            if (i) {
+              i = mathfloor(i / 2);
+              if (i === 0)
+                break;
+              nIsOdd = i % 2;
+            } else {
+              n = n.times(half);
+              round(n, n.e + 1, 1);
+              if (n.e > 14) {
+                nIsOdd = isOdd(n);
+              } else {
+                i = +valueOf(n);
+                if (i === 0)
+                  break;
+                nIsOdd = i % 2;
+              }
             }
-            this.items[k] = v;
-          },
-          removeItem: function(k) {
-            if (this.has(k)) {
-              delete this.items[k];
-              this.length--;
-            }
-          },
-          getItem: function(k) {
-            return this.has(k) ? this.items[k] : null;
-          },
-          clear: function() {
-            for (var k in this.items) {
-              this.removeItem(k);
+            x = x.times(x);
+            if (k) {
+              if (x.c && x.c.length > k)
+                x.c.length = k;
+            } else if (isModExp) {
+              x = x.mod(m);
             }
           }
-        }
-      };
-      var store10 = _.Store("local", function() {
-        try {
-          return localStorage;
-        } catch (e) {
-        }
-      }());
-      store10.local = store10;
-      store10._ = _;
-      store10.area("session", function() {
-        try {
-          return sessionStorage;
-        } catch (e) {
-        }
-      }());
-      store10.area("page", _.storage("page"));
-      if (typeof define2 === "function" && define2.amd !== void 0) {
-        define2("store2", [], function() {
-          return store10;
-        });
-      } else if (typeof module2 !== "undefined" && module2.exports) {
-        module2.exports = store10;
-      } else {
-        if (window2.store) {
-          _.conflict = window2.store;
-        }
-        window2.store = store10;
+          if (isModExp)
+            return y;
+          if (nIsNeg)
+            y = ONE.div(y);
+          return m ? y.mod(m) : k ? round(y, POW_PRECISION, ROUNDING_MODE, more) : y;
+        };
+        P.integerValue = function(rm) {
+          var n = new BigNumber3(this);
+          if (rm == null)
+            rm = ROUNDING_MODE;
+          else
+            intCheck(rm, 0, 8);
+          return round(n, n.e + 1, rm);
+        };
+        P.isEqualTo = P.eq = function(y, b) {
+          return compare(this, new BigNumber3(y, b)) === 0;
+        };
+        P.isFinite = function() {
+          return !!this.c;
+        };
+        P.isGreaterThan = P.gt = function(y, b) {
+          return compare(this, new BigNumber3(y, b)) > 0;
+        };
+        P.isGreaterThanOrEqualTo = P.gte = function(y, b) {
+          return (b = compare(this, new BigNumber3(y, b))) === 1 || b === 0;
+        };
+        P.isInteger = function() {
+          return !!this.c && bitFloor(this.e / LOG_BASE) > this.c.length - 2;
+        };
+        P.isLessThan = P.lt = function(y, b) {
+          return compare(this, new BigNumber3(y, b)) < 0;
+        };
+        P.isLessThanOrEqualTo = P.lte = function(y, b) {
+          return (b = compare(this, new BigNumber3(y, b))) === -1 || b === 0;
+        };
+        P.isNaN = function() {
+          return !this.s;
+        };
+        P.isNegative = function() {
+          return this.s < 0;
+        };
+        P.isPositive = function() {
+          return this.s > 0;
+        };
+        P.isZero = function() {
+          return !!this.c && this.c[0] == 0;
+        };
+        P.minus = function(y, b) {
+          var i, j, t, xLTy, x = this, a = x.s;
+          y = new BigNumber3(y, b);
+          b = y.s;
+          if (!a || !b)
+            return new BigNumber3(NaN);
+          if (a != b) {
+            y.s = -b;
+            return x.plus(y);
+          }
+          var xe = x.e / LOG_BASE, ye = y.e / LOG_BASE, xc = x.c, yc = y.c;
+          if (!xe || !ye) {
+            if (!xc || !yc)
+              return xc ? (y.s = -b, y) : new BigNumber3(yc ? x : NaN);
+            if (!xc[0] || !yc[0]) {
+              return yc[0] ? (y.s = -b, y) : new BigNumber3(xc[0] ? x : ROUNDING_MODE == 3 ? -0 : 0);
+            }
+          }
+          xe = bitFloor(xe);
+          ye = bitFloor(ye);
+          xc = xc.slice();
+          if (a = xe - ye) {
+            if (xLTy = a < 0) {
+              a = -a;
+              t = xc;
+            } else {
+              ye = xe;
+              t = yc;
+            }
+            t.reverse();
+            for (b = a; b--; t.push(0))
+              ;
+            t.reverse();
+          } else {
+            j = (xLTy = (a = xc.length) < (b = yc.length)) ? a : b;
+            for (a = b = 0; b < j; b++) {
+              if (xc[b] != yc[b]) {
+                xLTy = xc[b] < yc[b];
+                break;
+              }
+            }
+          }
+          if (xLTy) {
+            t = xc;
+            xc = yc;
+            yc = t;
+            y.s = -y.s;
+          }
+          b = (j = yc.length) - (i = xc.length);
+          if (b > 0)
+            for (; b--; xc[i++] = 0)
+              ;
+          b = BASE - 1;
+          for (; j > a; ) {
+            if (xc[--j] < yc[j]) {
+              for (i = j; i && !xc[--i]; xc[i] = b)
+                ;
+              --xc[i];
+              xc[j] += BASE;
+            }
+            xc[j] -= yc[j];
+          }
+          for (; xc[0] == 0; xc.splice(0, 1), --ye)
+            ;
+          if (!xc[0]) {
+            y.s = ROUNDING_MODE == 3 ? -1 : 1;
+            y.c = [y.e = 0];
+            return y;
+          }
+          return normalise(y, xc, ye);
+        };
+        P.modulo = P.mod = function(y, b) {
+          var q, s, x = this;
+          y = new BigNumber3(y, b);
+          if (!x.c || !y.s || y.c && !y.c[0]) {
+            return new BigNumber3(NaN);
+          } else if (!y.c || x.c && !x.c[0]) {
+            return new BigNumber3(x);
+          }
+          if (MODULO_MODE == 9) {
+            s = y.s;
+            y.s = 1;
+            q = div(x, y, 0, 3);
+            y.s = s;
+            q.s *= s;
+          } else {
+            q = div(x, y, 0, MODULO_MODE);
+          }
+          y = x.minus(q.times(y));
+          if (!y.c[0] && MODULO_MODE == 1)
+            y.s = x.s;
+          return y;
+        };
+        P.multipliedBy = P.times = function(y, b) {
+          var c, e, i, j, k, m, xcL, xlo, xhi, ycL, ylo, yhi, zc, base, sqrtBase, x = this, xc = x.c, yc = (y = new BigNumber3(y, b)).c;
+          if (!xc || !yc || !xc[0] || !yc[0]) {
+            if (!x.s || !y.s || xc && !xc[0] && !yc || yc && !yc[0] && !xc) {
+              y.c = y.e = y.s = null;
+            } else {
+              y.s *= x.s;
+              if (!xc || !yc) {
+                y.c = y.e = null;
+              } else {
+                y.c = [0];
+                y.e = 0;
+              }
+            }
+            return y;
+          }
+          e = bitFloor(x.e / LOG_BASE) + bitFloor(y.e / LOG_BASE);
+          y.s *= x.s;
+          xcL = xc.length;
+          ycL = yc.length;
+          if (xcL < ycL) {
+            zc = xc;
+            xc = yc;
+            yc = zc;
+            i = xcL;
+            xcL = ycL;
+            ycL = i;
+          }
+          for (i = xcL + ycL, zc = []; i--; zc.push(0))
+            ;
+          base = BASE;
+          sqrtBase = SQRT_BASE;
+          for (i = ycL; --i >= 0; ) {
+            c = 0;
+            ylo = yc[i] % sqrtBase;
+            yhi = yc[i] / sqrtBase | 0;
+            for (k = xcL, j = i + k; j > i; ) {
+              xlo = xc[--k] % sqrtBase;
+              xhi = xc[k] / sqrtBase | 0;
+              m = yhi * xlo + xhi * ylo;
+              xlo = ylo * xlo + m % sqrtBase * sqrtBase + zc[j] + c;
+              c = (xlo / base | 0) + (m / sqrtBase | 0) + yhi * xhi;
+              zc[j--] = xlo % base;
+            }
+            zc[j] = c;
+          }
+          if (c) {
+            ++e;
+          } else {
+            zc.splice(0, 1);
+          }
+          return normalise(y, zc, e);
+        };
+        P.negated = function() {
+          var x = new BigNumber3(this);
+          x.s = -x.s || null;
+          return x;
+        };
+        P.plus = function(y, b) {
+          var t, x = this, a = x.s;
+          y = new BigNumber3(y, b);
+          b = y.s;
+          if (!a || !b)
+            return new BigNumber3(NaN);
+          if (a != b) {
+            y.s = -b;
+            return x.minus(y);
+          }
+          var xe = x.e / LOG_BASE, ye = y.e / LOG_BASE, xc = x.c, yc = y.c;
+          if (!xe || !ye) {
+            if (!xc || !yc)
+              return new BigNumber3(a / 0);
+            if (!xc[0] || !yc[0])
+              return yc[0] ? y : new BigNumber3(xc[0] ? x : a * 0);
+          }
+          xe = bitFloor(xe);
+          ye = bitFloor(ye);
+          xc = xc.slice();
+          if (a = xe - ye) {
+            if (a > 0) {
+              ye = xe;
+              t = yc;
+            } else {
+              a = -a;
+              t = xc;
+            }
+            t.reverse();
+            for (; a--; t.push(0))
+              ;
+            t.reverse();
+          }
+          a = xc.length;
+          b = yc.length;
+          if (a - b < 0) {
+            t = yc;
+            yc = xc;
+            xc = t;
+            b = a;
+          }
+          for (a = 0; b; ) {
+            a = (xc[--b] = xc[b] + yc[b] + a) / BASE | 0;
+            xc[b] = BASE === xc[b] ? 0 : xc[b] % BASE;
+          }
+          if (a) {
+            xc = [a].concat(xc);
+            ++ye;
+          }
+          return normalise(y, xc, ye);
+        };
+        P.precision = P.sd = function(sd, rm) {
+          var c, n, v, x = this;
+          if (sd != null && sd !== !!sd) {
+            intCheck(sd, 1, MAX);
+            if (rm == null)
+              rm = ROUNDING_MODE;
+            else
+              intCheck(rm, 0, 8);
+            return round(new BigNumber3(x), sd, rm);
+          }
+          if (!(c = x.c))
+            return null;
+          v = c.length - 1;
+          n = v * LOG_BASE + 1;
+          if (v = c[v]) {
+            for (; v % 10 == 0; v /= 10, n--)
+              ;
+            for (v = c[0]; v >= 10; v /= 10, n++)
+              ;
+          }
+          if (sd && x.e + 1 > n)
+            n = x.e + 1;
+          return n;
+        };
+        P.shiftedBy = function(k) {
+          intCheck(k, -MAX_SAFE_INTEGER, MAX_SAFE_INTEGER);
+          return this.times("1e" + k);
+        };
+        P.squareRoot = P.sqrt = function() {
+          var m, n, r, rep, t, x = this, c = x.c, s = x.s, e = x.e, dp = DECIMAL_PLACES + 4, half = new BigNumber3("0.5");
+          if (s !== 1 || !c || !c[0]) {
+            return new BigNumber3(!s || s < 0 && (!c || c[0]) ? NaN : c ? x : 1 / 0);
+          }
+          s = Math.sqrt(+valueOf(x));
+          if (s == 0 || s == 1 / 0) {
+            n = coeffToString(c);
+            if ((n.length + e) % 2 == 0)
+              n += "0";
+            s = Math.sqrt(+n);
+            e = bitFloor((e + 1) / 2) - (e < 0 || e % 2);
+            if (s == 1 / 0) {
+              n = "5e" + e;
+            } else {
+              n = s.toExponential();
+              n = n.slice(0, n.indexOf("e") + 1) + e;
+            }
+            r = new BigNumber3(n);
+          } else {
+            r = new BigNumber3(s + "");
+          }
+          if (r.c[0]) {
+            e = r.e;
+            s = e + dp;
+            if (s < 3)
+              s = 0;
+            for (; ; ) {
+              t = r;
+              r = half.times(t.plus(div(x, t, dp, 1)));
+              if (coeffToString(t.c).slice(0, s) === (n = coeffToString(r.c)).slice(0, s)) {
+                if (r.e < e)
+                  --s;
+                n = n.slice(s - 3, s + 1);
+                if (n == "9999" || !rep && n == "4999") {
+                  if (!rep) {
+                    round(t, t.e + DECIMAL_PLACES + 2, 0);
+                    if (t.times(t).eq(x)) {
+                      r = t;
+                      break;
+                    }
+                  }
+                  dp += 4;
+                  s += 4;
+                  rep = 1;
+                } else {
+                  if (!+n || !+n.slice(1) && n.charAt(0) == "5") {
+                    round(r, r.e + DECIMAL_PLACES + 2, 1);
+                    m = !r.times(r).eq(x);
+                  }
+                  break;
+                }
+              }
+            }
+          }
+          return round(r, r.e + DECIMAL_PLACES + 1, ROUNDING_MODE, m);
+        };
+        P.toExponential = function(dp, rm) {
+          if (dp != null) {
+            intCheck(dp, 0, MAX);
+            dp++;
+          }
+          return format(this, dp, rm, 1);
+        };
+        P.toFixed = function(dp, rm) {
+          if (dp != null) {
+            intCheck(dp, 0, MAX);
+            dp = dp + this.e + 1;
+          }
+          return format(this, dp, rm);
+        };
+        P.toFormat = function(dp, rm, format2) {
+          var str, x = this;
+          if (format2 == null) {
+            if (dp != null && rm && typeof rm == "object") {
+              format2 = rm;
+              rm = null;
+            } else if (dp && typeof dp == "object") {
+              format2 = dp;
+              dp = rm = null;
+            } else {
+              format2 = FORMAT;
+            }
+          } else if (typeof format2 != "object") {
+            throw Error(bignumberError + "Argument not an object: " + format2);
+          }
+          str = x.toFixed(dp, rm);
+          if (x.c) {
+            var i, arr = str.split("."), g1 = +format2.groupSize, g2 = +format2.secondaryGroupSize, groupSeparator = format2.groupSeparator || "", intPart = arr[0], fractionPart = arr[1], isNeg = x.s < 0, intDigits = isNeg ? intPart.slice(1) : intPart, len = intDigits.length;
+            if (g2) {
+              i = g1;
+              g1 = g2;
+              g2 = i;
+              len -= i;
+            }
+            if (g1 > 0 && len > 0) {
+              i = len % g1 || g1;
+              intPart = intDigits.substr(0, i);
+              for (; i < len; i += g1)
+                intPart += groupSeparator + intDigits.substr(i, g1);
+              if (g2 > 0)
+                intPart += groupSeparator + intDigits.slice(i);
+              if (isNeg)
+                intPart = "-" + intPart;
+            }
+            str = fractionPart ? intPart + (format2.decimalSeparator || "") + ((g2 = +format2.fractionGroupSize) ? fractionPart.replace(new RegExp("\\d{" + g2 + "}\\B", "g"), "$&" + (format2.fractionGroupSeparator || "")) : fractionPart) : intPart;
+          }
+          return (format2.prefix || "") + str + (format2.suffix || "");
+        };
+        P.toFraction = function(md) {
+          var d, d0, d1, d2, e, exp, n, n0, n1, q, r, s, x = this, xc = x.c;
+          if (md != null) {
+            n = new BigNumber3(md);
+            if (!n.isInteger() && (n.c || n.s !== 1) || n.lt(ONE)) {
+              throw Error(bignumberError + "Argument " + (n.isInteger() ? "out of range: " : "not an integer: ") + valueOf(n));
+            }
+          }
+          if (!xc)
+            return new BigNumber3(x);
+          d = new BigNumber3(ONE);
+          n1 = d0 = new BigNumber3(ONE);
+          d1 = n0 = new BigNumber3(ONE);
+          s = coeffToString(xc);
+          e = d.e = s.length - x.e - 1;
+          d.c[0] = POWS_TEN[(exp = e % LOG_BASE) < 0 ? LOG_BASE + exp : exp];
+          md = !md || n.comparedTo(d) > 0 ? e > 0 ? d : n1 : n;
+          exp = MAX_EXP;
+          MAX_EXP = 1 / 0;
+          n = new BigNumber3(s);
+          n0.c[0] = 0;
+          for (; ; ) {
+            q = div(n, d, 0, 1);
+            d2 = d0.plus(q.times(d1));
+            if (d2.comparedTo(md) == 1)
+              break;
+            d0 = d1;
+            d1 = d2;
+            n1 = n0.plus(q.times(d2 = n1));
+            n0 = d2;
+            d = n.minus(q.times(d2 = d));
+            n = d2;
+          }
+          d2 = div(md.minus(d0), d1, 0, 1);
+          n0 = n0.plus(d2.times(n1));
+          d0 = d0.plus(d2.times(d1));
+          n0.s = n1.s = x.s;
+          e = e * 2;
+          r = div(n1, d1, e, ROUNDING_MODE).minus(x).abs().comparedTo(div(n0, d0, e, ROUNDING_MODE).minus(x).abs()) < 1 ? [n1, d1] : [n0, d0];
+          MAX_EXP = exp;
+          return r;
+        };
+        P.toNumber = function() {
+          return +valueOf(this);
+        };
+        P.toPrecision = function(sd, rm) {
+          if (sd != null)
+            intCheck(sd, 1, MAX);
+          return format(this, sd, rm, 2);
+        };
+        P.toString = function(b) {
+          var str, n = this, s = n.s, e = n.e;
+          if (e === null) {
+            if (s) {
+              str = "Infinity";
+              if (s < 0)
+                str = "-" + str;
+            } else {
+              str = "NaN";
+            }
+          } else {
+            if (b == null) {
+              str = e <= TO_EXP_NEG || e >= TO_EXP_POS ? toExponential(coeffToString(n.c), e) : toFixedPoint(coeffToString(n.c), e, "0");
+            } else if (b === 10 && alphabetHasNormalDecimalDigits) {
+              n = round(new BigNumber3(n), DECIMAL_PLACES + e + 1, ROUNDING_MODE);
+              str = toFixedPoint(coeffToString(n.c), n.e, "0");
+            } else {
+              intCheck(b, 2, ALPHABET.length, "Base");
+              str = convertBase(toFixedPoint(coeffToString(n.c), e, "0"), 10, b, s, true);
+            }
+            if (s < 0 && n.c[0])
+              str = "-" + str;
+          }
+          return str;
+        };
+        P.valueOf = P.toJSON = function() {
+          return valueOf(this);
+        };
+        P._isBigNumber = true;
+        if (configObject != null)
+          BigNumber3.set(configObject);
+        return BigNumber3;
       }
-    })(exports, exports && exports.define);
+      function bitFloor(n) {
+        var i = n | 0;
+        return n > 0 || n === i ? i : i - 1;
+      }
+      function coeffToString(a) {
+        var s, z, i = 1, j = a.length, r = a[0] + "";
+        for (; i < j; ) {
+          s = a[i++] + "";
+          z = LOG_BASE - s.length;
+          for (; z--; s = "0" + s)
+            ;
+          r += s;
+        }
+        for (j = r.length; r.charCodeAt(--j) === 48; )
+          ;
+        return r.slice(0, j + 1 || 1);
+      }
+      function compare(x, y) {
+        var a, b, xc = x.c, yc = y.c, i = x.s, j = y.s, k = x.e, l = y.e;
+        if (!i || !j)
+          return null;
+        a = xc && !xc[0];
+        b = yc && !yc[0];
+        if (a || b)
+          return a ? b ? 0 : -j : i;
+        if (i != j)
+          return i;
+        a = i < 0;
+        b = k == l;
+        if (!xc || !yc)
+          return b ? 0 : !xc ^ a ? 1 : -1;
+        if (!b)
+          return k > l ^ a ? 1 : -1;
+        j = (k = xc.length) < (l = yc.length) ? k : l;
+        for (i = 0; i < j; i++)
+          if (xc[i] != yc[i])
+            return xc[i] > yc[i] ^ a ? 1 : -1;
+        return k == l ? 0 : k > l ^ a ? 1 : -1;
+      }
+      function intCheck(n, min, max, name) {
+        if (n < min || n > max || n !== mathfloor(n)) {
+          throw Error(bignumberError + (name || "Argument") + (typeof n == "number" ? n < min || n > max ? " out of range: " : " not an integer: " : " not a primitive number: ") + String(n));
+        }
+      }
+      function isOdd(n) {
+        var k = n.c.length - 1;
+        return bitFloor(n.e / LOG_BASE) == k && n.c[k] % 2 != 0;
+      }
+      function toExponential(str, e) {
+        return (str.length > 1 ? str.charAt(0) + "." + str.slice(1) : str) + (e < 0 ? "e" : "e+") + e;
+      }
+      function toFixedPoint(str, e, z) {
+        var len, zs;
+        if (e < 0) {
+          for (zs = z + "."; ++e; zs += z)
+            ;
+          str = zs + str;
+        } else {
+          len = str.length;
+          if (++e > len) {
+            for (zs = z, e -= len; --e; zs += z)
+              ;
+            str += zs;
+          } else if (e < len) {
+            str = str.slice(0, e) + "." + str.slice(e);
+          }
+        }
+        return str;
+      }
+      BigNumber2 = clone();
+      BigNumber2["default"] = BigNumber2.BigNumber = BigNumber2;
+      if (typeof define == "function" && define.amd) {
+        define(function() {
+          return BigNumber2;
+        });
+      } else if (typeof module2 != "undefined" && module2.exports) {
+        module2.exports = BigNumber2;
+      } else {
+        if (!globalObject) {
+          globalObject = typeof self != "undefined" && self ? self : window;
+        }
+        globalObject.BigNumber = BigNumber2;
+      }
+    })(exports);
   }
 });
 
@@ -30263,13 +31732,607 @@ var require_store2 = __commonJS({
 __markAsModule(exports);
 __export(exports, {
   EthosConnectProvider: () => EthosConnectProvider_default,
+  EthosConnectProviderForVue: () => EthosConnectProviderForVue_default,
   EthosConnectStatus: () => EthosConnectStatus,
   SignInButton: () => SignInButton_default,
   ethos: () => ethos
 });
 
 // src/components/EthosConnectProvider.tsx
-var import_react32 = __toModule(require("react"));
+var import_react30 = __toModule(require("react"));
+
+// src/components/styled/SignInModal.tsx
+var import_react23 = __toModule(require("react"));
+
+// src/components/svg/Loader.tsx
+var import_react = __toModule(require("react"));
+var Loader = ({width = 100, color = "#333"}) => /* @__PURE__ */ import_react.default.createElement("svg", {
+  version: "1.1",
+  id: "L4",
+  xmlns: "http://www.w3.org/2000/svg",
+  x: "0px",
+  y: "0px",
+  viewBox: "0 0 54 20",
+  width,
+  height: width * (20 / 54),
+  enableBackground: "new 0 0 0 0"
+}, /* @__PURE__ */ import_react.default.createElement("circle", {
+  fill: color,
+  stroke: "none",
+  cx: "6",
+  cy: "10",
+  r: "6"
+}, /* @__PURE__ */ import_react.default.createElement("animate", {
+  attributeName: "opacity",
+  dur: "1.5s",
+  values: "0;1;0",
+  repeatCount: "indefinite",
+  begin: "0.1"
+})), /* @__PURE__ */ import_react.default.createElement("circle", {
+  fill: color,
+  stroke: "none",
+  cx: "26",
+  cy: "10",
+  r: "6"
+}, /* @__PURE__ */ import_react.default.createElement("animate", {
+  attributeName: "opacity",
+  dur: "1.5s",
+  values: "0;1;0",
+  repeatCount: "indefinite",
+  begin: "0.5"
+})), /* @__PURE__ */ import_react.default.createElement("circle", {
+  fill: color,
+  stroke: "none",
+  cx: "46",
+  cy: "10",
+  r: "6"
+}, /* @__PURE__ */ import_react.default.createElement("animate", {
+  attributeName: "opacity",
+  dur: "1.5s",
+  values: "0;1;0",
+  repeatCount: "indefinite",
+  begin: "1.0"
+})));
+var Loader_default = Loader;
+
+// src/components/svg/WalletsIcon.tsx
+var import_react2 = __toModule(require("react"));
+var WalletsIcon = ({width = 32}) => /* @__PURE__ */ import_react2.default.createElement("img", {
+  src: dataUri,
+  width,
+  height: width
+});
+var WalletsIcon_default = WalletsIcon;
+var dataUri = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAeGVYSWZNTQAqAAAACAAFARIAAwAAAAEAAQAAARoABQAAAAEAAABKARsABQAAAAEAAABSASgAAwAAAAEAAgAAh2kABAAAAAEAAABaAAAAAAAAAEgAAAABAAAASAAAAAEAAqACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAAAQdIdCAAAACXBIWXMAAAsTAAALEwEAmpwYAAACZmlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNS40LjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyIKICAgICAgICAgICAgeG1sbnM6ZXhpZj0iaHR0cDovL25zLmFkb2JlLmNvbS9leGlmLzEuMC8iPgogICAgICAgICA8dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPgogICAgICAgICA8dGlmZjpSZXNvbHV0aW9uVW5pdD4yPC90aWZmOlJlc29sdXRpb25Vbml0PgogICAgICAgICA8ZXhpZjpDb2xvclNwYWNlPjE8L2V4aWY6Q29sb3JTcGFjZT4KICAgICAgICAgPGV4aWY6UGl4ZWxYRGltZW5zaW9uPjU2PC9leGlmOlBpeGVsWERpbWVuc2lvbj4KICAgICAgICAgPGV4aWY6UGl4ZWxZRGltZW5zaW9uPjU2PC9leGlmOlBpeGVsWURpbWVuc2lvbj4KICAgICAgPC9yZGY6RGVzY3JpcHRpb24+CiAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+CiB3yYcAAAgwSURBVFgJrZddiJ1HGcefmXfe9z3n7G42yTYamy9sklZT0XilAeuFdwXxQrD4gVKwF6IXohdS8CYXJWJFwQvprXhTaOhVFakFjbGWioqItKYXprVda0OaNNnd8/F+jr//nN1k16RCwLM778w8M2f+//k/zzzzHme3+Zw+/Zuw+94TK7mvDucxHCws3h2ie19u9p68d3vy3kaFuYG3diH4We/9dJaF2SzLKG58xWfTyz4b/zvPJqsun6zW9eS1j2785ap76Gz333Buu+H0M2+OwrQ5Wzj/YBbNhWiWR2eAG+CxiJ6+WeijK5KNMWssy6YGCdWR4pwbWwgTbGNsam9QxtH5jSfqS6vfuv+hs/UW7g0C33l69WARu38GMx/Mxaw3l5uAXQypPScjQihgxSY51cE3mwQmAApY9Rx8Xs8JZNm6y/z6uCjHRw5+7GdXRMLr8bmnYtZZe6Hx0TdQalUYaVy02qKTjfpGUb/xLjbeotpdn1uMZey60vp+sFlKm/dxYJRddR77mC+0bfZyjKcTNhs221e89khjbhTZTc+DDbrAwmgWIx0sUMGgj6MbkQE3yOY8hTnWFy74HlB1OnOuTaXvW8BZ3eUOEtE5EQn73njxwleY+FMRcJ23M1BL6wQWjJDQ4n3sXX+TiAMSQoBDTNj84SAm43XYQqSkyZS+x9IB1lJvEaghUtOvWB8Sff6DRODrT720UFm717uMfTrWnxPp5VuBg8KSLnrUoEMcYmQO+8eDPMRHIokWoduVLkge1yXwmwTkkgqCBTVh7sPKhec/sxTqpeye2MKSBWPEsS5jB2wGcJFgYzBXu8MGCW1Wam0S2VJLdqbyBUK4G9CUC+SKDkAFacPUGn2IpjgDo3QL+cL7Q9O3xwnF6NmlAc6IdgtgFg/sLu3LJ1fcgeVCS+uTMObN2z53jM/GtV144YJV641IMFZBpKZdooACM9wXWl8fz5JgWfSA9z7AFAlQ5Esn73YXrkztr29xtFAjFThkYCM2tUs29jzvy0ZRX8d3tOjcoRNH7JUX1llPKtSclArwASoUwJTHyTHN0R4JCDnAgQDcm1c02PdffD1WtUAUIT7mSB9UEwvzXOBSPiixFXBWTijx2QAxKW5A0AyH5Jx+gd12gDeAb5EYupDNjobeNUcURYouoOZuYEGcZSujwj1y6qAd2lVK7y15t+rtPridzaYbnf3t3FWbrin4dCIatK6oZxAiX8TyMATa/TEpAAGCjJ0TTiLU2Vc/csxevrJmf740D3+FmcY0C0QiZu4WuUJp+0ZNWxlz12Kwwx9espfP1wQmIU1K0zH0viJTzmLXTvZLgZUEmBbPmCAAojLL4mN//LubNQJnaSnU4wg8zHFjVsAluAIg+bsg4AesgQtSe8isAbbdRWBmsEG3IAWso2RZzcGb4o7RXaHz7aLETwBKe0CwbgJZGZX2tQ/da0eWRtvltrcnjT3661f5SmYd5Fpi49EHD9reUUqsW+5wG+PWfnv+HZtWMCFdu3YXB4yk39aAJwUW2G49FKuOC2WzxN63Ue1vn/zALeBictcot6JouTMq7oTaFtnCJvgOoosLwT5+atnGxPaEUsXSte0ujuEuFFgiNS+XvnUtV3zDGaAA2rua01CTnmvbNxzsWHB75wv3v9f2LMRE5NP3LW8f2tFe2V0kAmOO9QTPVt3QmmY5EWm7xSKwW6U7PImL0pNZ8rfy/c3I37GoOg8cWEnlloHbGDa0lBJLRzzpr1s03yovVBbKjszEaJ/h+5TUcS2HheeWL2+z5J2Z1nRLEictSyrLKF35djdx0MQwaGrdXSRBT4Q6FXI+9wH1ncG8++w13VESgA2S7ri5kKHjZNV72jDqmoqoJxB1oyYCUoIY+N8ueHe4W0fGWU3A5rzgoIRncyDo7vTdoAnDtpr20Q+VfuZF11Jq/98UaMIYF5Sx4RqucUUdUJvXUw79LAyb9hqS7NXZl9vlfmKCE+Hj6vXL7uDyvlu3dAeWy7OpVdm6Zb7idJXWdgOrRQYNeO275kdVdWnU1kaJo7oylYWmjov1zD39p1/atcnaHcDtnHpx4x0789IfrM7XrQprbPe6zYprcZJfd1fyqb0Z2kth2NcX0fyUAkMxoIPCoZASce3tVffjZ35CctTdKGWQDWWSSvhQth7VFFyKGQq+9lw7ngSVWRMCL668H2WB3Sqd58R/4ZqsjDnvBE278I8wqGbnvPdf1GKQSGBC2GzLTyI1J5cIklXlrnRSAYXuZuyk+gYZEfEqEMnmZQaZJuSxznJXe37a+Py5EKb1s2WZ6fbV4dAjPclJMuEphkDTmKaIkKZIKeWt+Ty1PQTS24RebrFLFdRhXg8JyEglq7MM8GD8lLK1xp8XsHvyiW+us+ZIgHMeetObExGHBK7BTRLCTqQSmTkx2cQwqYUdYonknKyIY9h0JW7D6378jYfP7ArazJM/XPvgMC9f1wJbsFpbfX2SCKigQyLkZEqDEkZC6V/jtJMkvGGk9uZyvNUq/2HizYpET32tqk5gSotRm/388YcfKDN/PnW0fxoq+iCiFhbXTTt1wo2WycjZVl9trjjJqJd8ARF0OANb1ne8pDCgV+wufvKe7/3id/O1E8T88exjnz+0lGWvADwUqAIg1VKG72q3XFWprcX17qzzke4aEjpgAqSvObKnLwlUDX1/YzKLJ4796FdvbMFubXKrr9r9/rufPTwo4icG0T5F/yjy7WeHe1iIG94VLM7VlX6qCEgy8g9i1M9FXvzMJkhyFa5vMXiRS/D5qqueO/b4uX9p4naw/wDv1ZplvOGRpgAAAABJRU5ErkJggg==`;
+
+// src/enums/Breakpoints.ts
+var Breakpoints;
+(function(Breakpoints2) {
+  Breakpoints2[Breakpoints2["sm"] = 640] = "sm";
+  Breakpoints2[Breakpoints2["md"] = 768] = "md";
+  Breakpoints2[Breakpoints2["lg"] = 1024] = "lg";
+  Breakpoints2[Breakpoints2["xl"] = 1280] = "xl";
+  Breakpoints2[Breakpoints2["2xl"] = 1536] = "2xl";
+})(Breakpoints || (Breakpoints = {}));
+
+// src/components/styled/signInModalStyles.ts
+var COLOR_LIGHT_TEXT_MEDIUM = "#74777C";
+var ethosWalletTitleText = () => ({
+  fontSize: "18px",
+  lineHeight: "24px",
+  fontWeight: "600",
+  marginLeft: "10px"
+});
+var secondaryText = () => ({
+  color: "#6B7280",
+  fontSize: "0.875rem",
+  lineHeight: "1.25rem",
+  padding: "24px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px"
+});
+var dialog = (isOpen) => ({
+  visibility: isOpen ? "" : "hidden",
+  position: "relative",
+  zIndex: "100"
+});
+var backdrop = (isOpen) => ({
+  position: "fixed",
+  top: "0px",
+  right: "0px",
+  bottom: "0px",
+  left: "0px",
+  backgroundColor: "rgb(107 114 128)",
+  opacity: isOpen ? ".75" : "0",
+  transition: "all 300ms ease-in-out"
+});
+var highlighted = () => ({
+  color: "#6D28D9"
+});
+var modalOuterWrapper = (isOpen) => ({
+  position: "fixed",
+  zIndex: "99",
+  top: "0px",
+  right: "0px",
+  bottom: "0px",
+  left: "0px",
+  overflowY: "auto",
+  opacity: isOpen ? "1" : "0",
+  scale: isOpen ? "1" : ".95",
+  transition: "all 300ms ease-in-out"
+});
+var modalInnerWrapper = (width) => {
+  const styles12 = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "100%",
+    padding: "1rem",
+    textAlign: "center"
+  };
+  const sm = {
+    padding: "0",
+    alignItems: "center"
+  };
+  return width < Breakpoints.sm ? styles12 : {...styles12, ...sm};
+};
+var dialogPanel = (width) => {
+  const styles12 = {
+    overflow: "hidden",
+    position: "relative",
+    backgroundColor: "#ffffff",
+    transitionProperty: "all",
+    borderRadius: "0.5rem",
+    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
+  };
+  const sm = {
+    width: "360px"
+  };
+  return width < Breakpoints.sm ? styles12 : {...styles12, ...sm};
+};
+var topPanelStyle = () => ({
+  padding: "24px 24px 0px",
+  display: "flex",
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center"
+});
+var closeStyle = () => ({
+  width: "24px",
+  height: "24px",
+  color: "#A0AEBA",
+  cursor: "pointer"
+});
+var backStyle = () => ({
+  color: COLOR_LIGHT_TEXT_MEDIUM,
+  cursor: "pointer",
+  display: "flex",
+  gap: "6px",
+  alignItems: "center"
+});
+var backStyleText = () => ({
+  fontSize: "16px",
+  lineHeight: "24px"
+});
+var headerStyle = (withIcon = false) => ({
+  padding: withIcon ? "24px 24px 32px" : "0 24px 32px",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  gap: "12px"
+});
+var headerLogosStyle = () => ({
+  display: "flex",
+  justifyContent: "center",
+  gap: "-6px"
+});
+var titleStyle = () => ({
+  fontSize: "24px",
+  fontWeight: "600",
+  lineHeight: "32px",
+  margin: "0"
+});
+var subTitleStyle = () => ({
+  fontSize: "16px",
+  fontWeight: "400",
+  lineHeight: "24px",
+  margin: "0",
+  color: COLOR_LIGHT_TEXT_MEDIUM
+});
+var strikeThroughOrContainer = () => ({
+  padding: "0px 24px 24px",
+  display: "flex",
+  flexDirection: "row",
+  gap: "12px",
+  justifyContent: "space-between",
+  alignItems: "center",
+  color: COLOR_LIGHT_TEXT_MEDIUM
+});
+var line = () => ({
+  height: "1px",
+  width: "100%",
+  background: "rgba(0, 0, 0, 0.12)",
+  borderRadius: "16px"
+});
+var emailInput = () => ({
+  boxSizing: "border-box",
+  border: "1px solid rgba(0, 0, 0, 0.08)",
+  borderRadius: "16px",
+  background: "#F2F2F2",
+  padding: "20px",
+  width: "100%"
+});
+var walletOptionContainer = (width) => {
+  const styles12 = {
+    padding: "0px 24px 24px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "12px"
+  };
+  const sm = {};
+  return width < Breakpoints.sm ? styles12 : {...styles12, ...sm};
+};
+var iconButton = (width, disabled = false, primary2 = false, noIcon = false) => {
+  const styles12 = {
+    textDecoration: "none",
+    fontWeight: primary2 ? "500" : "400",
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: noIcon ? "center" : "space-between",
+    alignItems: "center",
+    padding: primary2 ? "20px 20px" : "16px 16px 16px 20px",
+    width: "100%",
+    background: primary2 ? "#6D28D9" : "#F2F2F2",
+    color: primary2 ? "white" : "black",
+    opacity: disabled ? 0.5 : 1,
+    cursor: disabled ? "not-allowed" : "pointer",
+    borderRadius: "16px",
+    flex: "none",
+    order: "0",
+    flexGrow: "0",
+    boxShadow: "0px 1px 2px rgba(0, 0, 0, 0.05)",
+    border: "none",
+    fontSize: "inherit"
+  };
+  const sm = {};
+  return width < Breakpoints.sm ? styles12 : {...styles12, ...sm};
+};
+var submitButtonContainer = () => ({
+  padding: "0px 24px 24px"
+});
+var loaderStyle = () => ({
+  display: "flex",
+  justifyContent: "center",
+  padding: "45px 0"
+});
+var walletExplanation = () => ({
+  padding: "6px 0",
+  color: "#666",
+  width: "100%",
+  fontSize: "smaller",
+  marginBottom: "12px"
+});
+
+// src/lib/useHandleElementWithIdClicked.ts
+var import_react3 = __toModule(require("react"));
+function useHandleElementWithIdClicked(clickId, onClickOutside) {
+  (0, import_react3.useEffect)(() => {
+    function handleClickOutside(event2) {
+      if (event2.target.id === clickId) {
+        onClickOutside();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+}
+
+// src/components/styled/EmailSent.tsx
+var import_react7 = __toModule(require("react"));
+
+// src/components/svg/EthosEnclosed.tsx
+var import_react4 = __toModule(require("react"));
+var EthosEnclosed = ({width = 24, color = "#6D28D9"}) => /* @__PURE__ */ import_react4.default.createElement("svg", {
+  width,
+  height: width,
+  viewBox: "0 0 56 56",
+  fill: "none",
+  xmlns: "http://www.w3.org/2000/svg"
+}, /* @__PURE__ */ import_react4.default.createElement("rect", {
+  width: "56",
+  height: "56",
+  rx: "16",
+  fill: color
+}), /* @__PURE__ */ import_react4.default.createElement("path", {
+  opacity: "0.8",
+  d: "M17.9631 13H36.9268C37.7997 13 38.5073 13.7076 38.5073 14.5805V35.9802C38.5073 36.8531 37.7997 37.5607 36.9268 37.5607H17.9631C17.0902 37.5607 16.3826 36.8531 16.3826 35.9802V14.5805C16.3826 13.7076 17.0902 13 17.9631 13Z",
+  stroke: "url(#paint0_linear_514_2169)",
+  strokeOpacity: "0.9",
+  strokeWidth: "0.790251"
+}), /* @__PURE__ */ import_react4.default.createElement("path", {
+  d: "M17.2471 14.0457L30.1651 20.0566C30.7225 20.316 31.0789 20.8749 31.0789 21.4896V42.6676C31.0789 43.8113 29.9018 44.5763 28.8566 44.112L15.9386 38.3725C15.3677 38.1189 14.9998 37.5528 14.9998 36.9281V15.4787C14.9998 14.3231 16.1994 13.5582 17.2471 14.0457Z",
+  fill: "white",
+  fillOpacity: "0.9"
+}), /* @__PURE__ */ import_react4.default.createElement("path", {
+  d: "M42.9117 27.9093C43.0029 27.4813 43.219 27.0901 43.5329 26.7851C43.8467 26.4801 44.2441 26.2753 44.6746 26.1965L45.8205 25.9872L44.6745 25.7779H44.6746C44.2441 25.6991 43.8467 25.4943 43.5329 25.1893C43.219 24.8843 43.0029 24.4931 42.9117 24.0651L42.6596 22.8774L42.4074 24.0651C42.3162 24.4931 42.1001 24.8843 41.7862 25.1893C41.4724 25.4943 41.075 25.6992 40.6445 25.7779L39.4985 25.9872L40.6446 26.1965H40.6445C41.075 26.2753 41.4724 26.4801 41.7861 26.7851C42.1 27.0901 42.3162 27.4813 42.4073 27.9093L42.6595 29.097L42.9117 27.9093Z",
+  fill: "white",
+  fillOpacity: "0.9"
+}), /* @__PURE__ */ import_react4.default.createElement("defs", null, /* @__PURE__ */ import_react4.default.createElement("linearGradient", {
+  id: "paint0_linear_514_2169",
+  x1: "38.5073",
+  y1: "19.5371",
+  x2: "27.4445",
+  y2: "25.0685",
+  gradientUnits: "userSpaceOnUse"
+}, /* @__PURE__ */ import_react4.default.createElement("stop", {
+  stopColor: "white"
+}), /* @__PURE__ */ import_react4.default.createElement("stop", {
+  offset: "1",
+  stopColor: "white",
+  stopOpacity: "0"
+}))));
+var EthosEnclosed_default = EthosEnclosed;
+
+// src/components/svg/Ethos.tsx
+var import_react5 = __toModule(require("react"));
+var Ethos = ({width = 24, color = "#1e293b"}) => /* @__PURE__ */ import_react5.default.createElement("svg", {
+  width,
+  height: width * 65 / 47,
+  viewBox: "0 0 47 65",
+  fill: "none",
+  xmlns: "http://www.w3.org/2000/svg"
+}, /* @__PURE__ */ import_react5.default.createElement("path", {
+  d: "M6.00471 1H40.0029C42.7644 1 45.0029 3.23858 45.0029 6V44.8425C45.0029 47.604 42.7643 49.8425 40.0029 49.8425H6.0047C3.24328 49.8425 1.0047 47.604 1.0047 44.8425V6C1.0047 3.23858 3.24329 1 6.00471 1Z",
+  stroke: color,
+  strokeWidth: "2"
+}), /* @__PURE__ */ import_react5.default.createElement("path", {
+  d: "M6.68764 3.64648L30.6631 14.8026C32.0736 15.4589 32.9756 16.8735 32.9756 18.4292V58.6799C32.9756 61.5743 29.9966 63.5105 27.3515 62.3353L3.37601 51.683C1.93126 51.0411 1.00013 49.6085 1.00013 48.0276V7.27309C1.00013 4.34854 4.03609 2.41268 6.68764 3.64648Z",
+  fill: color
+}));
+var Ethos_default = Ethos;
+
+// src/components/styled/Header.tsx
+var import_react6 = __toModule(require("react"));
+var Header = ({title, subTitle, dappIcon, showEthos = false, children}) => {
+  return /* @__PURE__ */ import_react6.default.createElement("div", null, /* @__PURE__ */ import_react6.default.createElement("div", {
+    style: headerStyle(!!dappIcon)
+  }, /* @__PURE__ */ import_react6.default.createElement("div", {
+    style: headerLogosStyle()
+  }, dappIcon && (typeof dappIcon === "string" ? /* @__PURE__ */ import_react6.default.createElement("img", {
+    src: dappIcon
+  }) : dappIcon), showEthos && /* @__PURE__ */ import_react6.default.createElement(Ethos_default, null)), title && /* @__PURE__ */ import_react6.default.createElement("div", {
+    style: titleStyle()
+  }, title), subTitle && /* @__PURE__ */ import_react6.default.createElement("div", {
+    style: subTitleStyle()
+  }, subTitle)), children);
+};
+var Header_default = Header;
+
+// src/components/styled/EmailSent.tsx
+var EmailSent = () => {
+  return /* @__PURE__ */ import_react7.default.createElement(Header_default, {
+    title: "Ethos sent you an email",
+    dappIcon: /* @__PURE__ */ import_react7.default.createElement(EthosEnclosed_default, {
+      width: 60
+    })
+  }, /* @__PURE__ */ import_react7.default.createElement("div", {
+    style: secondaryText()
+  }, /* @__PURE__ */ import_react7.default.createElement("p", null, "An email has been sent to you with a link to login."), /* @__PURE__ */ import_react7.default.createElement("p", null, "If you don't receive it, please check your spam folder or contact us at:"), /* @__PURE__ */ import_react7.default.createElement("p", null, "support@ethoswallet.xyz")));
+};
+var EmailSent_default = EmailSent;
+
+// src/components/styled/Wallets.tsx
+var import_react9 = __toModule(require("react"));
+
+// src/components/styled/IconButton.tsx
+var import_react8 = __toModule(require("react"));
+var IconButton = (props) => {
+  const {text, icon, width, disabled, primary: primary2, type, ...reactProps} = props;
+  return /* @__PURE__ */ import_react8.default.createElement("button", {
+    style: iconButton(width, disabled, primary2, !icon),
+    ...reactProps,
+    type
+  }, /* @__PURE__ */ import_react8.default.createElement("div", null, text), icon);
+};
+var IconButton_default = IconButton;
+
+// src/components/styled/Wallets.tsx
+var Wallets = ({wallets: wallets2, selectWallet, width}) => {
+  const _connectExtension = (0, import_react9.useCallback)((e) => {
+    if (!selectWallet)
+      return;
+    let element = e.target;
+    let name;
+    while (!name && element.parentNode) {
+      name = element.dataset.name;
+      element = element.parentNode;
+    }
+    selectWallet(name);
+  }, []);
+  const icon = (0, import_react9.useCallback)((wallet) => {
+    const src = wallet.name === "Sui Wallet" ? "https://sui.io/favicon.png" : wallet.icon;
+    return /* @__PURE__ */ import_react9.default.createElement("img", {
+      src,
+      height: 32,
+      width: 32
+    });
+  }, []);
+  return /* @__PURE__ */ import_react9.default.createElement("div", {
+    role: "wallet-sign-in"
+  }, /* @__PURE__ */ import_react9.default.createElement("div", {
+    style: walletOptionContainer(width)
+  }, wallets2 == null ? void 0 : wallets2.map((wallet, index) => /* @__PURE__ */ import_react9.default.createElement(IconButton_default, {
+    key: `select-wallet-${index}`,
+    icon: icon(wallet),
+    "data-name": wallet.name,
+    text: wallet.name,
+    onClick: _connectExtension,
+    width
+  }))));
+};
+var Wallets_default = Wallets;
+
+// src/components/styled/Email.tsx
+var import_react10 = __toModule(require("react"));
+
+// src/lib/getConfiguration.ts
+var import_store2 = __toModule(require_store2());
+var getConfiguration = () => {
+  const ethosStore = import_store2.default.namespace("ethos");
+  const configuration = ethosStore("configuration");
+  return configuration || {};
+};
+var getConfiguration_default = getConfiguration;
+
+// src/lib/postIFrameMessage.ts
+var import_store24 = __toModule(require_store2());
+
+// src/lib/getIframe.ts
+var import_store23 = __toModule(require_store2());
+
+// src/lib/log.ts
+var import_store22 = __toModule(require_store2());
+var allowLog = (label) => {
+  const logStore = import_store22.default.namespace("log");
+  const allowed = logStore("allowed") || [];
+  if (allowed.includes(label))
+    return;
+  logStore("allowed", [...allowed, label]);
+  return `Logging enabled for ${label}. Call ethos.clearAllowLog() to turn off this logging.`;
+};
+var clearAllowLog = () => {
+  const logStore = import_store22.default.namespace("log");
+  logStore("allowed", []);
+};
+var log = (label, ...message) => {
+  const logStore = import_store22.default.namespace("log");
+  const allowed = logStore("allowed");
+  if (!allowed || !(allowed.includes(label) || allowed.includes("all"))) {
+    return;
+  }
+  console.log(label, ...message);
+};
+if (typeof window !== "undefined") {
+  ;
+  window.ethos = {
+    allowLog,
+    clearAllowLog
+  };
+}
+var log_default = log;
+
+// src/lib/getIframe.ts
+var getIframe = (show) => {
+  const {apiKey, walletAppUrl} = getConfiguration_default();
+  log_default("getIframe", "getIframe", apiKey, walletAppUrl);
+  if (!apiKey || !walletAppUrl)
+    return;
+  const iframeId = "ethos-wallet-iframe";
+  let scrollY = 0;
+  let iframe = document.getElementById(iframeId);
+  const close = () => {
+    if (!iframe)
+      return;
+    iframe.style.width = "1px";
+    iframe.style.height = "1px";
+  };
+  if (!iframe) {
+    const queryParams = new URLSearchParams(window.location.search);
+    const auth = queryParams.get("auth");
+    let fullWalletAppUrl = walletAppUrl + `/wallet?apiKey=${apiKey}`;
+    if (auth) {
+      fullWalletAppUrl += `&auth=${auth}`;
+      queryParams.delete("auth");
+      let fullPath = location.protocol + "//" + location.host + location.pathname;
+      if (queryParams.toString().length > 0) {
+        fullPath += "?" + queryParams.toString();
+      }
+      import_store23.default.namespace("auth")("access_token", auth);
+      window.history.pushState({}, "", fullPath);
+    } else {
+      const accessToken = import_store23.default.namespace("auth")("access_token");
+      if (accessToken) {
+        fullWalletAppUrl += `&auth=${accessToken}`;
+      }
+    }
+    log_default("getIframe", "Load Iframe", fullWalletAppUrl);
+    iframe = document.createElement("IFRAME");
+    iframe.src = fullWalletAppUrl;
+    iframe.id = iframeId;
+    iframe.style.border = "none";
+    iframe.style.position = "absolute";
+    iframe.style.top = scrollY - 1 + "px";
+    iframe.style.right = "60px";
+    iframe.style.width = "1px";
+    iframe.style.height = "1px";
+    iframe.style.zIndex = "99";
+    iframe.setAttribute("allow", "payment; clipboard-read; clipboard-write");
+    document.body.appendChild(iframe);
+    window.addEventListener("message", (message) => {
+      if (message.origin === walletAppUrl) {
+        const {action} = message.data;
+        switch (action) {
+          case "close":
+            close();
+            break;
+          case "ready":
+            iframe.setAttribute("readyToReceiveMessages", "true");
+            const messageStore = import_store23.default.namespace("iframeMessages");
+            const messages = messageStore("messages") || [];
+            for (const message2 of messages) {
+              postIFrameMessage_default(message2);
+            }
+            messageStore("messages", null);
+            break;
+        }
+      }
+    });
+    window.addEventListener("scroll", () => {
+      scrollY = window.scrollY;
+      iframe.style.top = scrollY + "px";
+    });
+  }
+  if (show) {
+    iframe.style.width = "360px";
+    iframe.style.height = "600px";
+  } else if (show !== void 0) {
+    close();
+  }
+  return iframe;
+};
+var getIframe_default = getIframe;
+
+// src/lib/postIFrameMessage.ts
+var postIFrameMessage = (message) => {
+  var _a;
+  const iframe = getIframe_default();
+  if (!(iframe == null ? void 0 : iframe.getAttribute("readyToReceiveMessages"))) {
+    const messageStore = import_store24.default.namespace("iframeMessages");
+    const existingMessages = messageStore("messages") || [];
+    const result = messageStore("messages", [...existingMessages, message]);
+    log_default("iframe", "Storing iframe message", result);
+    return;
+  }
+  (_a = iframe == null ? void 0 : iframe.contentWindow) == null ? void 0 : _a.postMessage(message, "*");
+};
+var postIFrameMessage_default = postIFrameMessage;
+
+// src/lib/event.ts
+var event = async (eventProps) => {
+  postIFrameMessage_default({
+    action: "event",
+    data: eventProps
+  });
+};
+var event_default = event;
+
+// src/lib/login.ts
+var import_store27 = __toModule(require_store2());
 
 // node_modules/@mysten/sui.js/dist/index.mjs
 var import_tweetnacl = __toModule(require_nacl_fast());
@@ -31929,11 +33992,11 @@ function isSuiPackage(obj, _argumentName) {
 }
 var SUI_ADDRESS_LENGTH = 20;
 function normalizeSuiAddress(value, forceAdd0x = false) {
-  let address = value.toLowerCase();
-  if (!forceAdd0x && address.startsWith("0x")) {
-    address = address.slice(2);
+  let address2 = value.toLowerCase();
+  if (!forceAdd0x && address2.startsWith("0x")) {
+    address2 = address2.slice(2);
   }
-  return `0x${address.padStart(SUI_ADDRESS_LENGTH * 2, "0")}`;
+  return `0x${address2.padStart(SUI_ADDRESS_LENGTH * 2, "0")}`;
 }
 function normalizeSuiObjectId(value, forceAdd0x = false) {
   return normalizeSuiAddress(value, forceAdd0x);
@@ -32504,15 +34567,15 @@ var JsonRpcProvider = class extends Provider {
       throw new Error(`Error fetching struct: ${err} for package ${packageId}, module ${moduleName} and struct ${structName}}`);
     }
   }
-  async getObjectsOwnedByAddress(address) {
+  async getObjectsOwnedByAddress(address2) {
     try {
-      return await this.client.requestWithType("sui_getObjectsOwnedByAddress", [address], isGetOwnedObjectsResponse, this.options.skipDataValidation);
+      return await this.client.requestWithType("sui_getObjectsOwnedByAddress", [address2], isGetOwnedObjectsResponse, this.options.skipDataValidation);
     } catch (err) {
-      throw new Error(`Error fetching owned object: ${err} for address ${address}`);
+      throw new Error(`Error fetching owned object: ${err} for address ${address2}`);
     }
   }
-  async getGasObjectsOwnedByAddress(address) {
-    const objects = await this.getObjectsOwnedByAddress(address);
+  async getGasObjectsOwnedByAddress(address2) {
+    const objects = await this.getObjectsOwnedByAddress(address2);
     return objects.filter((obj) => Coin.isSUI(obj));
   }
   getCoinDenominationInfo(coinType) {
@@ -32526,17 +34589,17 @@ var JsonRpcProvider = class extends Provider {
       decimalNumber: 9
     };
   }
-  async getCoinBalancesOwnedByAddress(address, typeArg) {
-    const objects = await this.getObjectsOwnedByAddress(address);
+  async getCoinBalancesOwnedByAddress(address2, typeArg) {
+    const objects = await this.getObjectsOwnedByAddress(address2);
     const coinIds = objects.filter((obj) => Coin.isCoin(obj) && (typeArg === void 0 || typeArg === Coin.getCoinTypeArg(obj))).map((c) => c.objectId);
     return await this.getObjectBatch(coinIds);
   }
-  async selectCoinsWithBalanceGreaterThanOrEqual(address, amount, typeArg = SUI_TYPE_ARG, exclude = []) {
-    const coins = await this.getCoinBalancesOwnedByAddress(address, typeArg);
+  async selectCoinsWithBalanceGreaterThanOrEqual(address2, amount, typeArg = SUI_TYPE_ARG, exclude = []) {
+    const coins = await this.getCoinBalancesOwnedByAddress(address2, typeArg);
     return await Coin.selectCoinsWithBalanceGreaterThanOrEqual(coins, amount, exclude);
   }
-  async selectCoinSetWithCombinedBalanceGreaterThanOrEqual(address, amount, typeArg = SUI_TYPE_ARG, exclude = []) {
-    const coins = await this.getCoinBalancesOwnedByAddress(address, typeArg);
+  async selectCoinSetWithCombinedBalanceGreaterThanOrEqual(address2, amount, typeArg = SUI_TYPE_ARG, exclude = []) {
+    const coins = await this.getCoinBalancesOwnedByAddress(address2, typeArg);
     return await Coin.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(coins, amount, exclude);
   }
   async getObjectsOwnedByObject(objectId) {
@@ -32721,34 +34784,57 @@ var ipfsConversion = (src) => {
   }
   return src;
 };
-var getWalletContents = async (address) => {
+var empty = {
+  suiBalance: 0,
+  nfts: [],
+  tokens: [],
+  objects: []
+};
+var getWalletContents = async ({address: address2, existingContents = empty}) => {
   const provider = new JsonRpcProvider(Network.DEVNET);
-  if (!address) {
-    return {
-      suiBalance: 0,
-      nfts: [],
-      tokens: []
-    };
+  if (!address2) {
+    return empty;
   }
-  const objectInfos = await provider.getObjectsOwnedByAddress(address);
+  const objectInfos = await provider.getObjectsOwnedByAddress(address2);
   if (objectInfos.length === 0) {
-    return {
-      suiBalance: 0,
-      tokens: [],
-      nfts: []
-    };
+    return empty;
   }
-  const objectIds = objectInfos.map((o) => o.objectId);
-  const objects = await provider.getObjectBatch(objectIds);
+  const referenceAndData = (object) => {
+    if (typeof object.details === "string" || !("reference" in object.details))
+      return {};
+    return object.details;
+  };
+  const currentObjects = [];
+  let newObjectInfos = [];
+  if ((existingContents == null ? void 0 : existingContents.objects) && existingContents.objects.length > 0) {
+    for (const objectInfo of objectInfos) {
+      const existingObject = existingContents == null ? void 0 : existingContents.objects.find((existingObject2) => {
+        const {reference} = referenceAndData(existingObject2);
+        return (reference == null ? void 0 : reference.objectId) === objectInfo.objectId && (reference == null ? void 0 : reference.version) === objectInfo.version;
+      });
+      if (existingObject) {
+        currentObjects.push(existingObject);
+      } else {
+        newObjectInfos.push(objectInfo);
+      }
+    }
+  } else {
+    newObjectInfos = objectInfos;
+  }
+  if (newObjectInfos.length === 0)
+    return null;
+  const newObjectIds = newObjectInfos.map((o) => o.objectId);
+  const newObjects = await provider.getObjectBatch(newObjectIds);
+  const objects = currentObjects.concat(newObjects);
   let suiBalance = 0;
   const nfts = [];
   const tokens = {};
   for (const object of objects) {
     try {
-      const {data, reference} = object.details || {};
-      if (!data)
+      const {reference, data} = referenceAndData(object);
+      if (!reference)
         continue;
-      const typeStringComponents = ((data == null ? void 0 : data.type) || "").split("<");
+      const typeStringComponents = (data.type || "").split("<");
       const subtype = (typeStringComponents[1] || "").replace(/>/, "");
       const typeComponents = typeStringComponents[0].split("::");
       const type = typeComponents[typeComponents.length - 1];
@@ -32758,6 +34844,7 @@ var getWalletContents = async (address) => {
         nfts.push({
           chain: "Sui",
           address: reference == null ? void 0 : reference.objectId,
+          objectId: reference == null ? void 0 : reference.objectId,
           name: data.fields.name,
           description: data.fields.description,
           imageUri: safeUrl,
@@ -32793,6 +34880,7 @@ var getWalletContents = async (address) => {
           package: typeComponents[0],
           chain: "Sui",
           address: reference == null ? void 0 : reference.objectId,
+          objectId: reference == null ? void 0 : reference.objectId,
           name,
           description,
           imageUri: safeUrl,
@@ -32809,18 +34897,9 @@ var getWalletContents = async (address) => {
       console.log("Error retrieving object", object, error);
     }
   }
-  return {suiBalance, tokens, nfts};
+  return {suiBalance, tokens, nfts, objects};
 };
 var getWalletContents_default = getWalletContents;
-
-// src/lib/getConfiguration.ts
-var import_store2 = __toModule(require_store2());
-var getConfiguration = () => {
-  const ethosStore = import_store2.default.namespace("ethos");
-  const configuration = ethosStore("configuration");
-  return configuration || {};
-};
-var getConfiguration_default = getConfiguration;
 
 // src/lib/getEthosSigner.ts
 var import_store25 = __toModule(require_store2());
@@ -32837,137 +34916,6 @@ var SignerType;
   SignerType2["Extension"] = "extension";
   SignerType2["Hosted"] = "hosted";
 })(SignerType || (SignerType = {}));
-
-// src/lib/getIframe.ts
-var import_store24 = __toModule(require_store2());
-
-// src/lib/log.ts
-var import_store22 = __toModule(require_store2());
-var allowLog = (label) => {
-  const logStore = import_store22.default.namespace("log");
-  const allowed = logStore("allowed") || [];
-  if (allowed.includes(label))
-    return;
-  logStore("allowed", [...allowed, label]);
-  return `Logging enabled for ${label}. Call ethos.clearAllowLog() to turn off this logging.`;
-};
-var clearAllowLog = () => {
-  const logStore = import_store22.default.namespace("log");
-  logStore("allowed", []);
-};
-var log = (label, ...message) => {
-  const logStore = import_store22.default.namespace("log");
-  const allowed = logStore("allowed");
-  if (!allowed || !(allowed.includes(label) || allowed.includes("all"))) {
-    return;
-  }
-  console.log(label, ...message);
-};
-if (typeof window !== "undefined") {
-  ;
-  window.ethos = {
-    allowLog,
-    clearAllowLog
-  };
-}
-var log_default = log;
-
-// src/lib/postIFrameMessage.ts
-var import_store23 = __toModule(require_store2());
-var postIFrameMessage = (message) => {
-  var _a;
-  const iframe = getIframe_default();
-  if (!(iframe == null ? void 0 : iframe.getAttribute("readyToReceiveMessages"))) {
-    const messageStore = import_store23.default.namespace("iframeMessages");
-    const existingMessages = messageStore("messages") || [];
-    const result = messageStore("messages", [...existingMessages, message]);
-    log_default("iframe", "Storing iframe message", result);
-    return;
-  }
-  (_a = iframe == null ? void 0 : iframe.contentWindow) == null ? void 0 : _a.postMessage(message, "*");
-};
-var postIFrameMessage_default = postIFrameMessage;
-
-// src/lib/getIframe.ts
-var getIframe = (show) => {
-  const {apiKey, walletAppUrl} = getConfiguration_default();
-  log_default("getIframe", "getIframe", apiKey, walletAppUrl);
-  if (!apiKey || !walletAppUrl)
-    return;
-  const iframeId = "ethos-wallet-iframe";
-  let scrollY = 0;
-  let iframe = document.getElementById(iframeId);
-  const close = () => {
-    if (!iframe)
-      return;
-    iframe.style.width = "1px";
-    iframe.style.height = "1px";
-  };
-  if (!iframe) {
-    const queryParams = new URLSearchParams(window.location.search);
-    const auth = queryParams.get("auth");
-    let fullWalletAppUrl = walletAppUrl + `/wallet?apiKey=${apiKey}`;
-    if (auth) {
-      fullWalletAppUrl += `&auth=${auth}`;
-      queryParams.delete("auth");
-      let fullPath = location.protocol + "//" + location.host + location.pathname;
-      if (queryParams.toString().length > 0) {
-        fullPath += "?" + queryParams.toString();
-      }
-      import_store24.default.namespace("auth")("access_token", auth);
-      window.history.pushState({}, "", fullPath);
-    } else {
-      const accessToken = import_store24.default.namespace("auth")("access_token");
-      if (accessToken) {
-        fullWalletAppUrl += `&auth=${accessToken}`;
-      }
-    }
-    log_default("getIframe", "Load Iframe", fullWalletAppUrl);
-    iframe = document.createElement("IFRAME");
-    iframe.src = fullWalletAppUrl;
-    iframe.id = iframeId;
-    iframe.style.border = "none";
-    iframe.style.position = "absolute";
-    iframe.style.top = scrollY - 1 + "px";
-    iframe.style.right = "60px";
-    iframe.style.width = "1px";
-    iframe.style.height = "1px";
-    iframe.style.zIndex = "99";
-    iframe.setAttribute("allow", "payment; clipboard-read; clipboard-write");
-    document.body.appendChild(iframe);
-    window.addEventListener("message", (message) => {
-      if (message.origin === walletAppUrl) {
-        const {action} = message.data;
-        switch (action) {
-          case "close":
-            close();
-            break;
-          case "ready":
-            iframe.setAttribute("readyToReceiveMessages", "true");
-            const messageStore = import_store24.default.namespace("iframeMessages");
-            const messages = messageStore("messages") || [];
-            for (const message2 of messages) {
-              postIFrameMessage_default(message2);
-            }
-            messageStore("messages", null);
-            break;
-        }
-      }
-    });
-    window.addEventListener("scroll", () => {
-      scrollY = window.scrollY;
-      iframe.style.top = scrollY + "px";
-    });
-  }
-  if (show) {
-    iframe.style.width = "360px";
-    iframe.style.height = "600px";
-  } else if (show !== void 0) {
-    close();
-  }
-  return iframe;
-};
-var getIframe_default = getIframe;
 
 // src/lib/activeUser.ts
 var activeUser = () => {
@@ -33085,6 +35033,8 @@ var getEthosSigner = async () => {
   };
   return user ? {
     type: SignerType.Hosted,
+    name: "Ethos",
+    icon: dataIcon,
     email: user.email,
     getAccounts,
     getAddress,
@@ -33096,6 +35046,7 @@ var getEthosSigner = async () => {
   } : null;
 };
 var getEthosSigner_default = getEthosSigner;
+var dataIcon = `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzZEMjhEOSIvPgo8cGF0aCBvcGFjaXR5PSIwLjgiIGQ9Ik05LjEyMTg3IDYuODU3MDZIMTkuOTU4M0MyMC40NTcxIDYuODU3MDYgMjAuODYxNCA3LjI2MTQxIDIwLjg2MTQgNy43NjAyVjE5Ljk4ODZDMjAuODYxNCAyMC40ODc0IDIwLjQ1NzEgMjAuODkxOCAxOS45NTgzIDIwLjg5MThIOS4xMjE4N0M4LjYyMzA4IDIwLjg5MTggOC4yMTg3MiAyMC40ODc0IDguMjE4NzIgMTkuOTg4NlY3Ljc2MDJDOC4yMTg3MiA3LjI2MTQxIDguNjIzMDggNi44NTcwNiA5LjEyMTg3IDYuODU3MDZaIiBzdHJva2U9InVybCgjcGFpbnQwX2xpbmVhcl82OTlfMjY5OCkiIHN0cm9rZS13aWR0aD0iMC40NTE1NzIiLz4KPHBhdGggZD0iTTguNzEyNzQgNy40NTQ1OUwxNi4wOTQ1IDEwLjg4OTRDMTYuNDEyOSAxMS4wMzc2IDE2LjYxNjYgMTEuMzU3IDE2LjYxNjYgMTEuNzA4M1YyMy44MUMxNi42MTY2IDI0LjQ2MzUgMTUuOTQ0IDI0LjkwMDcgMTUuMzQ2OCAyNC42MzUzTDcuOTY1MDIgMjEuMzU1NkM3LjYzODgyIDIxLjIxMDcgNy40Mjg1OCAyMC44ODcyIDcuNDI4NTggMjAuNTMwM1Y4LjI3MzQzQzcuNDI4NTggNy42MTMxMSA4LjExNDA2IDcuMTc2MDIgOC43MTI3NCA3LjQ1NDU5WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTIzLjM3ODIgMTUuMzc2N0MyMy40MzAzIDE1LjEzMjEgMjMuNTUzOCAxNC45MDg2IDIzLjczMzIgMTQuNzM0M0MyMy45MTI1IDE0LjU2IDI0LjEzOTYgMTQuNDQzIDI0LjM4NTYgMTQuMzk3OUwyNS4wNDA0IDE0LjI3ODRMMjQuMzg1NSAxNC4xNTg4SDI0LjM4NTZDMjQuMTM5NiAxNC4xMTM3IDIzLjkxMjUgMTMuOTk2NyAyMy43MzMyIDEzLjgyMjRDMjMuNTUzOCAxMy42NDgxIDIzLjQzMDMgMTMuNDI0NiAyMy4zNzgyIDEzLjE4TDIzLjIzNDEgMTIuNTAxM0wyMy4wOSAxMy4xOEMyMy4wMzc5IDEzLjQyNDYgMjIuOTE0NCAxMy42NDgxIDIyLjczNTEgMTMuODIyNEMyMi41NTU4IDEzLjk5NjcgMjIuMzI4NyAxNC4xMTM4IDIyLjA4MjcgMTQuMTU4OEwyMS40Mjc4IDE0LjI3ODRMMjIuMDgyNyAxNC4zOTc5SDIyLjA4MjdDMjIuMzI4NyAxNC40NDMgMjIuNTU1NyAxNC41NiAyMi43MzUgMTQuNzM0M0MyMi45MTQ0IDE0LjkwODYgMjMuMDM3OSAxNS4xMzIxIDIzLjA5IDE1LjM3NjdMMjMuMjM0MSAxNi4wNTU0TDIzLjM3ODIgMTUuMzc2N1oiIGZpbGw9IndoaXRlIi8+CjxkZWZzPgo8bGluZWFyR3JhZGllbnQgaWQ9InBhaW50MF9saW5lYXJfNjk5XzI2OTgiIHgxPSIyMC44NjE0IiB5MT0iMTAuNTkyNiIgeDI9IjE0LjUzOTgiIHkyPSIxMy43NTM0IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IndoaXRlIi8+CjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0id2hpdGUiIHN0b3Atb3BhY2l0eT0iMCIvPgo8L2xpbmVhckdyYWRpZW50Pgo8L2RlZnM+Cjwvc3ZnPgo=`;
 
 // src/lib/initializeEthos.ts
 var import_store26 = __toModule(require_store2());
@@ -33146,25 +35097,333 @@ var lib = {
 };
 var lib_default = lib;
 
-// src/components/ProviderAndSignerContext.tsx
-var import_react = __toModule(require("react"));
-var defaultProviderAndSigner = {
-  provider: null,
-  signer: null
+// src/lib/login.ts
+var login = async ({email, provider, apiKey}) => {
+  const {walletAppUrl} = lib_default.getConfiguration();
+  const userStore = import_store27.default.namespace("users");
+  if (provider) {
+    const returnTo = location.href;
+    const fullUrl = `${walletAppUrl}/auth?apiKey=${apiKey}&returnTo=${encodeURIComponent(returnTo)}`;
+    location.href = `${walletAppUrl}/socialauth?provider=${provider}&redirectTo=${encodeURIComponent(fullUrl)}`;
+    return;
+  }
+  return new Promise((resolve, _reject) => {
+    const loginEventListener = (message) => {
+      if (message.origin === walletAppUrl) {
+        const {action, data} = message.data;
+        if (action !== "login")
+          return;
+        window.removeEventListener("message", loginEventListener);
+        userStore("current", data);
+        resolve(data);
+      }
+    };
+    window.addEventListener("message", loginEventListener);
+    lib_default.postIFrameMessage({
+      action: "login",
+      data: {
+        email,
+        provider,
+        returnTo: window.location.href,
+        apiKey
+      }
+    });
+  });
 };
-var ProviderAndSignerContext = (0, import_react.createContext)(defaultProviderAndSigner);
-var ProviderAndSignerContext_default = ProviderAndSignerContext;
+var login_default = login;
 
-// src/components/ContentsContext.tsx
-var import_react2 = __toModule(require("react"));
-var defaultContents = {};
-var ContentsContext = (0, import_react2.createContext)(defaultContents);
-var ContentsContext_default = ContentsContext;
+// src/components/styled/Email.tsx
+var Email = ({setSigningIn, setEmailSent, width}) => {
+  const {apiKey} = getConfiguration_default();
+  const [email, setEmail] = (0, import_react10.useState)("");
+  const validEmail = (0, import_react10.useMemo)(() => {
+    if (!email)
+      return false;
+    if (email.length === 0)
+      return false;
+    return !!email.match(/(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])/);
+  }, [email]);
+  const sendEmail = (0, import_react10.useCallback)(async () => {
+    if (!validEmail)
+      return;
+    await login_default({email, apiKey});
+    setEmail("");
+    setSigningIn(false);
+    setEmailSent(true);
+    event_default({action: "send_email", category: "sign_in", label: email, value: 1});
+  }, [validEmail, login_default, email, apiKey]);
+  const _handleChange = (0, import_react10.useCallback)((e) => {
+    setEmail(e.target.value);
+  }, []);
+  const onSubmit = (0, import_react10.useCallback)(async (e) => {
+    if (!validEmail) {
+      e.preventDefault();
+      return;
+    }
+    setSigningIn(true);
+    sendEmail();
+  }, [sendEmail]);
+  return /* @__PURE__ */ import_react10.default.createElement("div", {
+    role: "email-sign-in"
+  }, /* @__PURE__ */ import_react10.default.createElement("form", {
+    onSubmit,
+    style: walletOptionContainer(width)
+  }, /* @__PURE__ */ import_react10.default.createElement("input", {
+    style: emailInput(),
+    type: "email",
+    placeholder: "Enter your email address...",
+    value: email,
+    onChange: _handleChange
+  }), /* @__PURE__ */ import_react10.default.createElement(IconButton_default, {
+    text: "Sign In With Email",
+    type: "submit",
+    width,
+    disabled: !validEmail,
+    primary: true
+  })));
+};
+var Email_default = Email;
 
-// src/components/WalletContext.tsx
-var import_react3 = __toModule(require("react"));
+// src/components/styled/Dialog.tsx
+var import_react11 = __toModule(require("react"));
 
-// src/types/EthosConnectStatus.ts
+// src/components/styled/FontProvider.tsx
+var React10 = __toModule(require("react"));
+var FontProvider = ({children}) => {
+  const styles12 = () => ({
+    fontFamily: "'Inter', sans-serif",
+    color: "black",
+    lineHeight: "1.5",
+    fontSize: "16px"
+  });
+  return /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement("link", {
+    href: "https://rsms.me/inter/inter.css",
+    rel: "stylesheet"
+  }), /* @__PURE__ */ React10.createElement("div", {
+    style: styles12()
+  }, children));
+};
+var FontProvider_default = FontProvider;
+
+// src/components/styled/Dialog.tsx
+var Dialog = ({isOpenAll, children}) => {
+  return /* @__PURE__ */ import_react11.default.createElement(FontProvider_default, null, /* @__PURE__ */ import_react11.default.createElement("div", {
+    style: dialog(isOpenAll),
+    role: "dialog"
+  }, /* @__PURE__ */ import_react11.default.createElement("div", {
+    style: backdrop(isOpenAll)
+  }), children));
+};
+var Dialog_default = Dialog;
+
+// src/components/styled/ModalWrapper.tsx
+var import_react12 = __toModule(require("react"));
+var ModalWrapper = ({closeOnClickId, onClose, isOpenAll, width, back, children}) => {
+  return /* @__PURE__ */ import_react12.default.createElement("div", {
+    style: modalOuterWrapper(isOpenAll)
+  }, /* @__PURE__ */ import_react12.default.createElement("div", {
+    id: closeOnClickId,
+    style: modalInnerWrapper(width)
+  }, /* @__PURE__ */ import_react12.default.createElement("div", {
+    style: dialogPanel(width)
+  }, /* @__PURE__ */ import_react12.default.createElement("div", {
+    style: topPanelStyle()
+  }, /* @__PURE__ */ import_react12.default.createElement("span", null, back && /* @__PURE__ */ import_react12.default.createElement("span", {
+    style: backStyle(),
+    onClick: back
+  }, "\u2190", /* @__PURE__ */ import_react12.default.createElement("span", {
+    style: backStyleText()
+  }, "Back"))), /* @__PURE__ */ import_react12.default.createElement("span", {
+    style: closeStyle(),
+    onClick: onClose
+  }, /* @__PURE__ */ import_react12.default.createElement("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    fill: "none",
+    viewBox: "0 0 24 24",
+    strokeWidth: 1.5,
+    stroke: "currentColor"
+  }, /* @__PURE__ */ import_react12.default.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    d: "M6 18L18 6M6 6l12 12"
+  })))), children)));
+};
+var ModalWrapper_default = ModalWrapper;
+
+// src/components/svg/InstallWalletIcon.tsx
+var import_react13 = __toModule(require("react"));
+var InstallWalletIcon = ({width = 60}) => {
+  return /* @__PURE__ */ import_react13.default.createElement("svg", {
+    width,
+    height: width,
+    viewBox: "0 0 60 60",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg"
+  }, /* @__PURE__ */ import_react13.default.createElement("rect", {
+    x: "1",
+    y: "1",
+    width: "58",
+    height: "58",
+    rx: "17",
+    fill: "#1A1C26"
+  }), /* @__PURE__ */ import_react13.default.createElement("path", {
+    d: "M17.0307 21.5C18.1258 20.5314 19.538 19.9977 21 20H39C40.5213 20 41.9107 20.5667 42.9693 21.5C42.8475 20.5332 42.377 19.6442 41.6462 18.9998C40.9153 18.3553 39.9744 17.9998 39 18H21C20.0256 17.9998 19.0847 18.3553 18.3538 18.9998C17.623 19.6442 17.1525 20.5332 17.0307 21.5ZM17.0307 25.5C18.1258 24.5314 19.538 23.9977 21 24H39C40.5213 24 41.9107 24.5667 42.9693 25.5C42.8475 24.5332 42.377 23.6442 41.6462 22.9998C40.9153 22.3553 39.9744 21.9998 39 22H21C20.0256 21.9998 19.0847 22.3553 18.3538 22.9998C17.623 23.6442 17.1525 24.5332 17.0307 25.5ZM21 26C19.9391 26 18.9217 26.4214 18.1716 27.1716C17.4214 27.9217 17 28.9391 17 30V38C17 39.0609 17.4214 40.0783 18.1716 40.8284C18.9217 41.5786 19.9391 42 21 42H39C40.0609 42 41.0783 41.5786 41.8284 40.8284C42.5786 40.0783 43 39.0609 43 38V30C43 28.9391 42.5786 27.9217 41.8284 27.1716C41.0783 26.4214 40.0609 26 39 26H34C33.7348 26 33.4804 26.1054 33.2929 26.2929C33.1054 26.4804 33 26.7348 33 27C33 27.7956 32.6839 28.5587 32.1213 29.1213C31.5587 29.6839 30.7956 30 30 30C29.2044 30 28.4413 29.6839 27.8787 29.1213C27.3161 28.5587 27 27.7956 27 27C27 26.7348 26.8946 26.4804 26.7071 26.2929C26.5196 26.1054 26.2652 26 26 26H21Z",
+    fill: "white"
+  }), /* @__PURE__ */ import_react13.default.createElement("rect", {
+    x: "1",
+    y: "1",
+    width: "58",
+    height: "58",
+    rx: "17",
+    stroke: "#060914",
+    strokeWidth: "2"
+  }));
+};
+var InstallWalletIcon_default = InstallWalletIcon;
+
+// src/components/styled/InstallWallet.tsx
+var import_react16 = __toModule(require("react"));
+
+// src/components/svg/SuiEnclosed.tsx
+var import_react14 = __toModule(require("react"));
+var SuiEnclosed = ({width = 32}) => {
+  return /* @__PURE__ */ import_react14.default.createElement("svg", {
+    width,
+    height: width,
+    viewBox: "0 0 32 32",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg"
+  }, /* @__PURE__ */ import_react14.default.createElement("rect", {
+    width: "32",
+    height: "32",
+    rx: "8",
+    fill: "#81BAEB"
+  }), /* @__PURE__ */ import_react14.default.createElement("g", {
+    clipPath: "url(#clip0_315_6756)"
+  }, /* @__PURE__ */ import_react14.default.createElement("path", {
+    fillRule: "evenodd",
+    clipRule: "evenodd",
+    d: "M10.4932 22.2659C11.0635 23.2776 11.8925 24.1195 12.8953 24.7053C13.898 25.2912 15.0385 25.5999 16.1999 25.5999C17.3613 25.5999 18.5017 25.2912 19.5045 24.7053C20.5073 24.1195 21.3363 23.2776 21.9066 22.2659C22.4918 21.2523 22.7999 20.1025 22.7999 18.932C22.7999 17.7616 22.4918 16.6118 21.9066 15.5982L16.8874 6.80155C16.8187 6.67967 16.7188 6.57825 16.598 6.50767C16.4772 6.4371 16.3398 6.3999 16.1999 6.3999C16.06 6.3999 15.9226 6.4371 15.8018 6.50767C15.6809 6.57825 15.5811 6.67967 15.5123 6.80155L10.4932 15.5982C9.90796 16.6118 9.59985 17.7616 9.59985 18.932C9.59985 20.1025 9.90796 21.2523 10.4932 22.2659ZM14.786 10.9865L15.8561 9.11092C15.8905 9.04998 15.9404 8.99927 16.0008 8.96399C16.0612 8.9287 16.1299 8.9101 16.1999 8.9101C16.2698 8.9101 16.3385 8.9287 16.399 8.96399C16.4594 8.99927 16.5093 9.04998 16.5437 9.11092L20.6605 16.3263C21.0301 16.966 21.2592 17.6771 21.3326 18.4123C21.4061 19.1475 21.3221 19.8898 21.0864 20.59C21.0352 20.3514 20.9648 20.1172 20.8758 19.8899C20.3072 18.4377 19.0214 17.3171 17.0534 16.559C15.7004 16.0397 14.8368 15.276 14.4859 14.2886C14.0339 13.0166 14.506 11.6291 14.786 10.9865ZM12.9612 14.1847L11.7392 16.3263C11.2817 17.1186 11.0409 18.0174 11.0409 18.9323C11.0409 19.8472 11.2817 20.7459 11.7392 21.5382C12.1091 22.1934 12.6186 22.7591 13.2316 23.1952C13.8447 23.6312 14.5462 23.927 15.2864 24.0615C16.0266 24.1959 16.7874 24.1658 17.5146 23.9732C18.2419 23.7806 18.9178 23.4302 19.4944 22.947C19.8131 22.1324 19.8244 21.2296 19.5264 20.4072C19.1088 19.358 18.1034 18.5204 16.5383 17.9172C14.7692 17.2381 13.6199 16.178 13.1228 14.7672C13.0558 14.5769 13.0019 14.3823 12.9612 14.1847Z",
+    fill: "white"
+  })), /* @__PURE__ */ import_react14.default.createElement("defs", null, /* @__PURE__ */ import_react14.default.createElement("clipPath", {
+    id: "clip0_315_6756"
+  }, /* @__PURE__ */ import_react14.default.createElement("rect", {
+    width: "19.2",
+    height: "19.2",
+    fill: "white",
+    transform: "translate(6.3999 6.3999)"
+  }))));
+};
+var SuiEnclosed_default = SuiEnclosed;
+
+// src/components/svg/EthosWalletIcon.tsx
+var import_react15 = __toModule(require("react"));
+var EthosWalletIcon = () => {
+  return /* @__PURE__ */ import_react15.default.createElement("svg", {
+    width: "32",
+    height: "32",
+    viewBox: "0 0 32 32",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg"
+  }, /* @__PURE__ */ import_react15.default.createElement("rect", {
+    width: "32",
+    height: "32",
+    rx: "8",
+    fill: "#6D28D9"
+  }), /* @__PURE__ */ import_react15.default.createElement("path", {
+    opacity: "0.8",
+    d: "M9.12187 6.85706H19.9583C20.4571 6.85706 20.8614 7.26141 20.8614 7.7602V19.9886C20.8614 20.4874 20.4571 20.8918 19.9583 20.8918H9.12187C8.62308 20.8918 8.21872 20.4874 8.21872 19.9886V7.7602C8.21872 7.26141 8.62308 6.85706 9.12187 6.85706Z",
+    stroke: "url(#paint0_linear_699_2698)",
+    "stroke-width": "0.451572"
+  }), /* @__PURE__ */ import_react15.default.createElement("path", {
+    d: "M8.71274 7.45459L16.0945 10.8894C16.4129 11.0376 16.6166 11.357 16.6166 11.7083V23.81C16.6166 24.4635 15.944 24.9007 15.3468 24.6353L7.96502 21.3556C7.63882 21.2107 7.42858 20.8872 7.42858 20.5303V8.27343C7.42858 7.61311 8.11406 7.17602 8.71274 7.45459Z",
+    fill: "white"
+  }), /* @__PURE__ */ import_react15.default.createElement("path", {
+    d: "M23.3782 15.3767C23.4303 15.1321 23.5538 14.9086 23.7332 14.7343C23.9125 14.56 24.1396 14.443 24.3856 14.3979L25.0404 14.2784L24.3855 14.1588H24.3856C24.1396 14.1137 23.9125 13.9967 23.7332 13.8224C23.5538 13.6481 23.4303 13.4246 23.3782 13.18L23.2341 12.5013L23.09 13.18C23.0379 13.4246 22.9144 13.6481 22.7351 13.8224C22.5558 13.9967 22.3287 14.1138 22.0827 14.1588L21.4278 14.2784L22.0827 14.3979H22.0827C22.3287 14.443 22.5557 14.56 22.735 14.7343C22.9144 14.9086 23.0379 15.1321 23.09 15.3767L23.2341 16.0554L23.3782 15.3767Z",
+    fill: "white"
+  }), /* @__PURE__ */ import_react15.default.createElement("defs", null, /* @__PURE__ */ import_react15.default.createElement("linearGradient", {
+    id: "paint0_linear_699_2698",
+    x1: "20.8614",
+    y1: "10.5926",
+    x2: "14.5398",
+    y2: "13.7534",
+    gradientUnits: "userSpaceOnUse"
+  }, /* @__PURE__ */ import_react15.default.createElement("stop", {
+    "stop-color": "white"
+  }), /* @__PURE__ */ import_react15.default.createElement("stop", {
+    offset: "1",
+    stopColor: "white",
+    stopOpacity: "0"
+  }))));
+};
+var EthosWalletIcon_default = EthosWalletIcon;
+
+// src/components/styled/InstallWallet.tsx
+var InstallWallet = ({walletInfos, width}) => {
+  const icon = (data) => {
+    if (!data)
+      return /* @__PURE__ */ import_react16.default.createElement(import_react16.default.Fragment, null);
+    if (typeof data === "string") {
+      return /* @__PURE__ */ import_react16.default.createElement("img", {
+        src: data,
+        height: 32,
+        width: 32
+      });
+    }
+    return data;
+  };
+  const installWallets = [
+    {
+      name: "Ethos Wallet",
+      icon: /* @__PURE__ */ import_react16.default.createElement(EthosWalletIcon_default, null),
+      link: "https://chrome.google.com/webstore/detail/ethos-wallet/mcbigmjiafegjnnogedioegffbooigli"
+    },
+    {
+      name: "Sui Wallet",
+      icon: /* @__PURE__ */ import_react16.default.createElement(SuiEnclosed_default, null),
+      link: "https://chrome.google.com/webstore/detail/sui-wallet/opcgpfmipidbgpenhmajoajpbobppdil"
+    },
+    ...walletInfos || []
+  ];
+  return /* @__PURE__ */ import_react16.default.createElement(Header_default, {
+    dappIcon: /* @__PURE__ */ import_react16.default.createElement(InstallWalletIcon_default, null),
+    title: "Install A Wallet",
+    subTitle: "Wallets allow you to interact with, store, send, and receive digital assets."
+  }, /* @__PURE__ */ import_react16.default.createElement("div", {
+    role: "wallet-sign-in"
+  }, /* @__PURE__ */ import_react16.default.createElement("div", {
+    style: walletOptionContainer(width)
+  }, installWallets == null ? void 0 : installWallets.map((installWallet, index) => /* @__PURE__ */ import_react16.default.createElement("a", {
+    key: `install-wallet-${index}`,
+    style: iconButton(width),
+    href: installWallet.link,
+    target: "_blank"
+  }, installWallet.name, /* @__PURE__ */ import_react16.default.createElement("div", null, icon(installWallet.icon)))))));
+};
+var InstallWallet_default = InstallWallet;
+
+// src/hooks/useModal.ts
+var import_react18 = __toModule(require("react"));
+
+// src/components/ConnectContext.tsx
+var import_react17 = __toModule(require("react"));
+var defaultContents = {
+  ethosConfiguration: {}
+};
+var ConnectContext = (0, import_react17.createContext)(defaultContents);
+var ConnectContext_default = ConnectContext;
+
+// src/hooks/useModal.ts
+var useModal = () => {
+  const {modal} = (0, import_react18.useContext)(ConnectContext_default);
+  return modal;
+};
+var useModal_default = useModal;
+
+// src/hooks/useWallet.ts
+var import_react19 = __toModule(require("react"));
+
+// src/enums/EthosConnectStatus.ts
 var EthosConnectStatus;
 (function(EthosConnectStatus2) {
   EthosConnectStatus2["Loading"] = "loading";
@@ -33172,48 +35431,257 @@ var EthosConnectStatus;
   EthosConnectStatus2["Connected"] = "connected";
 })(EthosConnectStatus || (EthosConnectStatus = {}));
 
-// src/components/WalletContext.tsx
-var defaultWalletContext = {
-  status: EthosConnectStatus.Loading
+// src/hooks/useWallet.ts
+var useWallet = () => {
+  const {wallet} = (0, import_react19.useContext)(ConnectContext_default);
+  return wallet || {status: EthosConnectStatus.Loading, provider: null};
 };
-var WalletContext = (0, import_react3.createContext)(defaultWalletContext);
-var WalletContext_default = WalletContext;
+var useWallet_default = useWallet;
+
+// src/hooks/useWindowDimensions.ts
+var import_react20 = __toModule(require("react"));
+function getWindowDimensions() {
+  if (typeof window === "undefined")
+    return {width: 0, height: 0};
+  const {innerWidth: width, innerHeight: height} = window;
+  return {
+    width,
+    height
+  };
+}
+function useWindowDimensions() {
+  const [windowDimensions, setWindowDimensions] = (0, import_react20.useState)(getWindowDimensions());
+  (0, import_react20.useEffect)(() => {
+    function handleResize() {
+      setWindowDimensions(getWindowDimensions());
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  return windowDimensions;
+}
+
+// src/hooks/hooks.ts
+var hooks = {
+  useModal: useModal_default,
+  useWallet: useWallet_default,
+  useWindowDimensions
+};
+var hooks_default = hooks;
+
+// src/components/styled/MobileWallet.tsx
+var import_react21 = __toModule(require("react"));
+var MobileWallet = () => {
+  return /* @__PURE__ */ import_react21.default.createElement("div", {
+    role: "wallet-sign-in"
+  }, /* @__PURE__ */ import_react21.default.createElement("span", {
+    style: ethosWalletTitleText()
+  }, "Connect A Mobile Wallet"), /* @__PURE__ */ import_react21.default.createElement("div", {
+    style: walletExplanation()
+  }, /* @__PURE__ */ import_react21.default.createElement("p", null, "There are no mobile wallets yet on Sui.")));
+};
+var MobileWallet_default = MobileWallet;
+
+// src/components/styled/Or.tsx
+var import_react22 = __toModule(require("react"));
+var Or = () => {
+  return /* @__PURE__ */ import_react22.default.createElement("div", {
+    style: strikeThroughOrContainer()
+  }, /* @__PURE__ */ import_react22.default.createElement("div", {
+    style: line()
+  }), "or", /* @__PURE__ */ import_react22.default.createElement("div", {
+    style: line()
+  }));
+};
+var Or_default = Or;
+
+// src/components/styled/SignInModal.tsx
+function showSignInModal() {
+  window.ethosInternal.showSignInModal();
+}
+function hideSignInModal() {
+  window.ethosInternal.hideSignInModal();
+}
+var SignInModal = ({
+  connectMessage,
+  dappName,
+  dappIcon,
+  hideEmailSignIn,
+  hideWalletSignIn,
+  externalContext
+}) => {
+  const {wallets: wallets2, selectWallet} = (externalContext == null ? void 0 : externalContext.wallet) || hooks_default.useWallet();
+  const {isModalOpen, openModal, closeModal} = (externalContext == null ? void 0 : externalContext.modal) || hooks_default.useModal();
+  const [isOpenAll, setIsOpenAll] = (0, import_react23.useState)(isModalOpen);
+  const [signingIn, setSigningIn] = (0, import_react23.useState)(false);
+  const [emailSent, setEmailSent] = (0, import_react23.useState)(false);
+  const {width} = hooks_default.useWindowDimensions();
+  const closeOnClickId = "ethos-close-on-click";
+  const [showEmail, setShowEmail] = (0, import_react23.useState)(false);
+  const [showMobile, setShowMobile] = (0, import_react23.useState)(false);
+  const [showInstallWallet, setShowInstallWallet] = (0, import_react23.useState)(false);
+  const [safeDappName, setSafeDappName] = (0, import_react23.useState)(dappName);
+  useHandleElementWithIdClicked(closeOnClickId, closeModal);
+  (0, import_react23.useEffect)(() => {
+    window.ethosInternal || (window.ethosInternal = {});
+    window.ethosInternal.showSignInModal = () => {
+      openModal();
+    };
+    window.ethosInternal.hideSignInModal = () => {
+      closeModal();
+    };
+    setIsOpenAll(isModalOpen);
+  }, [isModalOpen, setIsOpenAll, openModal, closeModal]);
+  (0, import_react23.useEffect)(() => {
+    if (hideEmailSignIn && hideWalletSignIn) {
+      throw new Error("hideEmailSignIn and hideWalletSignIn cannot both be true");
+    }
+  }, []);
+  (0, import_react23.useEffect)(() => {
+    if (!safeDappName) {
+      setSafeDappName(document.title);
+    }
+  }, [safeDappName]);
+  const _toggleInstallWallet = (0, import_react23.useCallback)(() => {
+    setShowInstallWallet((prev) => !prev);
+  }, []);
+  const _toggleEmail = (0, import_react23.useCallback)(() => {
+    setShowEmail((prev) => !prev);
+  }, []);
+  const _reset = (0, import_react23.useCallback)(() => {
+    setShowInstallWallet(false);
+    setShowMobile(false);
+    setShowEmail(false);
+  }, []);
+  const safeConnectMessage = (0, import_react23.useMemo)(() => {
+    if (connectMessage)
+      return connectMessage;
+    if (!safeDappName) {
+      return /* @__PURE__ */ import_react23.default.createElement(import_react23.default.Fragment, null);
+    }
+    return /* @__PURE__ */ import_react23.default.createElement(import_react23.default.Fragment, null, "Connect to ", /* @__PURE__ */ import_react23.default.createElement("span", {
+      style: highlighted()
+    }, safeDappName));
+  }, [safeDappName, connectMessage]);
+  const modalContent = (0, import_react23.useMemo)(() => {
+    const safeWallets = wallets2 || [];
+    if (showMobile) {
+      return /* @__PURE__ */ import_react23.default.createElement(MobileWallet_default, null);
+    }
+    if (showInstallWallet || hideEmailSignIn && safeWallets.length === 0) {
+      return /* @__PURE__ */ import_react23.default.createElement(InstallWallet_default, {
+        width
+      });
+    }
+    if (hideWalletSignIn) {
+      return /* @__PURE__ */ import_react23.default.createElement(Email_default, {
+        setSigningIn,
+        setEmailSent,
+        width
+      });
+    }
+    if (!showEmail && safeWallets.length > 0)
+      return /* @__PURE__ */ import_react23.default.createElement(Header_default, {
+        title: safeConnectMessage,
+        dappIcon,
+        subTitle: "Choose from your installed wallets"
+      }, /* @__PURE__ */ import_react23.default.createElement(Wallets_default, {
+        wallets: safeWallets,
+        selectWallet,
+        width
+      }), !hideEmailSignIn && /* @__PURE__ */ import_react23.default.createElement(import_react23.default.Fragment, null, /* @__PURE__ */ import_react23.default.createElement(Or_default, null), /* @__PURE__ */ import_react23.default.createElement("div", {
+        style: submitButtonContainer()
+      }, /* @__PURE__ */ import_react23.default.createElement(IconButton_default, {
+        text: "Sign In With Email",
+        onClick: _toggleEmail,
+        width,
+        primary: true
+      }))));
+    return /* @__PURE__ */ import_react23.default.createElement(Header_default, {
+      title: safeConnectMessage,
+      dappIcon,
+      subTitle: `Log in to ${safeDappName}`
+    }, /* @__PURE__ */ import_react23.default.createElement(Email_default, {
+      setSigningIn,
+      setEmailSent,
+      width
+    }), !hideWalletSignIn && /* @__PURE__ */ import_react23.default.createElement(import_react23.default.Fragment, null, /* @__PURE__ */ import_react23.default.createElement(Or_default, null), /* @__PURE__ */ import_react23.default.createElement("div", {
+      style: submitButtonContainer()
+    }, safeWallets.length > 0 ? /* @__PURE__ */ import_react23.default.createElement(IconButton_default, {
+      icon: /* @__PURE__ */ import_react23.default.createElement(WalletsIcon_default, null),
+      text: "Select One Of Your Wallets",
+      onClick: _toggleEmail,
+      width
+    }) : /* @__PURE__ */ import_react23.default.createElement(IconButton_default, {
+      icon: /* @__PURE__ */ import_react23.default.createElement(WalletsIcon_default, null),
+      text: "Install A Wallet",
+      onClick: _toggleInstallWallet,
+      width
+    }))));
+  }, [safeConnectMessage, safeDappName, hideEmailSignIn, hideWalletSignIn, wallets2, showEmail, showMobile, showInstallWallet]);
+  const subpage = (0, import_react23.useMemo)(() => {
+    return showMobile || showInstallWallet;
+  }, [showMobile, showInstallWallet]);
+  const loader = (0, import_react23.useMemo)(() => /* @__PURE__ */ import_react23.default.createElement("div", {
+    style: loaderStyle()
+  }, /* @__PURE__ */ import_react23.default.createElement(Loader_default, {
+    width: 50
+  })), []);
+  return /* @__PURE__ */ import_react23.default.createElement(Dialog_default, {
+    isOpenAll
+  }, /* @__PURE__ */ import_react23.default.createElement(ModalWrapper_default, {
+    closeOnClickId,
+    onClose: closeModal,
+    isOpenAll,
+    width,
+    back: subpage ? _reset : null
+  }, emailSent ? /* @__PURE__ */ import_react23.default.createElement(EmailSent_default, null) : signingIn ? loader : modalContent));
+};
+var SignInModal_default = SignInModal;
+
+// src/hooks/useContext.ts
+var import_react29 = __toModule(require("react"));
 
 // src/hooks/useAccount.ts
-var import_react4 = __toModule(require("react"));
+var import_react24 = __toModule(require("react"));
 var useAccount = (signer) => {
-  const [account, setAccount] = (0, import_react4.useState)({});
-  (0, import_react4.useEffect)(() => {
+  const [account, setAccount] = (0, import_react24.useState)({});
+  (0, import_react24.useEffect)(() => {
     if (!signer)
       return;
     const initAccount = async () => {
-      const address = await (signer == null ? void 0 : signer.getAddress());
-      if (!address) {
+      const address2 = await (signer == null ? void 0 : signer.getAddress());
+      if (!address2) {
         return;
       }
-      const contents = await getWalletContents_default(address);
+      const contents = await getWalletContents_default({
+        address: address2,
+        existingContents: account.contents
+      });
+      if (!contents)
+        return;
       setAccount({
-        address,
+        address: address2,
         contents
       });
     };
     initAccount();
-    const interval = setInterval(initAccount, 3e3);
+    const interval = setInterval(initAccount, 5e3);
     return () => clearInterval(interval);
-  }, [signer]);
+  }, [signer, account.contents]);
   return account;
 };
 var useAccount_default = useAccount;
 
 // src/hooks/useConnect.ts
-var import_react8 = __toModule(require("react"));
-var import_store27 = __toModule(require_store2());
+var import_react28 = __toModule(require("react"));
+var import_store28 = __toModule(require_store2());
 
 // src/hooks/useSuiWallet.ts
-var import_react7 = __toModule(require("react"));
+var import_react27 = __toModule(require("react"));
 
 // src/hooks/useSuiWalletConnect.ts
-var import_react6 = __toModule(require("react"));
+var import_react26 = __toModule(require("react"));
 
 // node_modules/@mysten/wallet-adapter-base/dist/index.mjs
 function isWalletAdapter(wallet) {
@@ -33494,11 +35962,11 @@ _adapters = new WeakMap();
 _events = new WeakMap();
 
 // src/hooks/useWalletAdapters.ts
-var import_react5 = __toModule(require("react"));
+var import_react25 = __toModule(require("react"));
 var useWalletAdapters = () => {
-  const adapterAndProviders = (0, import_react5.useMemo)(() => [new WalletStandardAdapterProvider()], []);
-  const [wallets2, setWallets] = (0, import_react5.useState)(() => resolveAdapters(adapterAndProviders));
-  (0, import_react5.useEffect)(() => {
+  const adapterAndProviders = (0, import_react25.useMemo)(() => [new WalletStandardAdapterProvider()], []);
+  const [wallets2, setWallets] = (0, import_react25.useState)(() => resolveAdapters(adapterAndProviders));
+  (0, import_react25.useEffect)(() => {
     const providers = adapterAndProviders.filter(isWalletProvider);
     if (!providers.length)
       return;
@@ -33530,18 +35998,24 @@ var useWalletAdapters_default = useWalletAdapters;
 // src/hooks/useSuiWalletConnect.ts
 var DEFAULT_STORAGE_KEY = "preferredSuiWallet";
 var useSuiWalletConnect = () => {
-  const wallets2 = useWalletAdapters_default();
-  const [wallet, setWallet] = (0, import_react6.useState)(null);
-  const [connected, setConnected] = (0, import_react6.useState)(false);
-  const [connecting, setConnecting] = (0, import_react6.useState)(false);
-  const [noConnection, setNoConnection] = (0, import_react6.useState)(false);
-  (0, import_react6.useEffect)(() => {
+  const walletAdapters = useWalletAdapters_default();
+  const [wallets2, setWallets] = (0, import_react26.useState)([]);
+  const [wallet, setWallet] = (0, import_react26.useState)(null);
+  const [connected, setConnected] = (0, import_react26.useState)(false);
+  const [connecting, setConnecting] = (0, import_react26.useState)(false);
+  const [noConnection, setNoConnection] = (0, import_react26.useState)(false);
+  (0, import_react26.useEffect)(() => {
+    setWallets(walletAdapters);
+  }, [walletAdapters]);
+  (0, import_react26.useEffect)(() => {
     if (connected && wallet) {
       localStorage.setItem(DEFAULT_STORAGE_KEY, wallet.name);
     }
   }, [wallet, connected]);
-  const select = (0, import_react6.useCallback)(async (name) => {
+  const select = (0, import_react26.useCallback)(async (name) => {
     var _a;
+    if (!wallets2)
+      return false;
     let selectedWallet = (_a = wallets2.find((wallet2) => wallet2.name === name)) != null ? _a : null;
     setWallet(selectedWallet);
     let _connected = false;
@@ -33559,8 +36033,9 @@ var useSuiWalletConnect = () => {
     }
     return _connected;
   }, [wallets2, setConnected, setConnecting]);
-  (0, import_react6.useEffect)(() => {
+  (0, import_react26.useEffect)(() => {
     const checkWallets = async () => {
+      log_default("suiWalletConnect", "Wallets", (wallets2 || []).map((w) => w.name));
       if (!wallet && !connected && !connecting) {
         let preferredWalletName = localStorage.getItem(DEFAULT_STORAGE_KEY);
         if (typeof preferredWalletName !== "string") {
@@ -33594,18 +36069,18 @@ var useSuiWalletConnect = () => {
     };
     checkWallets();
   }, [wallets2, wallet, connected, connecting, select]);
-  const getAccounts = (0, import_react6.useCallback)(async () => {
+  const getAccounts = (0, import_react26.useCallback)(async () => {
     if (wallet == null)
       throw Error("Wallet Not Connected");
     return wallet.getAccounts();
   }, [wallet]);
-  const getAddress = (0, import_react6.useCallback)(async () => {
+  const getAddress = (0, import_react26.useCallback)(async () => {
     if (wallet == null)
       throw Error("Wallet Not Connected");
     const accounts = await getAccounts();
     return accounts[0];
   }, [getAccounts]);
-  const disconnect = (0, import_react6.useCallback)(() => {
+  const disconnect = (0, import_react26.useCallback)(() => {
     setConnected(false);
     localStorage.removeItem(DEFAULT_STORAGE_KEY);
     if (wallet == null)
@@ -33616,7 +36091,7 @@ var useSuiWalletConnect = () => {
     wallet.disconnect();
     setWallet(null);
   }, [wallet]);
-  const signAndExecuteTransaction = (0, import_react6.useCallback)(async (transaction) => {
+  const signAndExecuteTransaction = (0, import_react26.useCallback)(async (transaction) => {
     if (wallet == null) {
       throw new Error("Wallet Not Connected");
     }
@@ -33625,7 +36100,7 @@ var useSuiWalletConnect = () => {
     }
     return wallet.signAndExecuteTransaction(transaction);
   }, [wallet]);
-  const requestPreapproval = (0, import_react6.useCallback)(async (preapproval) => {
+  const requestPreapproval = (0, import_react26.useCallback)(async (preapproval) => {
     if (wallet == null) {
       throw new Error("Wallet Not Connected");
     }
@@ -33636,8 +36111,16 @@ var useSuiWalletConnect = () => {
     }
     return ethosWallet.requestPreapproval(preapproval);
   }, [connected]);
-  const sign2 = (0, import_react6.useCallback)(async () => {
-    return false;
+  const sign2 = (0, import_react26.useCallback)(async ({message}) => {
+    if (wallet == null) {
+      throw new Error("Wallet Not Connected");
+    }
+    const ethosWallet = window.ethosWallet;
+    if (!ethosWallet || wallet.name !== "Ethos Wallet") {
+      console.log("Wallet does not support sign");
+      return false;
+    }
+    return ethosWallet.signMessage(message);
   }, [wallet]);
   return {
     wallets: wallets2,
@@ -33672,8 +36155,10 @@ var useSuiWallet = () => {
     sign: sign2,
     disconnect
   } = useSuiWalletConnect_default();
-  const constructedSigner = (0, import_react7.useMemo)(() => ({
+  const constructedSigner = (0, import_react27.useMemo)(() => ({
     type: SignerType.Extension,
+    name: wallet == null ? void 0 : wallet.name,
+    icon: (wallet == null ? void 0 : wallet.name) === "Sui Wallet" ? "https://sui.io/favicon.png" : wallet == null ? void 0 : wallet.icon,
     getAccounts,
     getAddress,
     signAndExecuteTransaction,
@@ -33681,8 +36166,8 @@ var useSuiWallet = () => {
     sign: sign2,
     disconnect
   }), [wallet, connected, getAccounts, getAddress, signAndExecuteTransaction, requestPreapproval, sign2]);
-  const [signer, setSigner] = (0, import_react7.useState)(connected ? constructedSigner : null);
-  (0, import_react7.useEffect)(() => {
+  const [signer, setSigner] = (0, import_react27.useState)(connected ? constructedSigner : null);
+  (0, import_react27.useEffect)(() => {
     setSigner(connected ? constructedSigner : null);
   }, [connected, constructedSigner]);
   return {connecting, noConnection, connected, wallets: wallets2, selectWallet, signer, setSigner};
@@ -33691,12 +36176,12 @@ var useSuiWallet_default = useSuiWallet;
 
 // src/hooks/useConnect.ts
 var useConnect = () => {
-  const signerFound = (0, import_react8.useRef)(false);
-  const methodsChecked = (0, import_react8.useRef)({
+  const signerFound = (0, import_react28.useRef)(false);
+  const methodsChecked = (0, import_react28.useRef)({
     "ethos": false,
     "extension": false
   });
-  const [providerAndSigner, setProviderAndSigner] = (0, import_react8.useState)({
+  const [providerAndSigner, setProviderAndSigner] = (0, import_react28.useState)({
     provider: null,
     signer: null
   });
@@ -33707,9 +36192,9 @@ var useConnect = () => {
     signer: suiSigner,
     setSigner: setSuiSigner
   } = useSuiWallet_default();
-  const [logoutCount, setLogoutCount] = (0, import_react8.useState)(0);
-  const logout2 = (0, import_react8.useCallback)(() => {
-    const suiStore = import_store27.default.namespace("sui");
+  const [logoutCount, setLogoutCount] = (0, import_react28.useState)(0);
+  const logout2 = (0, import_react28.useCallback)(() => {
+    const suiStore = import_store28.default.namespace("sui");
     suiStore("disconnected", true);
     signerFound.current = false;
     setProviderAndSigner((prev) => ({...prev, signer: null}));
@@ -33719,7 +36204,7 @@ var useConnect = () => {
     }
     setLogoutCount((prev) => prev + 1);
   }, []);
-  const checkSigner = (0, import_react8.useCallback)((signer, type) => {
+  const checkSigner = (0, import_react28.useCallback)((signer, type) => {
     log_default("useConnect", "trying to set providerAndSigner", type, signerFound.current, methodsChecked.current);
     if (signerFound.current)
       return;
@@ -33733,7 +36218,7 @@ var useConnect = () => {
     const provider = new JsonRpcProvider(Network.DEVNET);
     setProviderAndSigner({provider, signer});
   }, [logoutCount]);
-  (0, import_react8.useEffect)(() => {
+  (0, import_react28.useEffect)(() => {
     log_default("mobile", "listening to mobile connection from EthosConnectProvider");
     listenForMobileConnection_default((mobileSigner) => {
       log_default("useConnect", "Setting providerAndSigner mobile", mobileSigner);
@@ -33741,13 +36226,13 @@ var useConnect = () => {
       checkSigner(mobileSigner, "mobile");
     });
   }, [checkSigner]);
-  (0, import_react8.useEffect)(() => {
+  (0, import_react28.useEffect)(() => {
     log_default("useConnect", "Setting providerAndSigner extension", suiSigner, suiNoConnection);
     if (!suiNoConnection && !suiSigner)
       return;
     checkSigner(suiSigner, "extension");
   }, [suiNoConnection, suiSigner, checkSigner]);
-  (0, import_react8.useEffect)(() => {
+  (0, import_react28.useEffect)(() => {
     const fetchEthosSigner = async () => {
       const signer = await lib_default.getEthosSigner();
       log_default("useConnect", "Setting providerAndSigner ethos", signer);
@@ -33759,989 +36244,8 @@ var useConnect = () => {
 };
 var useConnect_default = useConnect;
 
-// src/components/styled/SignInModal.tsx
-var import_react31 = __toModule(require("react"));
-
-// src/components/svg/Loader.tsx
-var import_react9 = __toModule(require("react"));
-var Loader = ({width = 100, color = "#333"}) => /* @__PURE__ */ import_react9.default.createElement("svg", {
-  version: "1.1",
-  id: "L4",
-  xmlns: "http://www.w3.org/2000/svg",
-  x: "0px",
-  y: "0px",
-  viewBox: "0 0 54 20",
-  width,
-  height: width * (20 / 54),
-  enableBackground: "new 0 0 0 0"
-}, /* @__PURE__ */ import_react9.default.createElement("circle", {
-  fill: color,
-  stroke: "none",
-  cx: "6",
-  cy: "10",
-  r: "6"
-}, /* @__PURE__ */ import_react9.default.createElement("animate", {
-  attributeName: "opacity",
-  dur: "1.5s",
-  values: "0;1;0",
-  repeatCount: "indefinite",
-  begin: "0.1"
-})), /* @__PURE__ */ import_react9.default.createElement("circle", {
-  fill: color,
-  stroke: "none",
-  cx: "26",
-  cy: "10",
-  r: "6"
-}, /* @__PURE__ */ import_react9.default.createElement("animate", {
-  attributeName: "opacity",
-  dur: "1.5s",
-  values: "0;1;0",
-  repeatCount: "indefinite",
-  begin: "0.5"
-})), /* @__PURE__ */ import_react9.default.createElement("circle", {
-  fill: color,
-  stroke: "none",
-  cx: "46",
-  cy: "10",
-  r: "6"
-}, /* @__PURE__ */ import_react9.default.createElement("animate", {
-  attributeName: "opacity",
-  dur: "1.5s",
-  values: "0;1;0",
-  repeatCount: "indefinite",
-  begin: "1.0"
-})));
-var Loader_default = Loader;
-
-// src/components/svg/WalletsIcon.tsx
-var import_react10 = __toModule(require("react"));
-var WalletsIcon = ({width = 32}) => /* @__PURE__ */ import_react10.default.createElement("img", {
-  src: dataUri,
-  width,
-  height: width
-});
-var WalletsIcon_default = WalletsIcon;
-var dataUri = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAeGVYSWZNTQAqAAAACAAFARIAAwAAAAEAAQAAARoABQAAAAEAAABKARsABQAAAAEAAABSASgAAwAAAAEAAgAAh2kABAAAAAEAAABaAAAAAAAAAEgAAAABAAAASAAAAAEAAqACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAAAQdIdCAAAACXBIWXMAAAsTAAALEwEAmpwYAAACZmlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNS40LjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyIKICAgICAgICAgICAgeG1sbnM6ZXhpZj0iaHR0cDovL25zLmFkb2JlLmNvbS9leGlmLzEuMC8iPgogICAgICAgICA8dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPgogICAgICAgICA8dGlmZjpSZXNvbHV0aW9uVW5pdD4yPC90aWZmOlJlc29sdXRpb25Vbml0PgogICAgICAgICA8ZXhpZjpDb2xvclNwYWNlPjE8L2V4aWY6Q29sb3JTcGFjZT4KICAgICAgICAgPGV4aWY6UGl4ZWxYRGltZW5zaW9uPjU2PC9leGlmOlBpeGVsWERpbWVuc2lvbj4KICAgICAgICAgPGV4aWY6UGl4ZWxZRGltZW5zaW9uPjU2PC9leGlmOlBpeGVsWURpbWVuc2lvbj4KICAgICAgPC9yZGY6RGVzY3JpcHRpb24+CiAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+CiB3yYcAAAgwSURBVFgJrZddiJ1HGcefmXfe9z3n7G42yTYamy9sklZT0XilAeuFdwXxQrD4gVKwF6IXohdS8CYXJWJFwQvprXhTaOhVFakFjbGWioqItKYXprVda0OaNNnd8/F+jr//nN1k16RCwLM778w8M2f+//k/zzzzHme3+Zw+/Zuw+94TK7mvDucxHCws3h2ie19u9p68d3vy3kaFuYG3diH4We/9dJaF2SzLKG58xWfTyz4b/zvPJqsun6zW9eS1j2785ap76Gz333Buu+H0M2+OwrQ5Wzj/YBbNhWiWR2eAG+CxiJ6+WeijK5KNMWssy6YGCdWR4pwbWwgTbGNsam9QxtH5jSfqS6vfuv+hs/UW7g0C33l69WARu38GMx/Mxaw3l5uAXQypPScjQihgxSY51cE3mwQmAApY9Rx8Xs8JZNm6y/z6uCjHRw5+7GdXRMLr8bmnYtZZe6Hx0TdQalUYaVy02qKTjfpGUb/xLjbeotpdn1uMZey60vp+sFlKm/dxYJRddR77mC+0bfZyjKcTNhs221e89khjbhTZTc+DDbrAwmgWIx0sUMGgj6MbkQE3yOY8hTnWFy74HlB1OnOuTaXvW8BZ3eUOEtE5EQn73njxwleY+FMRcJ23M1BL6wQWjJDQ4n3sXX+TiAMSQoBDTNj84SAm43XYQqSkyZS+x9IB1lJvEaghUtOvWB8Sff6DRODrT720UFm717uMfTrWnxPp5VuBg8KSLnrUoEMcYmQO+8eDPMRHIokWoduVLkge1yXwmwTkkgqCBTVh7sPKhec/sxTqpeye2MKSBWPEsS5jB2wGcJFgYzBXu8MGCW1Wam0S2VJLdqbyBUK4G9CUC+SKDkAFacPUGn2IpjgDo3QL+cL7Q9O3xwnF6NmlAc6IdgtgFg/sLu3LJ1fcgeVCS+uTMObN2z53jM/GtV144YJV641IMFZBpKZdooACM9wXWl8fz5JgWfSA9z7AFAlQ5Esn73YXrkztr29xtFAjFThkYCM2tUs29jzvy0ZRX8d3tOjcoRNH7JUX1llPKtSclArwASoUwJTHyTHN0R4JCDnAgQDcm1c02PdffD1WtUAUIT7mSB9UEwvzXOBSPiixFXBWTijx2QAxKW5A0AyH5Jx+gd12gDeAb5EYupDNjobeNUcURYouoOZuYEGcZSujwj1y6qAd2lVK7y15t+rtPridzaYbnf3t3FWbrin4dCIatK6oZxAiX8TyMATa/TEpAAGCjJ0TTiLU2Vc/csxevrJmf740D3+FmcY0C0QiZu4WuUJp+0ZNWxlz12Kwwx9espfP1wQmIU1K0zH0viJTzmLXTvZLgZUEmBbPmCAAojLL4mN//LubNQJnaSnU4wg8zHFjVsAluAIg+bsg4AesgQtSe8isAbbdRWBmsEG3IAWso2RZzcGb4o7RXaHz7aLETwBKe0CwbgJZGZX2tQ/da0eWRtvltrcnjT3661f5SmYd5Fpi49EHD9reUUqsW+5wG+PWfnv+HZtWMCFdu3YXB4yk39aAJwUW2G49FKuOC2WzxN63Ue1vn/zALeBictcot6JouTMq7oTaFtnCJvgOoosLwT5+atnGxPaEUsXSte0ujuEuFFgiNS+XvnUtV3zDGaAA2rua01CTnmvbNxzsWHB75wv3v9f2LMRE5NP3LW8f2tFe2V0kAmOO9QTPVt3QmmY5EWm7xSKwW6U7PImL0pNZ8rfy/c3I37GoOg8cWEnlloHbGDa0lBJLRzzpr1s03yovVBbKjszEaJ/h+5TUcS2HheeWL2+z5J2Z1nRLEictSyrLKF35djdx0MQwaGrdXSRBT4Q6FXI+9wH1ncG8++w13VESgA2S7ri5kKHjZNV72jDqmoqoJxB1oyYCUoIY+N8ueHe4W0fGWU3A5rzgoIRncyDo7vTdoAnDtpr20Q+VfuZF11Jq/98UaMIYF5Sx4RqucUUdUJvXUw79LAyb9hqS7NXZl9vlfmKCE+Hj6vXL7uDyvlu3dAeWy7OpVdm6Zb7idJXWdgOrRQYNeO275kdVdWnU1kaJo7oylYWmjov1zD39p1/atcnaHcDtnHpx4x0789IfrM7XrQprbPe6zYprcZJfd1fyqb0Z2kth2NcX0fyUAkMxoIPCoZASce3tVffjZ35CctTdKGWQDWWSSvhQth7VFFyKGQq+9lw7ngSVWRMCL668H2WB3Sqd58R/4ZqsjDnvBE278I8wqGbnvPdf1GKQSGBC2GzLTyI1J5cIklXlrnRSAYXuZuyk+gYZEfEqEMnmZQaZJuSxznJXe37a+Py5EKb1s2WZ6fbV4dAjPclJMuEphkDTmKaIkKZIKeWt+Ty1PQTS24RebrFLFdRhXg8JyEglq7MM8GD8lLK1xp8XsHvyiW+us+ZIgHMeetObExGHBK7BTRLCTqQSmTkx2cQwqYUdYonknKyIY9h0JW7D6378jYfP7ArazJM/XPvgMC9f1wJbsFpbfX2SCKigQyLkZEqDEkZC6V/jtJMkvGGk9uZyvNUq/2HizYpET32tqk5gSotRm/388YcfKDN/PnW0fxoq+iCiFhbXTTt1wo2WycjZVl9trjjJqJd8ARF0OANb1ne8pDCgV+wufvKe7/3id/O1E8T88exjnz+0lGWvADwUqAIg1VKG72q3XFWprcX17qzzke4aEjpgAqSvObKnLwlUDX1/YzKLJ4796FdvbMFubXKrr9r9/rufPTwo4icG0T5F/yjy7WeHe1iIG94VLM7VlX6qCEgy8g9i1M9FXvzMJkhyFa5vMXiRS/D5qqueO/b4uX9p4naw/wDv1ZplvOGRpgAAAABJRU5ErkJggg==`;
-
-// src/enums/Breakpoints.ts
-var Breakpoints;
-(function(Breakpoints2) {
-  Breakpoints2[Breakpoints2["sm"] = 640] = "sm";
-  Breakpoints2[Breakpoints2["md"] = 768] = "md";
-  Breakpoints2[Breakpoints2["lg"] = 1024] = "lg";
-  Breakpoints2[Breakpoints2["xl"] = 1280] = "xl";
-  Breakpoints2[Breakpoints2["2xl"] = 1536] = "2xl";
-})(Breakpoints || (Breakpoints = {}));
-
-// src/components/styled/signInModalStyles.ts
-var COLOR_LIGHT_TEXT_MEDIUM = "#74777C";
-var ethosWalletTitleText = () => ({
-  fontSize: "18px",
-  lineHeight: "24px",
-  fontWeight: "600",
-  marginLeft: "10px"
-});
-var secondaryText = () => ({
-  color: "#6B7280",
-  fontSize: "0.875rem",
-  lineHeight: "1.25rem",
-  padding: "24px",
-  display: "flex",
-  flexDirection: "column",
-  gap: "12px"
-});
-var dialog = (isOpen) => ({
-  visibility: isOpen ? "" : "hidden",
-  position: "relative",
-  zIndex: "100"
-});
-var backdrop = (isOpen) => ({
-  position: "fixed",
-  top: "0px",
-  right: "0px",
-  bottom: "0px",
-  left: "0px",
-  backgroundColor: "rgb(107 114 128)",
-  opacity: isOpen ? ".75" : "0",
-  transition: "all 300ms ease-in-out"
-});
-var highlighted = () => ({
-  color: "#6D28D9"
-});
-var modalOuterWrapper = (isOpen) => ({
-  position: "fixed",
-  zIndex: "99",
-  top: "0px",
-  right: "0px",
-  bottom: "0px",
-  left: "0px",
-  overflowY: "auto",
-  opacity: isOpen ? "1" : "0",
-  scale: isOpen ? "1" : ".95",
-  transition: "all 300ms ease-in-out"
-});
-var modalInnerWrapper = (width) => {
-  const styles12 = {
-    display: "flex",
-    alignItems: "flex-end",
-    justifyContent: "center",
-    minHeight: "100%",
-    padding: "1rem",
-    textAlign: "center"
-  };
-  const sm = {
-    padding: "0",
-    alignItems: "center"
-  };
-  return width < Breakpoints.sm ? styles12 : {...styles12, ...sm};
-};
-var dialogPanel = (width) => {
-  const styles12 = {
-    overflow: "hidden",
-    position: "relative",
-    backgroundColor: "#ffffff",
-    transitionProperty: "all",
-    borderRadius: "0.5rem",
-    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
-  };
-  const sm = {
-    width: "360px"
-  };
-  return width < Breakpoints.sm ? styles12 : {...styles12, ...sm};
-};
-var topPanelStyle = () => ({
-  padding: "24px 24px 0px",
-  display: "flex",
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center"
-});
-var closeStyle = () => ({
-  width: "24px",
-  height: "24px",
-  color: "#A0AEBA",
-  cursor: "pointer"
-});
-var backStyle = () => ({
-  color: COLOR_LIGHT_TEXT_MEDIUM,
-  cursor: "pointer",
-  display: "flex",
-  gap: "6px",
-  alignItems: "center"
-});
-var backStyleText = () => ({
-  fontSize: "16px",
-  lineHeight: "24px"
-});
-var headerStyle = (withIcon = false) => ({
-  padding: withIcon ? "24px 24px 32px" : "0 24px 32px",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  gap: "12px"
-});
-var headerLogosStyle = () => ({
-  display: "flex",
-  justifyContent: "center",
-  gap: "-6px"
-});
-var titleStyle = () => ({
-  fontSize: "24px",
-  fontWeight: "600",
-  lineHeight: "32px",
-  margin: "0"
-});
-var subTitleStyle = () => ({
-  fontSize: "16px",
-  fontWeight: "400",
-  lineHeight: "24px",
-  margin: "0",
-  color: COLOR_LIGHT_TEXT_MEDIUM
-});
-var strikeThroughOrContainer = () => ({
-  padding: "0px 24px 24px",
-  display: "flex",
-  flexDirection: "row",
-  gap: "12px",
-  justifyContent: "space-between",
-  alignItems: "center",
-  color: COLOR_LIGHT_TEXT_MEDIUM
-});
-var line = () => ({
-  height: "1px",
-  width: "100%",
-  background: "rgba(0, 0, 0, 0.12)",
-  borderRadius: "16px"
-});
-var emailInput = () => ({
-  boxSizing: "border-box",
-  border: "1px solid rgba(0, 0, 0, 0.08)",
-  borderRadius: "16px",
-  background: "#F2F2F2",
-  padding: "20px",
-  width: "100%"
-});
-var walletOptionContainer = (width) => {
-  const styles12 = {
-    padding: "0px 24px 24px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "12px"
-  };
-  const sm = {};
-  return width < Breakpoints.sm ? styles12 : {...styles12, ...sm};
-};
-var iconButton = (width, disabled = false, primary = false, noIcon = false) => {
-  const styles12 = {
-    textDecoration: "none",
-    fontWeight: primary ? "500" : "400",
-    boxSizing: "border-box",
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: noIcon ? "center" : "space-between",
-    alignItems: "center",
-    padding: primary ? "20px 20px" : "16px 16px 16px 20px",
-    width: "100%",
-    background: primary ? "#6D28D9" : "#F2F2F2",
-    color: primary ? "white" : "black",
-    opacity: disabled ? 0.5 : 1,
-    cursor: disabled ? "not-allowed" : "pointer",
-    borderRadius: "16px",
-    flex: "none",
-    order: "0",
-    flexGrow: "0",
-    boxShadow: "0px 1px 2px rgba(0, 0, 0, 0.05)"
-  };
-  const sm = {};
-  return width < Breakpoints.sm ? styles12 : {...styles12, ...sm};
-};
-var submitButtonContainer = () => ({
-  padding: "0px 24px 24px"
-});
-var loaderStyle = () => ({
-  display: "flex",
-  justifyContent: "center",
-  padding: "45px 0"
-});
-var walletExplanation = () => ({
-  padding: "6px 0",
-  color: "#666",
-  width: "100%",
-  fontSize: "smaller",
-  marginBottom: "12px"
-});
-
-// src/lib/useHandleElementWithIdClicked.ts
-var import_react11 = __toModule(require("react"));
-function useHandleElementWithIdClicked(clickId, onClickOutside) {
-  (0, import_react11.useEffect)(() => {
-    function handleClickOutside(event2) {
-      if (event2.target.id === clickId) {
-        onClickOutside();
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-}
-
-// src/components/styled/EmailSent.tsx
-var import_react15 = __toModule(require("react"));
-
-// src/components/svg/EthosEnclosed.tsx
-var import_react12 = __toModule(require("react"));
-var EthosEnclosed = ({width = 24, color = "#6D28D9"}) => /* @__PURE__ */ import_react12.default.createElement("svg", {
-  width,
-  height: width,
-  viewBox: "0 0 56 56",
-  fill: "none",
-  xmlns: "http://www.w3.org/2000/svg"
-}, /* @__PURE__ */ import_react12.default.createElement("rect", {
-  width: "56",
-  height: "56",
-  rx: "16",
-  fill: color
-}), /* @__PURE__ */ import_react12.default.createElement("path", {
-  opacity: "0.8",
-  d: "M17.9631 13H36.9268C37.7997 13 38.5073 13.7076 38.5073 14.5805V35.9802C38.5073 36.8531 37.7997 37.5607 36.9268 37.5607H17.9631C17.0902 37.5607 16.3826 36.8531 16.3826 35.9802V14.5805C16.3826 13.7076 17.0902 13 17.9631 13Z",
-  stroke: "url(#paint0_linear_514_2169)",
-  strokeOpacity: "0.9",
-  strokeWidth: "0.790251"
-}), /* @__PURE__ */ import_react12.default.createElement("path", {
-  d: "M17.2471 14.0457L30.1651 20.0566C30.7225 20.316 31.0789 20.8749 31.0789 21.4896V42.6676C31.0789 43.8113 29.9018 44.5763 28.8566 44.112L15.9386 38.3725C15.3677 38.1189 14.9998 37.5528 14.9998 36.9281V15.4787C14.9998 14.3231 16.1994 13.5582 17.2471 14.0457Z",
-  fill: "white",
-  fillOpacity: "0.9"
-}), /* @__PURE__ */ import_react12.default.createElement("path", {
-  d: "M42.9117 27.9093C43.0029 27.4813 43.219 27.0901 43.5329 26.7851C43.8467 26.4801 44.2441 26.2753 44.6746 26.1965L45.8205 25.9872L44.6745 25.7779H44.6746C44.2441 25.6991 43.8467 25.4943 43.5329 25.1893C43.219 24.8843 43.0029 24.4931 42.9117 24.0651L42.6596 22.8774L42.4074 24.0651C42.3162 24.4931 42.1001 24.8843 41.7862 25.1893C41.4724 25.4943 41.075 25.6992 40.6445 25.7779L39.4985 25.9872L40.6446 26.1965H40.6445C41.075 26.2753 41.4724 26.4801 41.7861 26.7851C42.1 27.0901 42.3162 27.4813 42.4073 27.9093L42.6595 29.097L42.9117 27.9093Z",
-  fill: "white",
-  fillOpacity: "0.9"
-}), /* @__PURE__ */ import_react12.default.createElement("defs", null, /* @__PURE__ */ import_react12.default.createElement("linearGradient", {
-  id: "paint0_linear_514_2169",
-  x1: "38.5073",
-  y1: "19.5371",
-  x2: "27.4445",
-  y2: "25.0685",
-  gradientUnits: "userSpaceOnUse"
-}, /* @__PURE__ */ import_react12.default.createElement("stop", {
-  stopColor: "white"
-}), /* @__PURE__ */ import_react12.default.createElement("stop", {
-  offset: "1",
-  stopColor: "white",
-  stopOpacity: "0"
-}))));
-var EthosEnclosed_default = EthosEnclosed;
-
-// src/components/svg/Ethos.tsx
-var import_react13 = __toModule(require("react"));
-var Ethos = ({width = 24, color = "#1e293b"}) => /* @__PURE__ */ import_react13.default.createElement("svg", {
-  width,
-  height: width * 65 / 47,
-  viewBox: "0 0 47 65",
-  fill: "none",
-  xmlns: "http://www.w3.org/2000/svg"
-}, /* @__PURE__ */ import_react13.default.createElement("path", {
-  d: "M6.00471 1H40.0029C42.7644 1 45.0029 3.23858 45.0029 6V44.8425C45.0029 47.604 42.7643 49.8425 40.0029 49.8425H6.0047C3.24328 49.8425 1.0047 47.604 1.0047 44.8425V6C1.0047 3.23858 3.24329 1 6.00471 1Z",
-  stroke: color,
-  strokeWidth: "2"
-}), /* @__PURE__ */ import_react13.default.createElement("path", {
-  d: "M6.68764 3.64648L30.6631 14.8026C32.0736 15.4589 32.9756 16.8735 32.9756 18.4292V58.6799C32.9756 61.5743 29.9966 63.5105 27.3515 62.3353L3.37601 51.683C1.93126 51.0411 1.00013 49.6085 1.00013 48.0276V7.27309C1.00013 4.34854 4.03609 2.41268 6.68764 3.64648Z",
-  fill: color
-}));
-var Ethos_default = Ethos;
-
-// src/components/styled/Header.tsx
-var import_react14 = __toModule(require("react"));
-var Header = ({title, subTitle, dappIcon, showEthos = false, children}) => {
-  return /* @__PURE__ */ import_react14.default.createElement("div", null, /* @__PURE__ */ import_react14.default.createElement("div", {
-    style: headerStyle(!!dappIcon)
-  }, /* @__PURE__ */ import_react14.default.createElement("div", {
-    style: headerLogosStyle()
-  }, dappIcon && (typeof dappIcon === "string" ? /* @__PURE__ */ import_react14.default.createElement("img", {
-    src: dappIcon
-  }) : dappIcon), showEthos && /* @__PURE__ */ import_react14.default.createElement(Ethos_default, null)), title && /* @__PURE__ */ import_react14.default.createElement("div", {
-    style: titleStyle()
-  }, title), subTitle && /* @__PURE__ */ import_react14.default.createElement("div", {
-    style: subTitleStyle()
-  }, subTitle)), children);
-};
-var Header_default = Header;
-
-// src/components/styled/EmailSent.tsx
-var EmailSent = () => {
-  return /* @__PURE__ */ import_react15.default.createElement(Header_default, {
-    title: "Ethos sent you an email",
-    dappIcon: /* @__PURE__ */ import_react15.default.createElement(EthosEnclosed_default, {
-      width: 60
-    })
-  }, /* @__PURE__ */ import_react15.default.createElement("div", {
-    style: secondaryText()
-  }, /* @__PURE__ */ import_react15.default.createElement("p", null, "An email has been sent to you with a link to login."), /* @__PURE__ */ import_react15.default.createElement("p", null, "If you don't receive it, please check your spam folder or contact us at:"), /* @__PURE__ */ import_react15.default.createElement("p", null, "support@ethoswallet.xyz")));
-};
-var EmailSent_default = EmailSent;
-
-// src/components/styled/Wallets.tsx
-var import_react17 = __toModule(require("react"));
-
-// src/components/styled/IconButton.tsx
-var import_react16 = __toModule(require("react"));
-var IconButton = (props) => {
-  const {text, icon, width, disabled, primary, type, ...reactProps} = props;
-  return /* @__PURE__ */ import_react16.default.createElement("button", {
-    style: iconButton(width, disabled, primary, !icon),
-    ...reactProps,
-    type
-  }, /* @__PURE__ */ import_react16.default.createElement("div", null, text), icon);
-};
-var IconButton_default = IconButton;
-
-// src/components/styled/Wallets.tsx
-var Wallets = ({wallets: wallets2, selectWallet, width}) => {
-  const _connectExtension = (0, import_react17.useCallback)((e) => {
-    if (!selectWallet)
-      return;
-    let element = e.target;
-    let name;
-    while (!name && element.parentNode) {
-      name = element.dataset.name;
-      element = element.parentNode;
-    }
-    selectWallet(name);
-  }, []);
-  const icon = (wallet) => {
-    const src = wallet.name === "Sui Wallet" ? "https://sui.io/favicon.png" : wallet.icon;
-    return /* @__PURE__ */ import_react17.default.createElement("img", {
-      src,
-      height: 32,
-      width: 32
-    });
-  };
-  return /* @__PURE__ */ import_react17.default.createElement("div", {
-    role: "wallet-sign-in"
-  }, /* @__PURE__ */ import_react17.default.createElement("div", {
-    style: walletOptionContainer(width)
-  }, wallets2 == null ? void 0 : wallets2.map((wallet, index) => /* @__PURE__ */ import_react17.default.createElement(IconButton_default, {
-    key: `wallet-${index}`,
-    icon: icon(wallet),
-    "data-name": wallet.name,
-    text: wallet.name,
-    onClick: _connectExtension,
-    width
-  }))));
-};
-var Wallets_default = Wallets;
-
-// src/components/styled/Email.tsx
-var import_react18 = __toModule(require("react"));
-
-// src/lib/event.ts
-var event = async (eventProps) => {
-  postIFrameMessage_default({
-    action: "event",
-    data: eventProps
-  });
-};
-var event_default = event;
-
-// src/lib/login.ts
-var import_store28 = __toModule(require_store2());
-var login = async ({email, provider, apiKey}) => {
-  const {walletAppUrl} = lib_default.getConfiguration();
-  const userStore = import_store28.default.namespace("users");
-  if (provider) {
-    const returnTo = location.href;
-    const fullUrl = `${walletAppUrl}/auth?apiKey=${apiKey}&returnTo=${encodeURIComponent(returnTo)}`;
-    location.href = `${walletAppUrl}/socialauth?provider=${provider}&redirectTo=${encodeURIComponent(fullUrl)}`;
-    return;
-  }
-  return new Promise((resolve, _reject) => {
-    const loginEventListener = (message) => {
-      if (message.origin === walletAppUrl) {
-        const {action, data} = message.data;
-        if (action !== "login")
-          return;
-        window.removeEventListener("message", loginEventListener);
-        userStore("current", data);
-        resolve(data);
-      }
-    };
-    window.addEventListener("message", loginEventListener);
-    lib_default.postIFrameMessage({
-      action: "login",
-      data: {
-        email,
-        provider,
-        returnTo: window.location.href,
-        apiKey
-      }
-    });
-  });
-};
-var login_default = login;
-
-// src/components/styled/Email.tsx
-var Email = ({setSigningIn, setEmailSent, width}) => {
-  const {apiKey} = getConfiguration_default();
-  const [email, setEmail] = (0, import_react18.useState)("");
-  const validEmail = (0, import_react18.useMemo)(() => {
-    if (!email)
-      return false;
-    if (email.length === 0)
-      return false;
-    return !!email.match(/(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])/);
-  }, [email]);
-  const sendEmail = (0, import_react18.useCallback)(async () => {
-    if (!validEmail)
-      return;
-    await login_default({email, apiKey});
-    setEmail("");
-    setSigningIn(false);
-    setEmailSent(true);
-    event_default({action: "send_email", category: "sign_in", label: email, value: 1});
-  }, [validEmail, login_default, email, apiKey]);
-  const _handleChange = (0, import_react18.useCallback)((e) => {
-    setEmail(e.target.value);
-  }, []);
-  const onSubmit = (0, import_react18.useCallback)(async (e) => {
-    if (!validEmail) {
-      e.preventDefault();
-      return;
-    }
-    setSigningIn(true);
-    sendEmail();
-  }, [sendEmail]);
-  return /* @__PURE__ */ import_react18.default.createElement("div", {
-    role: "email-sign-in"
-  }, /* @__PURE__ */ import_react18.default.createElement("form", {
-    onSubmit,
-    style: walletOptionContainer(width)
-  }, /* @__PURE__ */ import_react18.default.createElement("input", {
-    style: emailInput(),
-    type: "email",
-    placeholder: "Enter your email address...",
-    value: email,
-    onChange: _handleChange
-  }), /* @__PURE__ */ import_react18.default.createElement(IconButton_default, {
-    text: "Sign In With Email",
-    type: "submit",
-    width,
-    disabled: !validEmail,
-    primary: true
-  })));
-};
-var Email_default = Email;
-
-// src/components/styled/Dialog.tsx
-var import_react19 = __toModule(require("react"));
-
-// src/components/styled/FontProvider.tsx
-var React10 = __toModule(require("react"));
-var FontProvider = ({children}) => {
-  const styles12 = () => ({
-    fontFamily: "'Inter', sans-serif",
-    color: "black",
-    lineHeight: "1.5",
-    fontSize: "16px"
-  });
-  return /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement("link", {
-    href: "https://rsms.me/inter/inter.css",
-    rel: "stylesheet"
-  }), /* @__PURE__ */ React10.createElement("div", {
-    style: styles12()
-  }, children));
-};
-var FontProvider_default = FontProvider;
-
-// src/components/styled/Dialog.tsx
-var Dialog = ({isOpenAll, children}) => {
-  return /* @__PURE__ */ import_react19.default.createElement(FontProvider_default, null, /* @__PURE__ */ import_react19.default.createElement("div", {
-    style: dialog(isOpenAll),
-    role: "dialog"
-  }, /* @__PURE__ */ import_react19.default.createElement("div", {
-    style: backdrop(isOpenAll)
-  }), children));
-};
-var Dialog_default = Dialog;
-
-// src/components/styled/ModalWrapper.tsx
-var import_react20 = __toModule(require("react"));
-var ModalWrapper = ({closeOnClickId, onClose, isOpenAll, width, back, children}) => {
-  return /* @__PURE__ */ import_react20.default.createElement("div", {
-    style: modalOuterWrapper(isOpenAll)
-  }, /* @__PURE__ */ import_react20.default.createElement("div", {
-    id: closeOnClickId,
-    style: modalInnerWrapper(width)
-  }, /* @__PURE__ */ import_react20.default.createElement("div", {
-    style: dialogPanel(width)
-  }, /* @__PURE__ */ import_react20.default.createElement("div", {
-    style: topPanelStyle()
-  }, /* @__PURE__ */ import_react20.default.createElement("span", null, back && /* @__PURE__ */ import_react20.default.createElement("span", {
-    style: backStyle(),
-    onClick: back
-  }, "\u2190", /* @__PURE__ */ import_react20.default.createElement("span", {
-    style: backStyleText()
-  }, "Back"))), /* @__PURE__ */ import_react20.default.createElement("span", {
-    style: closeStyle(),
-    onClick: onClose
-  }, /* @__PURE__ */ import_react20.default.createElement("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    fill: "none",
-    viewBox: "0 0 24 24",
-    strokeWidth: 1.5,
-    stroke: "currentColor"
-  }, /* @__PURE__ */ import_react20.default.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    d: "M6 18L18 6M6 6l12 12"
-  })))), children)));
-};
-var ModalWrapper_default = ModalWrapper;
-
-// src/components/svg/InstallWalletIcon.tsx
-var import_react21 = __toModule(require("react"));
-var InstallWalletIcon = ({width = 60}) => {
-  return /* @__PURE__ */ import_react21.default.createElement("svg", {
-    width,
-    height: width,
-    viewBox: "0 0 60 60",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg"
-  }, /* @__PURE__ */ import_react21.default.createElement("rect", {
-    x: "1",
-    y: "1",
-    width: "58",
-    height: "58",
-    rx: "17",
-    fill: "#1A1C26"
-  }), /* @__PURE__ */ import_react21.default.createElement("path", {
-    d: "M17.0307 21.5C18.1258 20.5314 19.538 19.9977 21 20H39C40.5213 20 41.9107 20.5667 42.9693 21.5C42.8475 20.5332 42.377 19.6442 41.6462 18.9998C40.9153 18.3553 39.9744 17.9998 39 18H21C20.0256 17.9998 19.0847 18.3553 18.3538 18.9998C17.623 19.6442 17.1525 20.5332 17.0307 21.5ZM17.0307 25.5C18.1258 24.5314 19.538 23.9977 21 24H39C40.5213 24 41.9107 24.5667 42.9693 25.5C42.8475 24.5332 42.377 23.6442 41.6462 22.9998C40.9153 22.3553 39.9744 21.9998 39 22H21C20.0256 21.9998 19.0847 22.3553 18.3538 22.9998C17.623 23.6442 17.1525 24.5332 17.0307 25.5ZM21 26C19.9391 26 18.9217 26.4214 18.1716 27.1716C17.4214 27.9217 17 28.9391 17 30V38C17 39.0609 17.4214 40.0783 18.1716 40.8284C18.9217 41.5786 19.9391 42 21 42H39C40.0609 42 41.0783 41.5786 41.8284 40.8284C42.5786 40.0783 43 39.0609 43 38V30C43 28.9391 42.5786 27.9217 41.8284 27.1716C41.0783 26.4214 40.0609 26 39 26H34C33.7348 26 33.4804 26.1054 33.2929 26.2929C33.1054 26.4804 33 26.7348 33 27C33 27.7956 32.6839 28.5587 32.1213 29.1213C31.5587 29.6839 30.7956 30 30 30C29.2044 30 28.4413 29.6839 27.8787 29.1213C27.3161 28.5587 27 27.7956 27 27C27 26.7348 26.8946 26.4804 26.7071 26.2929C26.5196 26.1054 26.2652 26 26 26H21Z",
-    fill: "white"
-  }), /* @__PURE__ */ import_react21.default.createElement("rect", {
-    x: "1",
-    y: "1",
-    width: "58",
-    height: "58",
-    rx: "17",
-    stroke: "#060914",
-    strokeWidth: "2"
-  }));
-};
-var InstallWalletIcon_default = InstallWalletIcon;
-
-// src/components/styled/InstallWallet.tsx
-var import_react24 = __toModule(require("react"));
-
-// src/components/svg/SuiEnclosed.tsx
-var import_react22 = __toModule(require("react"));
-var SuiEnclosed = ({width = 32}) => {
-  return /* @__PURE__ */ import_react22.default.createElement("svg", {
-    width,
-    height: width,
-    viewBox: "0 0 32 32",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg"
-  }, /* @__PURE__ */ import_react22.default.createElement("rect", {
-    width: "32",
-    height: "32",
-    rx: "8",
-    fill: "#81BAEB"
-  }), /* @__PURE__ */ import_react22.default.createElement("g", {
-    clipPath: "url(#clip0_315_6756)"
-  }, /* @__PURE__ */ import_react22.default.createElement("path", {
-    fillRule: "evenodd",
-    clipRule: "evenodd",
-    d: "M10.4932 22.2659C11.0635 23.2776 11.8925 24.1195 12.8953 24.7053C13.898 25.2912 15.0385 25.5999 16.1999 25.5999C17.3613 25.5999 18.5017 25.2912 19.5045 24.7053C20.5073 24.1195 21.3363 23.2776 21.9066 22.2659C22.4918 21.2523 22.7999 20.1025 22.7999 18.932C22.7999 17.7616 22.4918 16.6118 21.9066 15.5982L16.8874 6.80155C16.8187 6.67967 16.7188 6.57825 16.598 6.50767C16.4772 6.4371 16.3398 6.3999 16.1999 6.3999C16.06 6.3999 15.9226 6.4371 15.8018 6.50767C15.6809 6.57825 15.5811 6.67967 15.5123 6.80155L10.4932 15.5982C9.90796 16.6118 9.59985 17.7616 9.59985 18.932C9.59985 20.1025 9.90796 21.2523 10.4932 22.2659ZM14.786 10.9865L15.8561 9.11092C15.8905 9.04998 15.9404 8.99927 16.0008 8.96399C16.0612 8.9287 16.1299 8.9101 16.1999 8.9101C16.2698 8.9101 16.3385 8.9287 16.399 8.96399C16.4594 8.99927 16.5093 9.04998 16.5437 9.11092L20.6605 16.3263C21.0301 16.966 21.2592 17.6771 21.3326 18.4123C21.4061 19.1475 21.3221 19.8898 21.0864 20.59C21.0352 20.3514 20.9648 20.1172 20.8758 19.8899C20.3072 18.4377 19.0214 17.3171 17.0534 16.559C15.7004 16.0397 14.8368 15.276 14.4859 14.2886C14.0339 13.0166 14.506 11.6291 14.786 10.9865ZM12.9612 14.1847L11.7392 16.3263C11.2817 17.1186 11.0409 18.0174 11.0409 18.9323C11.0409 19.8472 11.2817 20.7459 11.7392 21.5382C12.1091 22.1934 12.6186 22.7591 13.2316 23.1952C13.8447 23.6312 14.5462 23.927 15.2864 24.0615C16.0266 24.1959 16.7874 24.1658 17.5146 23.9732C18.2419 23.7806 18.9178 23.4302 19.4944 22.947C19.8131 22.1324 19.8244 21.2296 19.5264 20.4072C19.1088 19.358 18.1034 18.5204 16.5383 17.9172C14.7692 17.2381 13.6199 16.178 13.1228 14.7672C13.0558 14.5769 13.0019 14.3823 12.9612 14.1847Z",
-    fill: "white"
-  })), /* @__PURE__ */ import_react22.default.createElement("defs", null, /* @__PURE__ */ import_react22.default.createElement("clipPath", {
-    id: "clip0_315_6756"
-  }, /* @__PURE__ */ import_react22.default.createElement("rect", {
-    width: "19.2",
-    height: "19.2",
-    fill: "white",
-    transform: "translate(6.3999 6.3999)"
-  }))));
-};
-var SuiEnclosed_default = SuiEnclosed;
-
-// src/components/svg/EthosWalletIcon.tsx
-var import_react23 = __toModule(require("react"));
-var EthosWalletIcon = () => {
-  return /* @__PURE__ */ import_react23.default.createElement("svg", {
-    width: "32",
-    height: "32",
-    viewBox: "0 0 32 32",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg"
-  }, /* @__PURE__ */ import_react23.default.createElement("rect", {
-    width: "32",
-    height: "32",
-    rx: "8",
-    fill: "#6D28D9"
-  }), /* @__PURE__ */ import_react23.default.createElement("path", {
-    opacity: "0.8",
-    d: "M9.12187 6.85706H19.9583C20.4571 6.85706 20.8614 7.26141 20.8614 7.7602V19.9886C20.8614 20.4874 20.4571 20.8918 19.9583 20.8918H9.12187C8.62308 20.8918 8.21872 20.4874 8.21872 19.9886V7.7602C8.21872 7.26141 8.62308 6.85706 9.12187 6.85706Z",
-    stroke: "url(#paint0_linear_699_2698)",
-    "stroke-width": "0.451572"
-  }), /* @__PURE__ */ import_react23.default.createElement("path", {
-    d: "M8.71274 7.45459L16.0945 10.8894C16.4129 11.0376 16.6166 11.357 16.6166 11.7083V23.81C16.6166 24.4635 15.944 24.9007 15.3468 24.6353L7.96502 21.3556C7.63882 21.2107 7.42858 20.8872 7.42858 20.5303V8.27343C7.42858 7.61311 8.11406 7.17602 8.71274 7.45459Z",
-    fill: "white"
-  }), /* @__PURE__ */ import_react23.default.createElement("path", {
-    d: "M23.3782 15.3767C23.4303 15.1321 23.5538 14.9086 23.7332 14.7343C23.9125 14.56 24.1396 14.443 24.3856 14.3979L25.0404 14.2784L24.3855 14.1588H24.3856C24.1396 14.1137 23.9125 13.9967 23.7332 13.8224C23.5538 13.6481 23.4303 13.4246 23.3782 13.18L23.2341 12.5013L23.09 13.18C23.0379 13.4246 22.9144 13.6481 22.7351 13.8224C22.5558 13.9967 22.3287 14.1138 22.0827 14.1588L21.4278 14.2784L22.0827 14.3979H22.0827C22.3287 14.443 22.5557 14.56 22.735 14.7343C22.9144 14.9086 23.0379 15.1321 23.09 15.3767L23.2341 16.0554L23.3782 15.3767Z",
-    fill: "white"
-  }), /* @__PURE__ */ import_react23.default.createElement("defs", null, /* @__PURE__ */ import_react23.default.createElement("linearGradient", {
-    id: "paint0_linear_699_2698",
-    x1: "20.8614",
-    y1: "10.5926",
-    x2: "14.5398",
-    y2: "13.7534",
-    gradientUnits: "userSpaceOnUse"
-  }, /* @__PURE__ */ import_react23.default.createElement("stop", {
-    "stop-color": "white"
-  }), /* @__PURE__ */ import_react23.default.createElement("stop", {
-    offset: "1",
-    stopColor: "white",
-    stopOpacity: "0"
-  }))));
-};
-var EthosWalletIcon_default = EthosWalletIcon;
-
-// src/components/styled/InstallWallet.tsx
-var InstallWallet = ({walletInfos, width}) => {
-  const icon = (data) => {
-    if (!data)
-      return /* @__PURE__ */ import_react24.default.createElement(import_react24.default.Fragment, null);
-    if (typeof data === "string") {
-      return /* @__PURE__ */ import_react24.default.createElement("img", {
-        src: data,
-        height: 32,
-        width: 32
-      });
-    }
-    return data;
-  };
-  const installWallets = [
-    {
-      name: "Ethos Wallet",
-      icon: /* @__PURE__ */ import_react24.default.createElement(EthosWalletIcon_default, null),
-      link: "https://chrome.google.com/webstore/detail/ethos-wallet/mcbigmjiafegjnnogedioegffbooigli"
-    },
-    {
-      name: "Sui Wallet",
-      icon: /* @__PURE__ */ import_react24.default.createElement(SuiEnclosed_default, null),
-      link: "https://chrome.google.com/webstore/detail/sui-wallet/opcgpfmipidbgpenhmajoajpbobppdil"
-    },
-    ...walletInfos || []
-  ];
-  return /* @__PURE__ */ import_react24.default.createElement(Header_default, {
-    dappIcon: /* @__PURE__ */ import_react24.default.createElement(InstallWalletIcon_default, null),
-    title: "Install A Wallet",
-    subTitle: "Wallets allow you to interact with, store, send, and receive digital assets."
-  }, /* @__PURE__ */ import_react24.default.createElement("div", {
-    role: "wallet-sign-in"
-  }, /* @__PURE__ */ import_react24.default.createElement("div", {
-    style: walletOptionContainer(width)
-  }, installWallets == null ? void 0 : installWallets.map((installWallet, index) => /* @__PURE__ */ import_react24.default.createElement("a", {
-    key: `wallet-${index}`,
-    style: iconButton(width),
-    href: installWallet.link,
-    target: "_blank"
-  }, installWallet.name, /* @__PURE__ */ import_react24.default.createElement("div", null, icon(installWallet.icon)))))));
-};
-var InstallWallet_default = InstallWallet;
-
-// src/hooks/useModal.ts
-var import_react26 = __toModule(require("react"));
-
-// src/components/ModalContext.tsx
-var import_react25 = __toModule(require("react"));
-var defaultIsModalOpen = null;
-var ModalContext = (0, import_react25.createContext)(defaultIsModalOpen);
-var ModalContext_default = ModalContext;
-
-// src/hooks/useModal.ts
-var useModal = () => {
-  const {isModalOpen, setIsModalOpen} = (0, import_react26.useContext)(ModalContext_default);
-  const openModal = () => {
-    setIsModalOpen(true);
-  };
-  const closeModal = () => {
-    setIsModalOpen(false);
-  };
-  return {openModal, closeModal, isModalOpen};
-};
-var useModal_default = useModal;
-
-// src/hooks/useWallet.ts
-var import_react27 = __toModule(require("react"));
-var useWallet = () => {
-  return (0, import_react27.useContext)(WalletContext_default);
-};
-var useWallet_default = useWallet;
-
-// src/hooks/useWindowDimensions.ts
-var import_react28 = __toModule(require("react"));
-function getWindowDimensions() {
-  if (typeof window === "undefined")
-    return {width: 0, height: 0};
-  const {innerWidth: width, innerHeight: height} = window;
-  return {
-    width,
-    height
-  };
-}
-function useWindowDimensions() {
-  const [windowDimensions, setWindowDimensions] = (0, import_react28.useState)(getWindowDimensions());
-  (0, import_react28.useEffect)(() => {
-    function handleResize() {
-      setWindowDimensions(getWindowDimensions());
-    }
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-  return windowDimensions;
-}
-
-// src/hooks/hooks.ts
-var hooks = {
-  useModal: useModal_default,
-  useWallet: useWallet_default,
-  useWindowDimensions
-};
-var hooks_default = hooks;
-
-// src/components/styled/MobileWallet.tsx
-var import_react29 = __toModule(require("react"));
-var MobileWallet = () => {
-  return /* @__PURE__ */ import_react29.default.createElement("div", {
-    role: "wallet-sign-in"
-  }, /* @__PURE__ */ import_react29.default.createElement("span", {
-    style: ethosWalletTitleText()
-  }, "Connect A Mobile Wallet"), /* @__PURE__ */ import_react29.default.createElement("div", {
-    style: walletExplanation()
-  }, /* @__PURE__ */ import_react29.default.createElement("p", null, "There are no mobile wallets yet on Sui.")));
-};
-var MobileWallet_default = MobileWallet;
-
-// src/components/styled/Or.tsx
-var import_react30 = __toModule(require("react"));
-var Or = () => {
-  return /* @__PURE__ */ import_react30.default.createElement("div", {
-    style: strikeThroughOrContainer()
-  }, /* @__PURE__ */ import_react30.default.createElement("div", {
-    style: line()
-  }), "or", /* @__PURE__ */ import_react30.default.createElement("div", {
-    style: line()
-  }));
-};
-var Or_default = Or;
-
-// src/components/styled/SignInModal.tsx
-function showSignInModal() {
-  window.ethosInternal.showSignInModal();
-}
-function hideSignInModal() {
-  window.ethosInternal.hideSignInModal();
-}
-var SignInModal = ({
-  connectMessage,
-  dappName,
-  dappIcon,
-  hideEmailSignIn,
-  hideWalletSignIn
-}) => {
-  const {wallets: wallets2, selectWallet} = hooks_default.useWallet();
-  const {isModalOpen, openModal, closeModal} = hooks_default.useModal();
-  const [isOpenAll, setIsOpenAll] = (0, import_react31.useState)(isModalOpen);
-  const [signingIn, setSigningIn] = (0, import_react31.useState)(false);
-  const [emailSent, setEmailSent] = (0, import_react31.useState)(false);
-  const {width} = hooks_default.useWindowDimensions();
-  const closeOnClickId = "ethos-close-on-click";
-  const [showEmail, setShowEmail] = (0, import_react31.useState)(false);
-  const [showMobile, setShowMobile] = (0, import_react31.useState)(false);
-  const [showInstallWallet, setShowInstallWallet] = (0, import_react31.useState)(false);
-  const [safeDappName, setSafeDappName] = (0, import_react31.useState)(dappName);
-  useHandleElementWithIdClicked(closeOnClickId, closeModal);
-  (0, import_react31.useEffect)(() => {
-    window.ethosInternal || (window.ethosInternal = {});
-    window.ethosInternal.showSignInModal = () => {
-      openModal();
-    };
-    window.ethosInternal.hideSignInModal = () => {
-      closeModal();
-    };
-    setIsOpenAll(isModalOpen);
-  }, [isModalOpen, setIsOpenAll, openModal, closeModal]);
-  (0, import_react31.useEffect)(() => {
-    if (hideEmailSignIn && hideWalletSignIn) {
-      throw new Error("hideEmailSignIn and hideWalletSignIn cannot both be true");
-    }
-  }, []);
-  (0, import_react31.useEffect)(() => {
-    if (!safeDappName) {
-      setSafeDappName(document.title);
-    }
-  }, [safeDappName]);
-  const _toggleInstallWallet = (0, import_react31.useCallback)(() => {
-    setShowInstallWallet((prev) => !prev);
-  }, []);
-  const _toggleEmail = (0, import_react31.useCallback)(() => {
-    setShowEmail((prev) => !prev);
-  }, []);
-  const _reset = (0, import_react31.useCallback)(() => {
-    setShowInstallWallet(false);
-    setShowMobile(false);
-    setShowEmail(false);
-  }, []);
-  const safeConnectMessage = (0, import_react31.useMemo)(() => {
-    if (connectMessage)
-      return connectMessage;
-    if (!safeDappName) {
-      return /* @__PURE__ */ import_react31.default.createElement(import_react31.default.Fragment, null);
-    }
-    return /* @__PURE__ */ import_react31.default.createElement(import_react31.default.Fragment, null, "Connect to ", /* @__PURE__ */ import_react31.default.createElement("span", {
-      style: highlighted()
-    }, safeDappName));
-  }, [safeDappName, connectMessage]);
-  const modalContent = (0, import_react31.useMemo)(() => {
-    const safeWallets = wallets2 || [];
-    if (showMobile) {
-      return /* @__PURE__ */ import_react31.default.createElement(MobileWallet_default, null);
-    }
-    if (showInstallWallet || hideEmailSignIn && safeWallets.length === 0) {
-      return /* @__PURE__ */ import_react31.default.createElement(InstallWallet_default, {
-        width
-      });
-    }
-    if (hideWalletSignIn) {
-      return /* @__PURE__ */ import_react31.default.createElement(Email_default, {
-        setSigningIn,
-        setEmailSent,
-        width
-      });
-    }
-    if (!showEmail && safeWallets.length > 0)
-      return /* @__PURE__ */ import_react31.default.createElement(Header_default, {
-        title: safeConnectMessage,
-        dappIcon,
-        subTitle: "Choose from your connected wallets"
-      }, /* @__PURE__ */ import_react31.default.createElement(Wallets_default, {
-        wallets: safeWallets,
-        selectWallet,
-        width
-      }), !hideEmailSignIn && /* @__PURE__ */ import_react31.default.createElement(import_react31.default.Fragment, null, /* @__PURE__ */ import_react31.default.createElement(Or_default, null), /* @__PURE__ */ import_react31.default.createElement("div", {
-        style: submitButtonContainer()
-      }, /* @__PURE__ */ import_react31.default.createElement(IconButton_default, {
-        text: "Sign In With Email",
-        onClick: _toggleEmail,
-        width,
-        primary: true
-      }))));
-    return /* @__PURE__ */ import_react31.default.createElement(Header_default, {
-      title: safeConnectMessage,
-      dappIcon,
-      subTitle: `Log in to ${safeDappName}`
-    }, /* @__PURE__ */ import_react31.default.createElement(Email_default, {
-      setSigningIn,
-      setEmailSent,
-      width
-    }), !hideWalletSignIn && /* @__PURE__ */ import_react31.default.createElement(import_react31.default.Fragment, null, /* @__PURE__ */ import_react31.default.createElement(Or_default, null), /* @__PURE__ */ import_react31.default.createElement("div", {
-      style: submitButtonContainer()
-    }, safeWallets.length > 0 ? /* @__PURE__ */ import_react31.default.createElement(IconButton_default, {
-      icon: /* @__PURE__ */ import_react31.default.createElement(WalletsIcon_default, null),
-      text: "Select One Of Your Wallets",
-      onClick: _toggleEmail,
-      width
-    }) : /* @__PURE__ */ import_react31.default.createElement(IconButton_default, {
-      icon: /* @__PURE__ */ import_react31.default.createElement(WalletsIcon_default, null),
-      text: "Install A Wallet",
-      onClick: _toggleInstallWallet,
-      width
-    }))));
-  }, [safeConnectMessage, safeDappName, hideEmailSignIn, hideWalletSignIn, wallets2, showEmail, showMobile, showInstallWallet]);
-  const subpage = (0, import_react31.useMemo)(() => {
-    return showMobile || showInstallWallet;
-  }, [showMobile, showInstallWallet]);
-  const loader = (0, import_react31.useMemo)(() => /* @__PURE__ */ import_react31.default.createElement("div", {
-    style: loaderStyle()
-  }, /* @__PURE__ */ import_react31.default.createElement(Loader_default, {
-    width: 50
-  })), []);
-  return /* @__PURE__ */ import_react31.default.createElement(Dialog_default, {
-    isOpenAll
-  }, /* @__PURE__ */ import_react31.default.createElement(ModalWrapper_default, {
-    closeOnClickId,
-    onClose: closeModal,
-    isOpenAll,
-    width,
-    back: subpage ? _reset : null
-  }, emailSent ? /* @__PURE__ */ import_react31.default.createElement(EmailSent_default, null) : signingIn ? loader : modalContent));
-};
-var SignInModal_default = SignInModal;
-
-// src/components/EthosConnectProvider.tsx
-var EthosConnectProvider = ({ethosConfiguration, onWalletConnected, connectMessage, dappName, dappIcon, children}) => {
+// src/hooks/useContext.ts
+var useContext3 = ({ethosConfiguration, onWalletConnected}) => {
   if (!ethosConfiguration)
     ethosConfiguration = {};
   if (!(ethosConfiguration == null ? void 0 : ethosConfiguration.chain))
@@ -34751,15 +36255,26 @@ var EthosConnectProvider = ({ethosConfiguration, onWalletConnected, connectMessa
   if (!(ethosConfiguration == null ? void 0 : ethosConfiguration.walletAppUrl))
     ethosConfiguration.walletAppUrl = "https://ethoswallet.xyz";
   log_default("EthosConnectProvider", "EthosConnectProvider Configuration:", ethosConfiguration);
-  (0, import_react32.useEffect)(() => {
+  (0, import_react29.useEffect)(() => {
     lib_default.initializeEthos(ethosConfiguration || {});
   }, []);
   const {wallets: wallets2, selectWallet, providerAndSigner, logout: logout2} = useConnect_default();
-  const {address, contents} = useAccount_default(providerAndSigner.signer);
-  const [isModalOpen, setIsModalOpen] = (0, import_react32.useState)(false);
-  const [loading, setLoading] = (0, import_react32.useState)(true);
-  const modalState = (0, import_react32.useMemo)(() => ({isModalOpen, setIsModalOpen}), [isModalOpen, setIsModalOpen]);
-  const walletContext = (0, import_react32.useMemo)(() => {
+  const {address: address2, contents} = useAccount_default(providerAndSigner.signer);
+  const [isModalOpen, setIsModalOpen] = (0, import_react29.useState)(false);
+  const modal = (0, import_react29.useMemo)(() => {
+    const openModal = () => {
+      setIsModalOpen(true);
+    };
+    const closeModal = () => {
+      setIsModalOpen(false);
+    };
+    return {
+      isModalOpen,
+      openModal,
+      closeModal
+    };
+  }, [isModalOpen, setIsModalOpen]);
+  const wallet = (0, import_react29.useMemo)(() => {
     const {provider, signer} = providerAndSigner;
     let status;
     if (provider) {
@@ -34773,14 +36288,18 @@ var EthosConnectProvider = ({ethosConfiguration, onWalletConnected, connectMessa
     }
     const context = {
       status,
-      wallets: wallets2,
+      wallets: wallets2.map((w) => ({
+        ...w,
+        name: w.name,
+        icon: w.icon
+      })),
       selectWallet,
       provider
     };
     if (signer) {
       context.wallet = {
         ...signer,
-        address,
+        address: address2,
         contents
       };
     }
@@ -34788,12 +36307,12 @@ var EthosConnectProvider = ({ethosConfiguration, onWalletConnected, connectMessa
   }, [
     wallets2,
     selectWallet,
-    address,
+    address2,
     providerAndSigner,
     contents,
     logout2
   ]);
-  (0, import_react32.useEffect)(() => {
+  (0, import_react29.useEffect)(() => {
     if (!(providerAndSigner == null ? void 0 : providerAndSigner.provider))
       return;
     log_default("EthosConnectProvider", "calling onWalletConnected", providerAndSigner);
@@ -34807,7 +36326,7 @@ var EthosConnectProvider = ({ethosConfiguration, onWalletConnected, connectMessa
     }
     onWalletConnected && onWalletConnected(providerAndSigner);
   }, [providerAndSigner]);
-  (0, import_react32.useEffect)(() => {
+  (0, import_react29.useEffect)(() => {
     var _a, _b;
     if (isModalOpen) {
       (_a = document.getElementsByTagName("html").item(0)) == null ? void 0 : _a.setAttribute("style", "overflow: hidden;");
@@ -34815,63 +36334,376 @@ var EthosConnectProvider = ({ethosConfiguration, onWalletConnected, connectMessa
       (_b = document.getElementsByTagName("html").item(0)) == null ? void 0 : _b.setAttribute("style", "");
     }
   }, [isModalOpen]);
-  (0, import_react32.useEffect)(() => {
-    setLoading(false);
-  }, []);
-  if (loading) {
-    return /* @__PURE__ */ import_react32.default.createElement(import_react32.default.Fragment, null);
-  }
-  return /* @__PURE__ */ import_react32.default.createElement(WalletContext_default.Provider, {
-    value: walletContext
-  }, /* @__PURE__ */ import_react32.default.createElement(ProviderAndSignerContext_default.Provider, {
-    value: providerAndSigner
-  }, /* @__PURE__ */ import_react32.default.createElement(ContentsContext_default.Provider, {
-    value: contents
-  }, /* @__PURE__ */ import_react32.default.createElement(ModalContext_default.Provider, {
-    value: modalState
-  }, children, /* @__PURE__ */ import_react32.default.createElement(SignInModal_default, {
-    isOpen: isModalOpen,
-    hideEmailSignIn: ethosConfiguration.hideEmailSignIn,
-    hideWalletSignIn: ethosConfiguration.hideWalletSignIn,
+  const value = (0, import_react29.useMemo)(() => ({
+    wallet,
+    modal,
+    providerAndSigner
+  }), [wallet, modal, providerAndSigner]);
+  return {...value, ethosConfiguration};
+};
+var useContext_default = useContext3;
+
+// src/components/EthosConnectProvider.tsx
+var EthosConnectProvider = ({ethosConfiguration, onWalletConnected, connectMessage, dappName, dappIcon, children}) => {
+  var _a;
+  const context = useContext_default({ethosConfiguration, onWalletConnected});
+  return /* @__PURE__ */ import_react30.default.createElement(ConnectContext_default.Provider, {
+    value: context
+  }, children, /* @__PURE__ */ import_react30.default.createElement(SignInModal_default, {
+    isOpen: ((_a = context.modal) == null ? void 0 : _a.isModalOpen) || false,
+    hideEmailSignIn: context.ethosConfiguration.hideEmailSignIn,
+    hideWalletSignIn: context.ethosConfiguration.hideWalletSignIn,
     connectMessage,
     dappName,
     dappIcon
-  })))));
+  }));
 };
 var EthosConnectProvider_default = EthosConnectProvider;
 
 // src/components/styled/SignInButton.tsx
-var import_react34 = __toModule(require("react"));
+var import_react32 = __toModule(require("react"));
 
-// src/components/headless/Button.tsx
-var import_react33 = __toModule(require("react"));
-var Button = (props) => {
-  const {children, onClick, isWorking, workingComponent, ...reactProps} = props;
-  return /* @__PURE__ */ import_react33.default.createElement("button", {
-    onClick,
+// src/components/headless/WorkingButton.tsx
+var import_react31 = __toModule(require("react"));
+var WorkingButton = (props) => {
+  const {children, isWorking, workingComponent, ...reactProps} = props;
+  return /* @__PURE__ */ import_react31.default.createElement("button", {
     ...reactProps
-  }, isWorking ? workingComponent || /* @__PURE__ */ import_react33.default.createElement("span", {
+  }, isWorking ? workingComponent || /* @__PURE__ */ import_react31.default.createElement("span", {
     className: "block p-2"
-  }, /* @__PURE__ */ import_react33.default.createElement(Loader_default, {
+  }, /* @__PURE__ */ import_react31.default.createElement(Loader_default, {
     width: 32
-  })) : /* @__PURE__ */ import_react33.default.createElement(import_react33.default.Fragment, null, children));
+  })) : /* @__PURE__ */ import_react31.default.createElement(import_react31.default.Fragment, null, children));
 };
-var Button_default = Button;
+var WorkingButton_default = WorkingButton;
 
 // src/components/styled/SignInButton.tsx
 var SignInButton = (props) => {
-  const {children, onClick, ...reactProps} = props;
-  const {openModal} = useModal_default();
-  const _onClick = (e) => {
+  const {children, onClick, externalContext, ...reactProps} = props;
+  const {openModal} = (externalContext == null ? void 0 : externalContext.modal) || useModal_default();
+  const _onClick = (0, import_react32.useCallback)((e) => {
     openModal();
     onClick && onClick(e);
-  };
-  return /* @__PURE__ */ import_react34.default.createElement(import_react34.default.Fragment, null, /* @__PURE__ */ import_react34.default.createElement(Button_default, {
+  }, [openModal, onClick]);
+  return /* @__PURE__ */ import_react32.default.createElement(import_react32.default.Fragment, null, /* @__PURE__ */ import_react32.default.createElement(WorkingButton_default, {
     onClick: _onClick,
-    ...reactProps
-  }, children || /* @__PURE__ */ import_react34.default.createElement(import_react34.default.Fragment, null, "Sign In")));
+    ...reactProps,
+    style: buttonDefault()
+  }, children || /* @__PURE__ */ import_react32.default.createElement(import_react32.default.Fragment, null, "Sign In")));
 };
 var SignInButton_default = SignInButton;
+var buttonDefault = () => ({
+  lineHeight: "21px",
+  padding: "0 12px 0 0",
+  border: "none",
+  backgroundColor: "transparent",
+  cursor: "pointer",
+  fontFamily: "inherit",
+  fontSize: "14px"
+});
+
+// src/components/styled/AddressWidget.tsx
+var import_react39 = __toModule(require("react"));
+
+// src/lib/formatBalance.ts
+var import_bignumber = __toModule(require_bignumber());
+var formatBalance = (balance, decimals = 9) => {
+  if (balance === void 0)
+    return "---";
+  let postfix = "";
+  let bn = new import_bignumber.default(balance.toString()).shiftedBy(-1 * decimals);
+  if (bn.gte(1e9)) {
+    bn = bn.shiftedBy(-9);
+    postfix = " B";
+  } else if (bn.gte(1e6)) {
+    bn = bn.shiftedBy(-6);
+    postfix = " M";
+  } else if (bn.gte(1e4)) {
+    bn = bn.shiftedBy(-3);
+    postfix = " K";
+  }
+  if (bn.gte(1)) {
+    bn = bn.decimalPlaces(3, import_bignumber.default.ROUND_DOWN);
+  } else {
+    bn = bn.decimalPlaces(6, import_bignumber.default.ROUND_DOWN);
+  }
+  return bn.toFormat() + postfix;
+};
+var formatBalance_default = formatBalance;
+
+// src/lib/truncateMiddle.ts
+var truncateMiddle = (text, length = 6) => text ? `${text.slice(0, length)}...${text.slice(length * -1)}` : "";
+var truncateMiddle_default = truncateMiddle;
+
+// src/components/svg/Sui.tsx
+var import_react33 = __toModule(require("react"));
+var Sui = ({width = 24, color = "#6EBCEE"}) => /* @__PURE__ */ import_react33.default.createElement("svg", {
+  id: "SuiSvg",
+  xmlns: "http://www.w3.org/2000/svg",
+  width,
+  height: width * (40 / 28),
+  viewBox: "-1 0 28 40",
+  style: {display: "block", verticalAlign: "middle"}
+}, /* @__PURE__ */ import_react33.default.createElement("path", {
+  d: "M1.8611,33.0541a13.6477,13.6477,0,0,0,23.7778,0,13.89,13.89,0,0,0,0-13.8909L15.1824.8368a1.6444,1.6444,0,0,0-2.8648,0L1.8611,19.1632A13.89,13.89,0,0,0,1.8611,33.0541ZM10.8044,9.5555,13.0338,5.648a.8222.8222,0,0,1,1.4324,0L23.043,20.68a10.8426,10.8426,0,0,1,.8873,8.8828,9.4254,9.4254,0,0,0-.4388-1.4586c-1.1847-3.0254-3.8634-5.36-7.9633-6.9393-2.8187-1.0819-4.618-2.6731-5.3491-4.73C9.2375,13.7848,10.221,10.8942,10.8044,9.5555ZM7.0028,16.2184,4.457,20.68a10.8569,10.8569,0,0,0,0,10.8582,10.6776,10.6776,0,0,0,16.1566,2.935,7.5061,7.5061,0,0,0,.0667-5.2913c-.87-2.1858-2.9646-3.9308-6.2252-5.1876-3.6857-1.4147-6.08-3.6233-7.1157-6.5625A9.297,9.297,0,0,1,7.0028,16.2184Z",
+  style: {fill: color, fillRule: "evenodd"}
+}));
+var Sui_default = Sui;
+
+// src/components/styled/CopyWalletAddressButton.tsx
+var import_react36 = __toModule(require("react"));
+
+// src/components/styled/MenuButton.tsx
+var import_react35 = __toModule(require("react"));
+
+// src/components/headless/HoverColorButton.tsx
+var import_react34 = __toModule(require("react"));
+
+// src/lib/constants.ts
+var primaryColor = "#6f53e4";
+var appBaseUrl = typeof window !== "undefined" && window.location.origin.indexOf("http://localhost") === 0 ? "http://localhost:3000" : "https://ethoswallet.onrender.com";
+
+// src/components/headless/HoverColorButton.tsx
+var HoverColorButton = (props) => {
+  const {hoverBackgroundColor, hoverChildren, children, style, ...workingButtonProps} = props;
+  const [hover, setHover] = (0, import_react34.useState)(false);
+  const onMouseEnter = (0, import_react34.useCallback)(() => {
+    setHover(true);
+  }, []);
+  const onMouseLeave = (0, import_react34.useCallback)(() => {
+    setHover(false);
+  }, []);
+  return /* @__PURE__ */ import_react34.default.createElement(WorkingButton_default, {
+    onMouseEnter,
+    onMouseLeave,
+    style: {
+      ...style,
+      backgroundColor: hover ? hoverBackgroundColor || primaryColor : void 0,
+      color: hover ? "white" : "black"
+    },
+    ...workingButtonProps
+  }, hover ? hoverChildren : children);
+};
+var HoverColorButton_default = HoverColorButton;
+
+// src/components/styled/MenuButton.tsx
+var MenuButton = (props) => {
+  return /* @__PURE__ */ import_react35.default.createElement(HoverColorButton_default, {
+    ...props,
+    style: button()
+  });
+};
+var MenuButton_default = MenuButton;
+var button = () => ({
+  width: "100%",
+  borderRadius: "12px",
+  textAlign: "left",
+  padding: "6px 12px",
+  display: "flex",
+  alignItems: "center",
+  gap: "6px",
+  border: "none",
+  fontFamily: "inherit",
+  cursor: "pointer"
+});
+
+// src/components/styled/CopyWalletAddressButton.tsx
+var CopyWalletAddressButton = (props) => {
+  const {externalContext, ...buttonProps} = props;
+  const {wallet} = (externalContext == null ? void 0 : externalContext.wallet) || useWallet_default();
+  const children = (0, import_react36.useCallback)((hover) => /* @__PURE__ */ import_react36.default.createElement(import_react36.default.Fragment, null, /* @__PURE__ */ import_react36.default.createElement("svg", {
+    width: "18",
+    height: "18",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg"
+  }, /* @__PURE__ */ import_react36.default.createElement("path", {
+    d: "M15.6657 3.88789C15.3991 2.94272 14.5305 2.25 13.5 2.25H10.5C9.46954 2.25 8.60087 2.94272 8.33426 3.88789M15.6657 3.88789C15.7206 4.0825 15.75 4.28782 15.75 4.5V4.5C15.75 4.91421 15.4142 5.25 15 5.25H9C8.58579 5.25 8.25 4.91421 8.25 4.5V4.5C8.25 4.28782 8.27937 4.0825 8.33426 3.88789M15.6657 3.88789C16.3119 3.93668 16.9545 3.99828 17.5933 4.07241C18.6939 4.20014 19.5 5.149 19.5 6.25699V19.5C19.5 20.7426 18.4926 21.75 17.25 21.75H6.75C5.50736 21.75 4.5 20.7426 4.5 19.5V6.25699C4.5 5.149 5.30608 4.20014 6.40668 4.07241C7.04547 3.99828 7.68808 3.93668 8.33426 3.88789",
+    stroke: hover ? "white" : "black",
+    strokeWidth: "1.5",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  })), "Copy Wallet Address"), []);
+  const onClick = (0, import_react36.useCallback)((e) => {
+    const element = e.target;
+    const innerHTML = element.innerHTML;
+    element.innerHTML = "Copied!";
+    navigator.clipboard.writeText((wallet == null ? void 0 : wallet.address) || "");
+    setTimeout(() => {
+      element.innerHTML = innerHTML;
+    }, 1e3);
+  }, [wallet]);
+  return /* @__PURE__ */ import_react36.default.createElement(MenuButton_default, {
+    ...buttonProps,
+    onClick,
+    hoverChildren: children(true)
+  }, children(false));
+};
+var CopyWalletAddressButton_default = CopyWalletAddressButton;
+
+// src/components/styled/WalletExplorerButton.tsx
+var import_react37 = __toModule(require("react"));
+var WalletExplorerButton = (props) => {
+  const children = (0, import_react37.useCallback)((hover) => /* @__PURE__ */ import_react37.default.createElement(import_react37.default.Fragment, null, /* @__PURE__ */ import_react37.default.createElement("svg", {
+    width: "18",
+    height: "18",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg"
+  }, /* @__PURE__ */ import_react37.default.createElement("path", {
+    d: "M12 21C16.1926 21 19.7156 18.1332 20.7157 14.2529M12 21C7.80742 21 4.28442 18.1332 3.2843 14.2529M12 21C14.4853 21 16.5 16.9706 16.5 12C16.5 7.02944 14.4853 3 12 3M12 21C9.51472 21 7.5 16.9706 7.5 12C7.5 7.02944 9.51472 3 12 3M12 3C15.3652 3 18.299 4.84694 19.8431 7.58245M12 3C8.63481 3 5.70099 4.84694 4.15692 7.58245M19.8431 7.58245C17.7397 9.40039 14.9983 10.5 12 10.5C9.00172 10.5 6.26027 9.40039 4.15692 7.58245M19.8431 7.58245C20.5797 8.88743 21 10.3946 21 12C21 12.778 20.9013 13.5329 20.7157 14.2529M20.7157 14.2529C18.1334 15.6847 15.1619 16.5 12 16.5C8.8381 16.5 5.86662 15.6847 3.2843 14.2529M3.2843 14.2529C3.09871 13.5329 3 12.778 3 12C3 10.3946 3.42032 8.88743 4.15692 7.58245",
+    stroke: hover ? "white" : "black",
+    strokeWidth: "1.5",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  })), "Wallet Explorer"), []);
+  const onClick = (0, import_react37.useCallback)(() => {
+    window.open("https://ethoswallet.xyz/dashboard", "_blank");
+  }, []);
+  return /* @__PURE__ */ import_react37.default.createElement(MenuButton_default, {
+    ...props,
+    onClick,
+    hoverChildren: children(true)
+  }, children(false));
+};
+var WalletExplorerButton_default = WalletExplorerButton;
+
+// src/components/styled/LogoutButton.tsx
+var import_react38 = __toModule(require("react"));
+var LogoutButton = (props) => {
+  const {externalContext, ...buttonProps} = props;
+  const {wallet} = (externalContext == null ? void 0 : externalContext.wallet) || useWallet_default();
+  const children = (0, import_react38.useCallback)((hover) => /* @__PURE__ */ import_react38.default.createElement(import_react38.default.Fragment, null, /* @__PURE__ */ import_react38.default.createElement("svg", {
+    width: "18",
+    height: "18",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg"
+  }, /* @__PURE__ */ import_react38.default.createElement("path", {
+    d: "M13.5 21V20.25V21ZM7.5 21V21.75V21ZM5.25 18.75H6H5.25ZM5.25 5.25H4.5H5.25ZM7.5 3V2.25V3ZM13.5 3V3.75V3ZM15.75 5.25L15 5.25V5.25H15.75ZM15 9C15 9.41421 15.3358 9.75 15.75 9.75C16.1642 9.75 16.5 9.41421 16.5 9H15ZM16.5 15C16.5 14.5858 16.1642 14.25 15.75 14.25C15.3358 14.25 15 14.5858 15 15H16.5ZM15.75 18.75H16.5H15.75ZM18.2197 14.4697C17.9268 14.7626 17.9268 15.2374 18.2197 15.5303C18.5126 15.8232 18.9874 15.8232 19.2803 15.5303L18.2197 14.4697ZM21.75 12L22.2803 12.5303C22.5732 12.2374 22.5732 11.7626 22.2803 11.4697L21.75 12ZM19.2803 8.46967C18.9874 8.17678 18.5126 8.17678 18.2197 8.46967C17.9268 8.76256 17.9268 9.23744 18.2197 9.53033L19.2803 8.46967ZM9 11.25C8.58579 11.25 8.25 11.5858 8.25 12C8.25 12.4142 8.58579 12.75 9 12.75V11.25ZM13.5 20.25H7.5V21.75H13.5V20.25ZM6 18.75L6 5.25H4.5L4.5 18.75H6ZM7.5 3.75L13.5 3.75V2.25L7.5 2.25V3.75ZM15 5.25V9H16.5V5.25H15ZM15 15V18.75H16.5V15H15ZM6 5.25C6 4.42157 6.67157 3.75 7.5 3.75V2.25C5.84315 2.25 4.5 3.59315 4.5 5.25H6ZM7.5 20.25C6.67157 20.25 6 19.5784 6 18.75H4.5C4.5 20.4069 5.84315 21.75 7.5 21.75V20.25ZM13.5 21.75C15.1569 21.75 16.5 20.4069 16.5 18.75H15C15 19.5784 14.3284 20.25 13.5 20.25V21.75ZM13.5 3.75C14.3284 3.75 15 4.42157 15 5.25L16.5 5.25C16.5 3.59315 15.1569 2.25 13.5 2.25V3.75ZM19.2803 15.5303L22.2803 12.5303L21.2197 11.4697L18.2197 14.4697L19.2803 15.5303ZM22.2803 11.4697L19.2803 8.46967L18.2197 9.53033L21.2197 12.5303L22.2803 11.4697ZM21.75 11.25L9 11.25V12.75L21.75 12.75V11.25Z",
+    fill: hover ? "white" : "black"
+  })), "Log Out"), []);
+  return /* @__PURE__ */ import_react38.default.createElement(MenuButton_default, {
+    ...buttonProps,
+    onClick: wallet == null ? void 0 : wallet.disconnect,
+    hoverChildren: children(true)
+  }, children(false));
+};
+var LogoutButton_default = LogoutButton;
+
+// src/components/styled/AddressWidget.tsx
+var import_react40 = __toModule(require("react"));
+
+// src/enums/AddressWidgetButtons.ts
+var AddressWidgetButtons;
+(function(AddressWidgetButtons2) {
+  AddressWidgetButtons2["CopyWalletAddress"] = "copy_wallet_address";
+  AddressWidgetButtons2["WalletExplorer"] = "wallet_explorer";
+  AddressWidgetButtons2["Logout"] = "logout";
+})(AddressWidgetButtons || (AddressWidgetButtons = {}));
+
+// src/components/styled/AddressWidget.tsx
+var AddressWidget = ({
+  includeMenu = true,
+  buttonColor = primaryColor,
+  extraButtons = [],
+  excludeButtons = [],
+  externalContext
+}) => {
+  var _a;
+  const {wallet} = (externalContext == null ? void 0 : externalContext.wallet) || useWallet_default();
+  const [showMenu, setShowMenu] = (0, import_react39.useState)(false);
+  (0, import_react40.useEffect)(() => {
+    if (!wallet) {
+      setShowMenu(false);
+    }
+  }, [wallet]);
+  const onMouseEnter = (0, import_react39.useCallback)(() => {
+    if (!wallet)
+      return;
+    setShowMenu(true);
+  }, [wallet]);
+  const onMouseLeave = (0, import_react39.useCallback)(() => {
+    if (!wallet)
+      return;
+    setShowMenu(false);
+  }, [wallet]);
+  return /* @__PURE__ */ import_react39.default.createElement("div", {
+    style: container(),
+    onMouseEnter,
+    onMouseLeave
+  }, /* @__PURE__ */ import_react39.default.createElement("div", {
+    style: primary()
+  }, /* @__PURE__ */ import_react39.default.createElement("div", null, /* @__PURE__ */ import_react39.default.createElement(Sui_default, {
+    color: "#222532",
+    width: 12
+  })), wallet ? /* @__PURE__ */ import_react39.default.createElement(import_react39.default.Fragment, null, /* @__PURE__ */ import_react39.default.createElement("div", null, formatBalance_default((_a = wallet.contents) == null ? void 0 : _a.suiBalance), " ", "Sui"), /* @__PURE__ */ import_react39.default.createElement("div", {
+    style: address()
+  }, wallet.icon && /* @__PURE__ */ import_react39.default.createElement("img", {
+    style: walletIcon(),
+    src: wallet.icon
+  }), truncateMiddle_default(wallet.address))) : /* @__PURE__ */ import_react39.default.createElement(SignInButton_default, {
+    style: signIn(),
+    externalContext
+  })), includeMenu && showMenu && /* @__PURE__ */ import_react39.default.createElement("div", {
+    style: menu()
+  }, !excludeButtons.includes(AddressWidgetButtons.CopyWalletAddress) && /* @__PURE__ */ import_react39.default.createElement(CopyWalletAddressButton_default, {
+    externalContext,
+    hoverBackgroundColor: buttonColor
+  }), !excludeButtons.includes(AddressWidgetButtons.WalletExplorer) && /* @__PURE__ */ import_react39.default.createElement(WalletExplorerButton_default, {
+    hoverBackgroundColor: buttonColor
+  }), extraButtons, !excludeButtons.includes(AddressWidgetButtons.Logout) && /* @__PURE__ */ import_react39.default.createElement(LogoutButton_default, {
+    externalContext,
+    hoverBackgroundColor: buttonColor
+  })));
+};
+var AddressWidget_default = AddressWidget;
+var container = () => ({
+  position: "relative",
+  backgroundColor: "white",
+  padding: "6px 12px 6px 18px",
+  boxShadow: "1px 1px 3px 1px #dfdfe0",
+  borderRadius: "18px",
+  fontSize: "14px"
+});
+var primary = () => ({
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  gap: "12px"
+});
+var address = () => ({
+  borderRadius: "30px",
+  backgroundColor: "#f2f1f0",
+  padding: "6px 12px",
+  display: "flex",
+  alignItems: "center",
+  gap: "6px"
+});
+var menu = () => ({
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
+  padding: "12px 18px",
+  position: "absolute",
+  bottom: 0,
+  left: "12px",
+  right: "12px",
+  transform: "translateY(100%)",
+  boxShadow: "1px 1px 3px 1px #dfdfe0",
+  borderBottomLeftRadius: "18px",
+  borderBottomRightRadius: "18px",
+  backgroundColor: "white",
+  zIndex: "99"
+});
+var signIn = () => ({
+  paddingRight: "12px",
+  whiteSpace: "nowrap"
+});
+var walletIcon = () => ({
+  width: "20px",
+  height: "20px"
+});
 
 // src/lib/logout.ts
 var logout = async (signer, fromWallet = false) => {
@@ -34886,7 +36718,7 @@ var logout_default = logout;
 
 // src/lib/sign.ts
 var sign = async ({signer, message}) => {
-  return signer.sign(message);
+  return signer.sign({message});
 };
 var sign_default = sign;
 
@@ -34923,9 +36755,9 @@ var hideWallet = (signer) => {
 var hideWallet_default = hideWallet;
 
 // src/lib/dripSui.ts
-var dripSui = async ({address}) => {
+var dripSui = async ({address: address2}) => {
   const provider = new JsonRpcProvider(Network.DEVNET);
-  return provider.requestSuiFromFaucet(address);
+  return provider.requestSuiFromFaucet(address2);
 };
 var dripSui_default = dripSui;
 
@@ -34934,43 +36766,47 @@ var import_store29 = __toModule(require_store2());
 var CACHE_DELAY = 1e3 * 30;
 var lookup = async (nameOrAddress) => {
   const provider = new JsonRpcProvider(Network.DEVNET);
-  const nameObjectId = "0x8fa9d9f306d82a49240139dc6750cbc28be03dbc";
+  const namesObjectId = "0x8b6497c11ffd52ee2414115234fb3200e84cd2c8";
   const lookupStore = import_store29.default.namespace("lookup");
-  const recordsInfo = await lookupStore(nameObjectId);
+  const recordsInfo = await lookupStore("suins");
   const {version, timestamp} = recordsInfo || {};
   let {suiNSRecords} = recordsInfo || {};
   if (suiNSRecords && Date.now() - timestamp > CACHE_DELAY) {
-    const ref = await provider.getObjectRef(nameObjectId);
+    const ref = await provider.getObjectRef(namesObjectId);
     if (ref) {
       if (version !== getObjectVersion(ref)) {
         suiNSRecords = null;
       }
     }
     recordsInfo.timestamp = Date.now();
-    lookupStore(nameObjectId, recordsInfo);
+    lookupStore("suins", recordsInfo);
   }
   if (!suiNSRecords) {
-    const namesObject = await provider.getObject(nameObjectId);
-    if (namesObject.status === "Exists") {
-      const suiNamesObject = namesObject.details;
-      const moveNameObject = suiNamesObject.data;
-      const records = moveNameObject.fields.records.fields.contents;
-      suiNSRecords = {};
-      for (const record of records) {
-        const {key, value} = record.fields;
-        const {owner} = value.fields;
-        suiNSRecords[key] = owner;
-        if (key.indexOf("addr.reverse") === -1) {
-          suiNSRecords[owner] = key;
+    try {
+      const namesObject = await provider.getObject(namesObjectId);
+      if (namesObject.status === "Exists") {
+        const suiNamesObject = namesObject.details;
+        const moveNameObject = suiNamesObject.data;
+        const records = moveNameObject.fields.records.fields.contents;
+        suiNSRecords = {};
+        for (const record of records) {
+          const {key, value} = record.fields;
+          const {owner} = value.fields;
+          suiNSRecords[key] = owner;
+          if (key.indexOf("addr.reverse") === -1) {
+            suiNSRecords[owner] = key;
+          }
         }
+        const {version: version2} = suiNamesObject.reference;
+        const timestamp2 = Date.now();
+        lookupStore("suins", {
+          version: version2,
+          timestamp: timestamp2,
+          suiNSRecords
+        });
       }
-      const {version: version2} = suiNamesObject.reference;
-      const timestamp2 = Date.now();
-      lookupStore(nameObjectId, {
-        version: version2,
-        timestamp: timestamp2,
-        suiNSRecords
-      });
+    } catch (e) {
+      console.log("Error retrieving SuiNS lookup information", e);
     }
   }
   if (!suiNSRecords)
@@ -34980,53 +36816,84 @@ var lookup = async (nameOrAddress) => {
 var lookup_default = lookup;
 
 // src/hooks/useProviderAndSigner.ts
-var import_react35 = __toModule(require("react"));
+var import_react41 = __toModule(require("react"));
 var useProviderAndSigner = () => {
-  const providerAndSigner = (0, import_react35.useContext)(ProviderAndSignerContext_default);
-  return providerAndSigner;
+  const {providerAndSigner} = (0, import_react41.useContext)(ConnectContext_default);
+  return providerAndSigner || {provider: null, signer: null};
 };
 var useProviderAndSigner_default = useProviderAndSigner;
 
 // src/hooks/useAddress.ts
-var import_react36 = __toModule(require("react"));
+var import_react42 = __toModule(require("react"));
 var useAddress = () => {
   const {signer} = useProviderAndSigner_default();
-  const [address, setAddress] = (0, import_react36.useState)(null);
-  (0, import_react36.useEffect)(() => {
+  const [address2, setAddress] = (0, import_react42.useState)(null);
+  (0, import_react42.useEffect)(() => {
     if (!signer)
       return;
-    signer.getAddress().then((address2) => setAddress(address2));
+    signer.getAddress().then((address3) => setAddress(address3));
   }, [signer]);
-  return address;
+  return address2;
 };
 var useAddress_default = useAddress;
 
 // src/hooks/useContents.ts
-var import_react37 = __toModule(require("react"));
+var import_react43 = __toModule(require("react"));
 var useContents = () => {
-  const contents = (0, import_react37.useContext)(ContentsContext_default);
+  var _a, _b;
+  const contents = (_b = (_a = (0, import_react43.useContext)(ConnectContext_default).wallet) == null ? void 0 : _a.wallet) == null ? void 0 : _b.contents;
   return contents;
 };
 var useContents_default = useContents;
 
+// src/components/EthosConnectProviderForVue.tsx
+var import_react44 = __toModule(require("react"));
+var EthosConnectProviderForVue = ({context, connectMessage, dappName, dappIcon, children}) => {
+  return /* @__PURE__ */ import_react44.default.createElement(import_react44.default.Fragment, null, children, /* @__PURE__ */ import_react44.default.createElement(SignInModal_default, {
+    isOpen: context.modal.isModalOpen,
+    hideEmailSignIn: context.ethosConfiguration.hideEmailSignIn,
+    hideWalletSignIn: context.ethosConfiguration.hideWalletSignIn,
+    connectMessage,
+    dappName,
+    dappIcon,
+    externalContext: context
+  }));
+};
+var EthosConnectProviderForVue_default = EthosConnectProviderForVue;
+
 // src/index.ts
+var components = {
+  AddressWidget: AddressWidget_default,
+  MenuButton: MenuButton_default,
+  headless: {
+    HoverColorButton: HoverColorButton_default
+  }
+};
+var enums = {
+  AddressWidgetButtons
+};
 var ethos = {
   login: login_default,
   logout: logout_default,
   sign: sign_default,
   transact: transact_default,
   preapprove: preapprove_default,
-  getWalletContents: getWalletContents_default,
   showWallet: showWallet_default,
   hideWallet: hideWallet_default,
-  dripSui: dripSui_default,
+  showSignInModal,
+  hideSignInModal,
   useProviderAndSigner: useProviderAndSigner_default,
   useAddress: useAddress_default,
   useContents: useContents_default,
   useWallet: useWallet_default,
-  showSignInModal,
-  hideSignInModal,
-  lookup: lookup_default
+  useContext: useContext_default,
+  getWalletContents: getWalletContents_default,
+  dripSui: dripSui_default,
+  lookup: lookup_default,
+  formatBalance: formatBalance_default,
+  truncateMiddle: truncateMiddle_default,
+  components,
+  enums
 };
 /*!
  * The buffer module from node.js, for the browser.
@@ -35054,17 +36921,17 @@ var ethos = {
 }).call(this)}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer)
 },{"_process":51,"buffer":40,"react":58}],43:[function(require,module,exports){
 (function (process,global,Buffer){(function (){
-var Vl=Object.create,Ii=Object.defineProperty;var Gl=Object.getOwnPropertyDescriptor;var Zl=Object.getOwnPropertyNames;var Yl=Object.getPrototypeOf,Jl=Object.prototype.hasOwnProperty;var Ta=e=>Ii(e,"__esModule",{value:!0});var Ae=(e,t)=>()=>(t||e((t={exports:{}}).exports,t),t.exports),Xl=(e,t)=>{for(var r in t)Ii(e,r,{get:t[r],enumerable:!0})},Ql=(e,t,r)=>{if(t&&typeof t=="object"||typeof t=="function")for(let i of Zl(t))!Jl.call(e,i)&&i!=="default"&&Ii(e,i,{get:()=>t[i],enumerable:!(r=Gl(t,i))||r.enumerable});return e},fe=e=>Ql(Ta(Ii(e!=null?Vl(Yl(e)):{},"default",e&&e.__esModule&&"default"in e?{get:()=>e.default,enumerable:!0}:{value:e,enumerable:!0})),e);var Oi=Ae(()=>{});var fs=Ae((sm,Pi)=>{(function(e){"use strict";var t=function(l){var m,g=new Float64Array(16);if(l)for(m=0;m<l.length;m++)g[m]=l[m];return g},r=function(){throw new Error("no PRNG")},i=new Uint8Array(16),n=new Uint8Array(32);n[0]=9;var o=t(),a=t([1]),h=t([56129,1]),p=t([30883,4953,19914,30187,55467,16705,2637,112,59544,30585,16505,36039,65139,11119,27886,20995]),b=t([61785,9906,39828,60374,45398,33411,5274,224,53552,61171,33010,6542,64743,22239,55772,9222]),_=t([54554,36645,11616,51542,42930,38181,51040,26924,56412,64982,57905,49316,21502,52590,14035,8553]),I=t([26200,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214]),P=t([41136,18958,6951,50414,58488,44335,6150,12099,55207,15867,153,11085,57099,20417,9344,11139]);function k(l,m,g,f){l[m]=g>>24&255,l[m+1]=g>>16&255,l[m+2]=g>>8&255,l[m+3]=g&255,l[m+4]=f>>24&255,l[m+5]=f>>16&255,l[m+6]=f>>8&255,l[m+7]=f&255}function K(l,m,g,f,v){var N,U=0;for(N=0;N<v;N++)U|=l[m+N]^g[f+N];return(1&U-1>>>8)-1}function re(l,m,g,f){return K(l,m,g,f,16)}function ne(l,m,g,f){return K(l,m,g,f,32)}function Y(l,m,g,f){for(var v=f[0]&255|(f[1]&255)<<8|(f[2]&255)<<16|(f[3]&255)<<24,N=g[0]&255|(g[1]&255)<<8|(g[2]&255)<<16|(g[3]&255)<<24,U=g[4]&255|(g[5]&255)<<8|(g[6]&255)<<16|(g[7]&255)<<24,q=g[8]&255|(g[9]&255)<<8|(g[10]&255)<<16|(g[11]&255)<<24,G=g[12]&255|(g[13]&255)<<8|(g[14]&255)<<16|(g[15]&255)<<24,de=f[4]&255|(f[5]&255)<<8|(f[6]&255)<<16|(f[7]&255)<<24,Q=m[0]&255|(m[1]&255)<<8|(m[2]&255)<<16|(m[3]&255)<<24,xe=m[4]&255|(m[5]&255)<<8|(m[6]&255)<<16|(m[7]&255)<<24,ce=m[8]&255|(m[9]&255)<<8|(m[10]&255)<<16|(m[11]&255)<<24,Se=m[12]&255|(m[13]&255)<<8|(m[14]&255)<<16|(m[15]&255)<<24,Te=f[8]&255|(f[9]&255)<<8|(f[10]&255)<<16|(f[11]&255)<<24,Ie=g[16]&255|(g[17]&255)<<8|(g[18]&255)<<16|(g[19]&255)<<24,Ce=g[20]&255|(g[21]&255)<<8|(g[22]&255)<<16|(g[23]&255)<<24,Oe=g[24]&255|(g[25]&255)<<8|(g[26]&255)<<16|(g[27]&255)<<24,ke=g[28]&255|(g[29]&255)<<8|(g[30]&255)<<16|(g[31]&255)<<24,Pe=f[12]&255|(f[13]&255)<<8|(f[14]&255)<<16|(f[15]&255)<<24,pe=v,we=N,ue=U,ye=q,me=G,ae=de,D=Q,F=xe,J=ce,V=Se,Z=Te,j=Ie,Me=Ce,Ue=Oe,De=ke,Le=Pe,M,He=0;He<20;He+=2)M=pe+Me|0,me^=M<<7|M>>>32-7,M=me+pe|0,J^=M<<9|M>>>32-9,M=J+me|0,Me^=M<<13|M>>>32-13,M=Me+J|0,pe^=M<<18|M>>>32-18,M=ae+we|0,V^=M<<7|M>>>32-7,M=V+ae|0,Ue^=M<<9|M>>>32-9,M=Ue+V|0,we^=M<<13|M>>>32-13,M=we+Ue|0,ae^=M<<18|M>>>32-18,M=Z+D|0,De^=M<<7|M>>>32-7,M=De+Z|0,ue^=M<<9|M>>>32-9,M=ue+De|0,D^=M<<13|M>>>32-13,M=D+ue|0,Z^=M<<18|M>>>32-18,M=Le+j|0,ye^=M<<7|M>>>32-7,M=ye+Le|0,F^=M<<9|M>>>32-9,M=F+ye|0,j^=M<<13|M>>>32-13,M=j+F|0,Le^=M<<18|M>>>32-18,M=pe+ye|0,we^=M<<7|M>>>32-7,M=we+pe|0,ue^=M<<9|M>>>32-9,M=ue+we|0,ye^=M<<13|M>>>32-13,M=ye+ue|0,pe^=M<<18|M>>>32-18,M=ae+me|0,D^=M<<7|M>>>32-7,M=D+ae|0,F^=M<<9|M>>>32-9,M=F+D|0,me^=M<<13|M>>>32-13,M=me+F|0,ae^=M<<18|M>>>32-18,M=Z+V|0,j^=M<<7|M>>>32-7,M=j+Z|0,J^=M<<9|M>>>32-9,M=J+j|0,V^=M<<13|M>>>32-13,M=V+J|0,Z^=M<<18|M>>>32-18,M=Le+De|0,Me^=M<<7|M>>>32-7,M=Me+Le|0,Ue^=M<<9|M>>>32-9,M=Ue+Me|0,De^=M<<13|M>>>32-13,M=De+Ue|0,Le^=M<<18|M>>>32-18;pe=pe+v|0,we=we+N|0,ue=ue+U|0,ye=ye+q|0,me=me+G|0,ae=ae+de|0,D=D+Q|0,F=F+xe|0,J=J+ce|0,V=V+Se|0,Z=Z+Te|0,j=j+Ie|0,Me=Me+Ce|0,Ue=Ue+Oe|0,De=De+ke|0,Le=Le+Pe|0,l[0]=pe>>>0&255,l[1]=pe>>>8&255,l[2]=pe>>>16&255,l[3]=pe>>>24&255,l[4]=we>>>0&255,l[5]=we>>>8&255,l[6]=we>>>16&255,l[7]=we>>>24&255,l[8]=ue>>>0&255,l[9]=ue>>>8&255,l[10]=ue>>>16&255,l[11]=ue>>>24&255,l[12]=ye>>>0&255,l[13]=ye>>>8&255,l[14]=ye>>>16&255,l[15]=ye>>>24&255,l[16]=me>>>0&255,l[17]=me>>>8&255,l[18]=me>>>16&255,l[19]=me>>>24&255,l[20]=ae>>>0&255,l[21]=ae>>>8&255,l[22]=ae>>>16&255,l[23]=ae>>>24&255,l[24]=D>>>0&255,l[25]=D>>>8&255,l[26]=D>>>16&255,l[27]=D>>>24&255,l[28]=F>>>0&255,l[29]=F>>>8&255,l[30]=F>>>16&255,l[31]=F>>>24&255,l[32]=J>>>0&255,l[33]=J>>>8&255,l[34]=J>>>16&255,l[35]=J>>>24&255,l[36]=V>>>0&255,l[37]=V>>>8&255,l[38]=V>>>16&255,l[39]=V>>>24&255,l[40]=Z>>>0&255,l[41]=Z>>>8&255,l[42]=Z>>>16&255,l[43]=Z>>>24&255,l[44]=j>>>0&255,l[45]=j>>>8&255,l[46]=j>>>16&255,l[47]=j>>>24&255,l[48]=Me>>>0&255,l[49]=Me>>>8&255,l[50]=Me>>>16&255,l[51]=Me>>>24&255,l[52]=Ue>>>0&255,l[53]=Ue>>>8&255,l[54]=Ue>>>16&255,l[55]=Ue>>>24&255,l[56]=De>>>0&255,l[57]=De>>>8&255,l[58]=De>>>16&255,l[59]=De>>>24&255,l[60]=Le>>>0&255,l[61]=Le>>>8&255,l[62]=Le>>>16&255,l[63]=Le>>>24&255}function ie(l,m,g,f){for(var v=f[0]&255|(f[1]&255)<<8|(f[2]&255)<<16|(f[3]&255)<<24,N=g[0]&255|(g[1]&255)<<8|(g[2]&255)<<16|(g[3]&255)<<24,U=g[4]&255|(g[5]&255)<<8|(g[6]&255)<<16|(g[7]&255)<<24,q=g[8]&255|(g[9]&255)<<8|(g[10]&255)<<16|(g[11]&255)<<24,G=g[12]&255|(g[13]&255)<<8|(g[14]&255)<<16|(g[15]&255)<<24,de=f[4]&255|(f[5]&255)<<8|(f[6]&255)<<16|(f[7]&255)<<24,Q=m[0]&255|(m[1]&255)<<8|(m[2]&255)<<16|(m[3]&255)<<24,xe=m[4]&255|(m[5]&255)<<8|(m[6]&255)<<16|(m[7]&255)<<24,ce=m[8]&255|(m[9]&255)<<8|(m[10]&255)<<16|(m[11]&255)<<24,Se=m[12]&255|(m[13]&255)<<8|(m[14]&255)<<16|(m[15]&255)<<24,Te=f[8]&255|(f[9]&255)<<8|(f[10]&255)<<16|(f[11]&255)<<24,Ie=g[16]&255|(g[17]&255)<<8|(g[18]&255)<<16|(g[19]&255)<<24,Ce=g[20]&255|(g[21]&255)<<8|(g[22]&255)<<16|(g[23]&255)<<24,Oe=g[24]&255|(g[25]&255)<<8|(g[26]&255)<<16|(g[27]&255)<<24,ke=g[28]&255|(g[29]&255)<<8|(g[30]&255)<<16|(g[31]&255)<<24,Pe=f[12]&255|(f[13]&255)<<8|(f[14]&255)<<16|(f[15]&255)<<24,pe=v,we=N,ue=U,ye=q,me=G,ae=de,D=Q,F=xe,J=ce,V=Se,Z=Te,j=Ie,Me=Ce,Ue=Oe,De=ke,Le=Pe,M,He=0;He<20;He+=2)M=pe+Me|0,me^=M<<7|M>>>32-7,M=me+pe|0,J^=M<<9|M>>>32-9,M=J+me|0,Me^=M<<13|M>>>32-13,M=Me+J|0,pe^=M<<18|M>>>32-18,M=ae+we|0,V^=M<<7|M>>>32-7,M=V+ae|0,Ue^=M<<9|M>>>32-9,M=Ue+V|0,we^=M<<13|M>>>32-13,M=we+Ue|0,ae^=M<<18|M>>>32-18,M=Z+D|0,De^=M<<7|M>>>32-7,M=De+Z|0,ue^=M<<9|M>>>32-9,M=ue+De|0,D^=M<<13|M>>>32-13,M=D+ue|0,Z^=M<<18|M>>>32-18,M=Le+j|0,ye^=M<<7|M>>>32-7,M=ye+Le|0,F^=M<<9|M>>>32-9,M=F+ye|0,j^=M<<13|M>>>32-13,M=j+F|0,Le^=M<<18|M>>>32-18,M=pe+ye|0,we^=M<<7|M>>>32-7,M=we+pe|0,ue^=M<<9|M>>>32-9,M=ue+we|0,ye^=M<<13|M>>>32-13,M=ye+ue|0,pe^=M<<18|M>>>32-18,M=ae+me|0,D^=M<<7|M>>>32-7,M=D+ae|0,F^=M<<9|M>>>32-9,M=F+D|0,me^=M<<13|M>>>32-13,M=me+F|0,ae^=M<<18|M>>>32-18,M=Z+V|0,j^=M<<7|M>>>32-7,M=j+Z|0,J^=M<<9|M>>>32-9,M=J+j|0,V^=M<<13|M>>>32-13,M=V+J|0,Z^=M<<18|M>>>32-18,M=Le+De|0,Me^=M<<7|M>>>32-7,M=Me+Le|0,Ue^=M<<9|M>>>32-9,M=Ue+Me|0,De^=M<<13|M>>>32-13,M=De+Ue|0,Le^=M<<18|M>>>32-18;l[0]=pe>>>0&255,l[1]=pe>>>8&255,l[2]=pe>>>16&255,l[3]=pe>>>24&255,l[4]=ae>>>0&255,l[5]=ae>>>8&255,l[6]=ae>>>16&255,l[7]=ae>>>24&255,l[8]=Z>>>0&255,l[9]=Z>>>8&255,l[10]=Z>>>16&255,l[11]=Z>>>24&255,l[12]=Le>>>0&255,l[13]=Le>>>8&255,l[14]=Le>>>16&255,l[15]=Le>>>24&255,l[16]=D>>>0&255,l[17]=D>>>8&255,l[18]=D>>>16&255,l[19]=D>>>24&255,l[20]=F>>>0&255,l[21]=F>>>8&255,l[22]=F>>>16&255,l[23]=F>>>24&255,l[24]=J>>>0&255,l[25]=J>>>8&255,l[26]=J>>>16&255,l[27]=J>>>24&255,l[28]=V>>>0&255,l[29]=V>>>8&255,l[30]=V>>>16&255,l[31]=V>>>24&255}function ee(l,m,g,f){Y(l,m,g,f)}function ge(l,m,g,f){ie(l,m,g,f)}var be=new Uint8Array([101,120,112,97,110,100,32,51,50,45,98,121,116,101,32,107]);function Ee(l,m,g,f,v,N,U){var q=new Uint8Array(16),G=new Uint8Array(64),de,Q;for(Q=0;Q<16;Q++)q[Q]=0;for(Q=0;Q<8;Q++)q[Q]=N[Q];for(;v>=64;){for(ee(G,q,U,be),Q=0;Q<64;Q++)l[m+Q]=g[f+Q]^G[Q];for(de=1,Q=8;Q<16;Q++)de=de+(q[Q]&255)|0,q[Q]=de&255,de>>>=8;v-=64,m+=64,f+=64}if(v>0)for(ee(G,q,U,be),Q=0;Q<v;Q++)l[m+Q]=g[f+Q]^G[Q];return 0}function Re(l,m,g,f,v){var N=new Uint8Array(16),U=new Uint8Array(64),q,G;for(G=0;G<16;G++)N[G]=0;for(G=0;G<8;G++)N[G]=f[G];for(;g>=64;){for(ee(U,N,v,be),G=0;G<64;G++)l[m+G]=U[G];for(q=1,G=8;G<16;G++)q=q+(N[G]&255)|0,N[G]=q&255,q>>>=8;g-=64,m+=64}if(g>0)for(ee(U,N,v,be),G=0;G<g;G++)l[m+G]=U[G];return 0}function ze(l,m,g,f,v){var N=new Uint8Array(32);ge(N,f,v,be);for(var U=new Uint8Array(8),q=0;q<8;q++)U[q]=f[q+16];return Re(l,m,g,U,N)}function Ve(l,m,g,f,v,N,U){var q=new Uint8Array(32);ge(q,N,U,be);for(var G=new Uint8Array(8),de=0;de<8;de++)G[de]=N[de+16];return Ee(l,m,g,f,v,G,q)}var B=function(l){this.buffer=new Uint8Array(16),this.r=new Uint16Array(10),this.h=new Uint16Array(10),this.pad=new Uint16Array(8),this.leftover=0,this.fin=0;var m,g,f,v,N,U,q,G;m=l[0]&255|(l[1]&255)<<8,this.r[0]=m&8191,g=l[2]&255|(l[3]&255)<<8,this.r[1]=(m>>>13|g<<3)&8191,f=l[4]&255|(l[5]&255)<<8,this.r[2]=(g>>>10|f<<6)&7939,v=l[6]&255|(l[7]&255)<<8,this.r[3]=(f>>>7|v<<9)&8191,N=l[8]&255|(l[9]&255)<<8,this.r[4]=(v>>>4|N<<12)&255,this.r[5]=N>>>1&8190,U=l[10]&255|(l[11]&255)<<8,this.r[6]=(N>>>14|U<<2)&8191,q=l[12]&255|(l[13]&255)<<8,this.r[7]=(U>>>11|q<<5)&8065,G=l[14]&255|(l[15]&255)<<8,this.r[8]=(q>>>8|G<<8)&8191,this.r[9]=G>>>5&127,this.pad[0]=l[16]&255|(l[17]&255)<<8,this.pad[1]=l[18]&255|(l[19]&255)<<8,this.pad[2]=l[20]&255|(l[21]&255)<<8,this.pad[3]=l[22]&255|(l[23]&255)<<8,this.pad[4]=l[24]&255|(l[25]&255)<<8,this.pad[5]=l[26]&255|(l[27]&255)<<8,this.pad[6]=l[28]&255|(l[29]&255)<<8,this.pad[7]=l[30]&255|(l[31]&255)<<8};B.prototype.blocks=function(l,m,g){for(var f=this.fin?0:1<<11,v,N,U,q,G,de,Q,xe,ce,Se,Te,Ie,Ce,Oe,ke,Pe,pe,we,ue,ye=this.h[0],me=this.h[1],ae=this.h[2],D=this.h[3],F=this.h[4],J=this.h[5],V=this.h[6],Z=this.h[7],j=this.h[8],Me=this.h[9],Ue=this.r[0],De=this.r[1],Le=this.r[2],M=this.r[3],He=this.r[4],Xe=this.r[5],Qe=this.r[6],We=this.r[7],Ge=this.r[8],Ze=this.r[9];g>=16;)v=l[m+0]&255|(l[m+1]&255)<<8,ye+=v&8191,N=l[m+2]&255|(l[m+3]&255)<<8,me+=(v>>>13|N<<3)&8191,U=l[m+4]&255|(l[m+5]&255)<<8,ae+=(N>>>10|U<<6)&8191,q=l[m+6]&255|(l[m+7]&255)<<8,D+=(U>>>7|q<<9)&8191,G=l[m+8]&255|(l[m+9]&255)<<8,F+=(q>>>4|G<<12)&8191,J+=G>>>1&8191,de=l[m+10]&255|(l[m+11]&255)<<8,V+=(G>>>14|de<<2)&8191,Q=l[m+12]&255|(l[m+13]&255)<<8,Z+=(de>>>11|Q<<5)&8191,xe=l[m+14]&255|(l[m+15]&255)<<8,j+=(Q>>>8|xe<<8)&8191,Me+=xe>>>5|f,ce=0,Se=ce,Se+=ye*Ue,Se+=me*(5*Ze),Se+=ae*(5*Ge),Se+=D*(5*We),Se+=F*(5*Qe),ce=Se>>>13,Se&=8191,Se+=J*(5*Xe),Se+=V*(5*He),Se+=Z*(5*M),Se+=j*(5*Le),Se+=Me*(5*De),ce+=Se>>>13,Se&=8191,Te=ce,Te+=ye*De,Te+=me*Ue,Te+=ae*(5*Ze),Te+=D*(5*Ge),Te+=F*(5*We),ce=Te>>>13,Te&=8191,Te+=J*(5*Qe),Te+=V*(5*Xe),Te+=Z*(5*He),Te+=j*(5*M),Te+=Me*(5*Le),ce+=Te>>>13,Te&=8191,Ie=ce,Ie+=ye*Le,Ie+=me*De,Ie+=ae*Ue,Ie+=D*(5*Ze),Ie+=F*(5*Ge),ce=Ie>>>13,Ie&=8191,Ie+=J*(5*We),Ie+=V*(5*Qe),Ie+=Z*(5*Xe),Ie+=j*(5*He),Ie+=Me*(5*M),ce+=Ie>>>13,Ie&=8191,Ce=ce,Ce+=ye*M,Ce+=me*Le,Ce+=ae*De,Ce+=D*Ue,Ce+=F*(5*Ze),ce=Ce>>>13,Ce&=8191,Ce+=J*(5*Ge),Ce+=V*(5*We),Ce+=Z*(5*Qe),Ce+=j*(5*Xe),Ce+=Me*(5*He),ce+=Ce>>>13,Ce&=8191,Oe=ce,Oe+=ye*He,Oe+=me*M,Oe+=ae*Le,Oe+=D*De,Oe+=F*Ue,ce=Oe>>>13,Oe&=8191,Oe+=J*(5*Ze),Oe+=V*(5*Ge),Oe+=Z*(5*We),Oe+=j*(5*Qe),Oe+=Me*(5*Xe),ce+=Oe>>>13,Oe&=8191,ke=ce,ke+=ye*Xe,ke+=me*He,ke+=ae*M,ke+=D*Le,ke+=F*De,ce=ke>>>13,ke&=8191,ke+=J*Ue,ke+=V*(5*Ze),ke+=Z*(5*Ge),ke+=j*(5*We),ke+=Me*(5*Qe),ce+=ke>>>13,ke&=8191,Pe=ce,Pe+=ye*Qe,Pe+=me*Xe,Pe+=ae*He,Pe+=D*M,Pe+=F*Le,ce=Pe>>>13,Pe&=8191,Pe+=J*De,Pe+=V*Ue,Pe+=Z*(5*Ze),Pe+=j*(5*Ge),Pe+=Me*(5*We),ce+=Pe>>>13,Pe&=8191,pe=ce,pe+=ye*We,pe+=me*Qe,pe+=ae*Xe,pe+=D*He,pe+=F*M,ce=pe>>>13,pe&=8191,pe+=J*Le,pe+=V*De,pe+=Z*Ue,pe+=j*(5*Ze),pe+=Me*(5*Ge),ce+=pe>>>13,pe&=8191,we=ce,we+=ye*Ge,we+=me*We,we+=ae*Qe,we+=D*Xe,we+=F*He,ce=we>>>13,we&=8191,we+=J*M,we+=V*Le,we+=Z*De,we+=j*Ue,we+=Me*(5*Ze),ce+=we>>>13,we&=8191,ue=ce,ue+=ye*Ze,ue+=me*Ge,ue+=ae*We,ue+=D*Qe,ue+=F*Xe,ce=ue>>>13,ue&=8191,ue+=J*He,ue+=V*M,ue+=Z*Le,ue+=j*De,ue+=Me*Ue,ce+=ue>>>13,ue&=8191,ce=(ce<<2)+ce|0,ce=ce+Se|0,Se=ce&8191,ce=ce>>>13,Te+=ce,ye=Se,me=Te,ae=Ie,D=Ce,F=Oe,J=ke,V=Pe,Z=pe,j=we,Me=ue,m+=16,g-=16;this.h[0]=ye,this.h[1]=me,this.h[2]=ae,this.h[3]=D,this.h[4]=F,this.h[5]=J,this.h[6]=V,this.h[7]=Z,this.h[8]=j,this.h[9]=Me},B.prototype.finish=function(l,m){var g=new Uint16Array(10),f,v,N,U;if(this.leftover){for(U=this.leftover,this.buffer[U++]=1;U<16;U++)this.buffer[U]=0;this.fin=1,this.blocks(this.buffer,0,16)}for(f=this.h[1]>>>13,this.h[1]&=8191,U=2;U<10;U++)this.h[U]+=f,f=this.h[U]>>>13,this.h[U]&=8191;for(this.h[0]+=f*5,f=this.h[0]>>>13,this.h[0]&=8191,this.h[1]+=f,f=this.h[1]>>>13,this.h[1]&=8191,this.h[2]+=f,g[0]=this.h[0]+5,f=g[0]>>>13,g[0]&=8191,U=1;U<10;U++)g[U]=this.h[U]+f,f=g[U]>>>13,g[U]&=8191;for(g[9]-=1<<13,v=(f^1)-1,U=0;U<10;U++)g[U]&=v;for(v=~v,U=0;U<10;U++)this.h[U]=this.h[U]&v|g[U];for(this.h[0]=(this.h[0]|this.h[1]<<13)&65535,this.h[1]=(this.h[1]>>>3|this.h[2]<<10)&65535,this.h[2]=(this.h[2]>>>6|this.h[3]<<7)&65535,this.h[3]=(this.h[3]>>>9|this.h[4]<<4)&65535,this.h[4]=(this.h[4]>>>12|this.h[5]<<1|this.h[6]<<14)&65535,this.h[5]=(this.h[6]>>>2|this.h[7]<<11)&65535,this.h[6]=(this.h[7]>>>5|this.h[8]<<8)&65535,this.h[7]=(this.h[8]>>>8|this.h[9]<<5)&65535,N=this.h[0]+this.pad[0],this.h[0]=N&65535,U=1;U<8;U++)N=(this.h[U]+this.pad[U]|0)+(N>>>16)|0,this.h[U]=N&65535;l[m+0]=this.h[0]>>>0&255,l[m+1]=this.h[0]>>>8&255,l[m+2]=this.h[1]>>>0&255,l[m+3]=this.h[1]>>>8&255,l[m+4]=this.h[2]>>>0&255,l[m+5]=this.h[2]>>>8&255,l[m+6]=this.h[3]>>>0&255,l[m+7]=this.h[3]>>>8&255,l[m+8]=this.h[4]>>>0&255,l[m+9]=this.h[4]>>>8&255,l[m+10]=this.h[5]>>>0&255,l[m+11]=this.h[5]>>>8&255,l[m+12]=this.h[6]>>>0&255,l[m+13]=this.h[6]>>>8&255,l[m+14]=this.h[7]>>>0&255,l[m+15]=this.h[7]>>>8&255},B.prototype.update=function(l,m,g){var f,v;if(this.leftover){for(v=16-this.leftover,v>g&&(v=g),f=0;f<v;f++)this.buffer[this.leftover+f]=l[m+f];if(g-=v,m+=v,this.leftover+=v,this.leftover<16)return;this.blocks(this.buffer,0,16),this.leftover=0}if(g>=16&&(v=g-g%16,this.blocks(l,m,v),m+=v,g-=v),g){for(f=0;f<g;f++)this.buffer[this.leftover+f]=l[m+f];this.leftover+=g}};function O(l,m,g,f,v,N){var U=new B(N);return U.update(g,f,v),U.finish(l,m),0}function z(l,m,g,f,v,N){var U=new Uint8Array(16);return O(U,0,g,f,v,N),re(l,m,U,0)}function E(l,m,g,f,v){var N;if(g<32)return-1;for(Ve(l,0,m,0,g,f,v),O(l,16,l,32,g-32,l),N=0;N<16;N++)l[N]=0;return 0}function s(l,m,g,f,v){var N,U=new Uint8Array(32);if(g<32||(ze(U,0,32,f,v),z(m,16,m,32,g-32,U)!==0))return-1;for(Ve(l,0,m,0,g,f,v),N=0;N<32;N++)l[N]=0;return 0}function u(l,m){var g;for(g=0;g<16;g++)l[g]=m[g]|0}function y(l){var m,g,f=1;for(m=0;m<16;m++)g=l[m]+f+65535,f=Math.floor(g/65536),l[m]=g-f*65536;l[0]+=f-1+37*(f-1)}function w(l,m,g){for(var f,v=~(g-1),N=0;N<16;N++)f=v&(l[N]^m[N]),l[N]^=f,m[N]^=f}function A(l,m){var g,f,v,N=t(),U=t();for(g=0;g<16;g++)U[g]=m[g];for(y(U),y(U),y(U),f=0;f<2;f++){for(N[0]=U[0]-65517,g=1;g<15;g++)N[g]=U[g]-65535-(N[g-1]>>16&1),N[g-1]&=65535;N[15]=U[15]-32767-(N[14]>>16&1),v=N[15]>>16&1,N[14]&=65535,w(U,N,1-v)}for(g=0;g<16;g++)l[2*g]=U[g]&255,l[2*g+1]=U[g]>>8}function C(l,m){var g=new Uint8Array(32),f=new Uint8Array(32);return A(g,l),A(f,m),ne(g,0,f,0)}function T(l){var m=new Uint8Array(32);return A(m,l),m[0]&1}function x(l,m){var g;for(g=0;g<16;g++)l[g]=m[2*g]+(m[2*g+1]<<8);l[15]&=32767}function c(l,m,g){for(var f=0;f<16;f++)l[f]=m[f]+g[f]}function S(l,m,g){for(var f=0;f<16;f++)l[f]=m[f]-g[f]}function W(l,m,g){var f,v,N=0,U=0,q=0,G=0,de=0,Q=0,xe=0,ce=0,Se=0,Te=0,Ie=0,Ce=0,Oe=0,ke=0,Pe=0,pe=0,we=0,ue=0,ye=0,me=0,ae=0,D=0,F=0,J=0,V=0,Z=0,j=0,Me=0,Ue=0,De=0,Le=0,M=g[0],He=g[1],Xe=g[2],Qe=g[3],We=g[4],Ge=g[5],Ze=g[6],Ot=g[7],gt=g[8],Ct=g[9],Mt=g[10],Bt=g[11],kt=g[12],Ft=g[13],qt=g[14],Ht=g[15];f=m[0],N+=f*M,U+=f*He,q+=f*Xe,G+=f*Qe,de+=f*We,Q+=f*Ge,xe+=f*Ze,ce+=f*Ot,Se+=f*gt,Te+=f*Ct,Ie+=f*Mt,Ce+=f*Bt,Oe+=f*kt,ke+=f*Ft,Pe+=f*qt,pe+=f*Ht,f=m[1],U+=f*M,q+=f*He,G+=f*Xe,de+=f*Qe,Q+=f*We,xe+=f*Ge,ce+=f*Ze,Se+=f*Ot,Te+=f*gt,Ie+=f*Ct,Ce+=f*Mt,Oe+=f*Bt,ke+=f*kt,Pe+=f*Ft,pe+=f*qt,we+=f*Ht,f=m[2],q+=f*M,G+=f*He,de+=f*Xe,Q+=f*Qe,xe+=f*We,ce+=f*Ge,Se+=f*Ze,Te+=f*Ot,Ie+=f*gt,Ce+=f*Ct,Oe+=f*Mt,ke+=f*Bt,Pe+=f*kt,pe+=f*Ft,we+=f*qt,ue+=f*Ht,f=m[3],G+=f*M,de+=f*He,Q+=f*Xe,xe+=f*Qe,ce+=f*We,Se+=f*Ge,Te+=f*Ze,Ie+=f*Ot,Ce+=f*gt,Oe+=f*Ct,ke+=f*Mt,Pe+=f*Bt,pe+=f*kt,we+=f*Ft,ue+=f*qt,ye+=f*Ht,f=m[4],de+=f*M,Q+=f*He,xe+=f*Xe,ce+=f*Qe,Se+=f*We,Te+=f*Ge,Ie+=f*Ze,Ce+=f*Ot,Oe+=f*gt,ke+=f*Ct,Pe+=f*Mt,pe+=f*Bt,we+=f*kt,ue+=f*Ft,ye+=f*qt,me+=f*Ht,f=m[5],Q+=f*M,xe+=f*He,ce+=f*Xe,Se+=f*Qe,Te+=f*We,Ie+=f*Ge,Ce+=f*Ze,Oe+=f*Ot,ke+=f*gt,Pe+=f*Ct,pe+=f*Mt,we+=f*Bt,ue+=f*kt,ye+=f*Ft,me+=f*qt,ae+=f*Ht,f=m[6],xe+=f*M,ce+=f*He,Se+=f*Xe,Te+=f*Qe,Ie+=f*We,Ce+=f*Ge,Oe+=f*Ze,ke+=f*Ot,Pe+=f*gt,pe+=f*Ct,we+=f*Mt,ue+=f*Bt,ye+=f*kt,me+=f*Ft,ae+=f*qt,D+=f*Ht,f=m[7],ce+=f*M,Se+=f*He,Te+=f*Xe,Ie+=f*Qe,Ce+=f*We,Oe+=f*Ge,ke+=f*Ze,Pe+=f*Ot,pe+=f*gt,we+=f*Ct,ue+=f*Mt,ye+=f*Bt,me+=f*kt,ae+=f*Ft,D+=f*qt,F+=f*Ht,f=m[8],Se+=f*M,Te+=f*He,Ie+=f*Xe,Ce+=f*Qe,Oe+=f*We,ke+=f*Ge,Pe+=f*Ze,pe+=f*Ot,we+=f*gt,ue+=f*Ct,ye+=f*Mt,me+=f*Bt,ae+=f*kt,D+=f*Ft,F+=f*qt,J+=f*Ht,f=m[9],Te+=f*M,Ie+=f*He,Ce+=f*Xe,Oe+=f*Qe,ke+=f*We,Pe+=f*Ge,pe+=f*Ze,we+=f*Ot,ue+=f*gt,ye+=f*Ct,me+=f*Mt,ae+=f*Bt,D+=f*kt,F+=f*Ft,J+=f*qt,V+=f*Ht,f=m[10],Ie+=f*M,Ce+=f*He,Oe+=f*Xe,ke+=f*Qe,Pe+=f*We,pe+=f*Ge,we+=f*Ze,ue+=f*Ot,ye+=f*gt,me+=f*Ct,ae+=f*Mt,D+=f*Bt,F+=f*kt,J+=f*Ft,V+=f*qt,Z+=f*Ht,f=m[11],Ce+=f*M,Oe+=f*He,ke+=f*Xe,Pe+=f*Qe,pe+=f*We,we+=f*Ge,ue+=f*Ze,ye+=f*Ot,me+=f*gt,ae+=f*Ct,D+=f*Mt,F+=f*Bt,J+=f*kt,V+=f*Ft,Z+=f*qt,j+=f*Ht,f=m[12],Oe+=f*M,ke+=f*He,Pe+=f*Xe,pe+=f*Qe,we+=f*We,ue+=f*Ge,ye+=f*Ze,me+=f*Ot,ae+=f*gt,D+=f*Ct,F+=f*Mt,J+=f*Bt,V+=f*kt,Z+=f*Ft,j+=f*qt,Me+=f*Ht,f=m[13],ke+=f*M,Pe+=f*He,pe+=f*Xe,we+=f*Qe,ue+=f*We,ye+=f*Ge,me+=f*Ze,ae+=f*Ot,D+=f*gt,F+=f*Ct,J+=f*Mt,V+=f*Bt,Z+=f*kt,j+=f*Ft,Me+=f*qt,Ue+=f*Ht,f=m[14],Pe+=f*M,pe+=f*He,we+=f*Xe,ue+=f*Qe,ye+=f*We,me+=f*Ge,ae+=f*Ze,D+=f*Ot,F+=f*gt,J+=f*Ct,V+=f*Mt,Z+=f*Bt,j+=f*kt,Me+=f*Ft,Ue+=f*qt,De+=f*Ht,f=m[15],pe+=f*M,we+=f*He,ue+=f*Xe,ye+=f*Qe,me+=f*We,ae+=f*Ge,D+=f*Ze,F+=f*Ot,J+=f*gt,V+=f*Ct,Z+=f*Mt,j+=f*Bt,Me+=f*kt,Ue+=f*Ft,De+=f*qt,Le+=f*Ht,N+=38*we,U+=38*ue,q+=38*ye,G+=38*me,de+=38*ae,Q+=38*D,xe+=38*F,ce+=38*J,Se+=38*V,Te+=38*Z,Ie+=38*j,Ce+=38*Me,Oe+=38*Ue,ke+=38*De,Pe+=38*Le,v=1,f=N+v+65535,v=Math.floor(f/65536),N=f-v*65536,f=U+v+65535,v=Math.floor(f/65536),U=f-v*65536,f=q+v+65535,v=Math.floor(f/65536),q=f-v*65536,f=G+v+65535,v=Math.floor(f/65536),G=f-v*65536,f=de+v+65535,v=Math.floor(f/65536),de=f-v*65536,f=Q+v+65535,v=Math.floor(f/65536),Q=f-v*65536,f=xe+v+65535,v=Math.floor(f/65536),xe=f-v*65536,f=ce+v+65535,v=Math.floor(f/65536),ce=f-v*65536,f=Se+v+65535,v=Math.floor(f/65536),Se=f-v*65536,f=Te+v+65535,v=Math.floor(f/65536),Te=f-v*65536,f=Ie+v+65535,v=Math.floor(f/65536),Ie=f-v*65536,f=Ce+v+65535,v=Math.floor(f/65536),Ce=f-v*65536,f=Oe+v+65535,v=Math.floor(f/65536),Oe=f-v*65536,f=ke+v+65535,v=Math.floor(f/65536),ke=f-v*65536,f=Pe+v+65535,v=Math.floor(f/65536),Pe=f-v*65536,f=pe+v+65535,v=Math.floor(f/65536),pe=f-v*65536,N+=v-1+37*(v-1),v=1,f=N+v+65535,v=Math.floor(f/65536),N=f-v*65536,f=U+v+65535,v=Math.floor(f/65536),U=f-v*65536,f=q+v+65535,v=Math.floor(f/65536),q=f-v*65536,f=G+v+65535,v=Math.floor(f/65536),G=f-v*65536,f=de+v+65535,v=Math.floor(f/65536),de=f-v*65536,f=Q+v+65535,v=Math.floor(f/65536),Q=f-v*65536,f=xe+v+65535,v=Math.floor(f/65536),xe=f-v*65536,f=ce+v+65535,v=Math.floor(f/65536),ce=f-v*65536,f=Se+v+65535,v=Math.floor(f/65536),Se=f-v*65536,f=Te+v+65535,v=Math.floor(f/65536),Te=f-v*65536,f=Ie+v+65535,v=Math.floor(f/65536),Ie=f-v*65536,f=Ce+v+65535,v=Math.floor(f/65536),Ce=f-v*65536,f=Oe+v+65535,v=Math.floor(f/65536),Oe=f-v*65536,f=ke+v+65535,v=Math.floor(f/65536),ke=f-v*65536,f=Pe+v+65535,v=Math.floor(f/65536),Pe=f-v*65536,f=pe+v+65535,v=Math.floor(f/65536),pe=f-v*65536,N+=v-1+37*(v-1),l[0]=N,l[1]=U,l[2]=q,l[3]=G,l[4]=de,l[5]=Q,l[6]=xe,l[7]=ce,l[8]=Se,l[9]=Te,l[10]=Ie,l[11]=Ce,l[12]=Oe,l[13]=ke,l[14]=Pe,l[15]=pe}function d(l,m){W(l,m,m)}function R(l,m){var g=t(),f;for(f=0;f<16;f++)g[f]=m[f];for(f=253;f>=0;f--)d(g,g),f!==2&&f!==4&&W(g,g,m);for(f=0;f<16;f++)l[f]=g[f]}function L(l,m){var g=t(),f;for(f=0;f<16;f++)g[f]=m[f];for(f=250;f>=0;f--)d(g,g),f!==1&&W(g,g,m);for(f=0;f<16;f++)l[f]=g[f]}function $(l,m,g){var f=new Uint8Array(32),v=new Float64Array(80),N,U,q=t(),G=t(),de=t(),Q=t(),xe=t(),ce=t();for(U=0;U<31;U++)f[U]=m[U];for(f[31]=m[31]&127|64,f[0]&=248,x(v,g),U=0;U<16;U++)G[U]=v[U],Q[U]=q[U]=de[U]=0;for(q[0]=Q[0]=1,U=254;U>=0;--U)N=f[U>>>3]>>>(U&7)&1,w(q,G,N),w(de,Q,N),c(xe,q,de),S(q,q,de),c(de,G,Q),S(G,G,Q),d(Q,xe),d(ce,q),W(q,de,q),W(de,G,xe),c(xe,q,de),S(q,q,de),d(G,q),S(de,Q,ce),W(q,de,h),c(q,q,Q),W(de,de,q),W(q,Q,ce),W(Q,G,v),d(G,xe),w(q,G,N),w(de,Q,N);for(U=0;U<16;U++)v[U+16]=q[U],v[U+32]=de[U],v[U+48]=G[U],v[U+64]=Q[U];var Se=v.subarray(32),Te=v.subarray(16);return R(Se,Se),W(Te,Te,Se),A(l,Te),0}function X(l,m){return $(l,m,n)}function le(l,m){return r(m,32),X(l,m)}function te(l,m,g){var f=new Uint8Array(32);return $(f,g,m),ge(l,i,f,be)}var oe=E,je=s;function he(l,m,g,f,v,N){var U=new Uint8Array(32);return te(U,v,N),oe(l,m,g,f,U)}function Ne(l,m,g,f,v,N){var U=new Uint8Array(32);return te(U,v,N),je(l,m,g,f,U)}var _r=[1116352408,3609767458,1899447441,602891725,3049323471,3964484399,3921009573,2173295548,961987163,4081628472,1508970993,3053834265,2453635748,2937671579,2870763221,3664609560,3624381080,2734883394,310598401,1164996542,607225278,1323610764,1426881987,3590304994,1925078388,4068182383,2162078206,991336113,2614888103,633803317,3248222580,3479774868,3835390401,2666613458,4022224774,944711139,264347078,2341262773,604807628,2007800933,770255983,1495990901,1249150122,1856431235,1555081692,3175218132,1996064986,2198950837,2554220882,3999719339,2821834349,766784016,2952996808,2566594879,3210313671,3203337956,3336571891,1034457026,3584528711,2466948901,113926993,3758326383,338241895,168717936,666307205,1188179964,773529912,1546045734,1294757372,1522805485,1396182291,2643833823,1695183700,2343527390,1986661051,1014477480,2177026350,1206759142,2456956037,344077627,2730485921,1290863460,2820302411,3158454273,3259730800,3505952657,3345764771,106217008,3516065817,3606008344,3600352804,1432725776,4094571909,1467031594,275423344,851169720,430227734,3100823752,506948616,1363258195,659060556,3750685593,883997877,3785050280,958139571,3318307427,1322822218,3812723403,1537002063,2003034995,1747873779,3602036899,1955562222,1575990012,2024104815,1125592928,2227730452,2716904306,2361852424,442776044,2428436474,593698344,2756734187,3733110249,3204031479,2999351573,3329325298,3815920427,3391569614,3928383900,3515267271,566280711,3940187606,3454069534,4118630271,4000239992,116418474,1914138554,174292421,2731055270,289380356,3203993006,460393269,320620315,685471733,587496836,852142971,1086792851,1017036298,365543100,1126000580,2618297676,1288033470,3409855158,1501505948,4234509866,1607167915,987167468,1816402316,1246189591];function mt(l,m,g,f){for(var v=new Int32Array(16),N=new Int32Array(16),U,q,G,de,Q,xe,ce,Se,Te,Ie,Ce,Oe,ke,Pe,pe,we,ue,ye,me,ae,D,F,J,V,Z,j,Me=l[0],Ue=l[1],De=l[2],Le=l[3],M=l[4],He=l[5],Xe=l[6],Qe=l[7],We=m[0],Ge=m[1],Ze=m[2],Ot=m[3],gt=m[4],Ct=m[5],Mt=m[6],Bt=m[7],kt=0;f>=128;){for(me=0;me<16;me++)ae=8*me+kt,v[me]=g[ae+0]<<24|g[ae+1]<<16|g[ae+2]<<8|g[ae+3],N[me]=g[ae+4]<<24|g[ae+5]<<16|g[ae+6]<<8|g[ae+7];for(me=0;me<80;me++)if(U=Me,q=Ue,G=De,de=Le,Q=M,xe=He,ce=Xe,Se=Qe,Te=We,Ie=Ge,Ce=Ze,Oe=Ot,ke=gt,Pe=Ct,pe=Mt,we=Bt,D=Qe,F=Bt,J=F&65535,V=F>>>16,Z=D&65535,j=D>>>16,D=(M>>>14|gt<<32-14)^(M>>>18|gt<<32-18)^(gt>>>41-32|M<<32-(41-32)),F=(gt>>>14|M<<32-14)^(gt>>>18|M<<32-18)^(M>>>41-32|gt<<32-(41-32)),J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,D=M&He^~M&Xe,F=gt&Ct^~gt&Mt,J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,D=_r[me*2],F=_r[me*2+1],J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,D=v[me%16],F=N[me%16],J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,V+=J>>>16,Z+=V>>>16,j+=Z>>>16,ue=Z&65535|j<<16,ye=J&65535|V<<16,D=ue,F=ye,J=F&65535,V=F>>>16,Z=D&65535,j=D>>>16,D=(Me>>>28|We<<32-28)^(We>>>34-32|Me<<32-(34-32))^(We>>>39-32|Me<<32-(39-32)),F=(We>>>28|Me<<32-28)^(Me>>>34-32|We<<32-(34-32))^(Me>>>39-32|We<<32-(39-32)),J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,D=Me&Ue^Me&De^Ue&De,F=We&Ge^We&Ze^Ge&Ze,J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,V+=J>>>16,Z+=V>>>16,j+=Z>>>16,Se=Z&65535|j<<16,we=J&65535|V<<16,D=de,F=Oe,J=F&65535,V=F>>>16,Z=D&65535,j=D>>>16,D=ue,F=ye,J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,V+=J>>>16,Z+=V>>>16,j+=Z>>>16,de=Z&65535|j<<16,Oe=J&65535|V<<16,Ue=U,De=q,Le=G,M=de,He=Q,Xe=xe,Qe=ce,Me=Se,Ge=Te,Ze=Ie,Ot=Ce,gt=Oe,Ct=ke,Mt=Pe,Bt=pe,We=we,me%16==15)for(ae=0;ae<16;ae++)D=v[ae],F=N[ae],J=F&65535,V=F>>>16,Z=D&65535,j=D>>>16,D=v[(ae+9)%16],F=N[(ae+9)%16],J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,ue=v[(ae+1)%16],ye=N[(ae+1)%16],D=(ue>>>1|ye<<32-1)^(ue>>>8|ye<<32-8)^ue>>>7,F=(ye>>>1|ue<<32-1)^(ye>>>8|ue<<32-8)^(ye>>>7|ue<<32-7),J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,ue=v[(ae+14)%16],ye=N[(ae+14)%16],D=(ue>>>19|ye<<32-19)^(ye>>>61-32|ue<<32-(61-32))^ue>>>6,F=(ye>>>19|ue<<32-19)^(ue>>>61-32|ye<<32-(61-32))^(ye>>>6|ue<<32-6),J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,V+=J>>>16,Z+=V>>>16,j+=Z>>>16,v[ae]=Z&65535|j<<16,N[ae]=J&65535|V<<16;D=Me,F=We,J=F&65535,V=F>>>16,Z=D&65535,j=D>>>16,D=l[0],F=m[0],J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,V+=J>>>16,Z+=V>>>16,j+=Z>>>16,l[0]=Me=Z&65535|j<<16,m[0]=We=J&65535|V<<16,D=Ue,F=Ge,J=F&65535,V=F>>>16,Z=D&65535,j=D>>>16,D=l[1],F=m[1],J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,V+=J>>>16,Z+=V>>>16,j+=Z>>>16,l[1]=Ue=Z&65535|j<<16,m[1]=Ge=J&65535|V<<16,D=De,F=Ze,J=F&65535,V=F>>>16,Z=D&65535,j=D>>>16,D=l[2],F=m[2],J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,V+=J>>>16,Z+=V>>>16,j+=Z>>>16,l[2]=De=Z&65535|j<<16,m[2]=Ze=J&65535|V<<16,D=Le,F=Ot,J=F&65535,V=F>>>16,Z=D&65535,j=D>>>16,D=l[3],F=m[3],J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,V+=J>>>16,Z+=V>>>16,j+=Z>>>16,l[3]=Le=Z&65535|j<<16,m[3]=Ot=J&65535|V<<16,D=M,F=gt,J=F&65535,V=F>>>16,Z=D&65535,j=D>>>16,D=l[4],F=m[4],J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,V+=J>>>16,Z+=V>>>16,j+=Z>>>16,l[4]=M=Z&65535|j<<16,m[4]=gt=J&65535|V<<16,D=He,F=Ct,J=F&65535,V=F>>>16,Z=D&65535,j=D>>>16,D=l[5],F=m[5],J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,V+=J>>>16,Z+=V>>>16,j+=Z>>>16,l[5]=He=Z&65535|j<<16,m[5]=Ct=J&65535|V<<16,D=Xe,F=Mt,J=F&65535,V=F>>>16,Z=D&65535,j=D>>>16,D=l[6],F=m[6],J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,V+=J>>>16,Z+=V>>>16,j+=Z>>>16,l[6]=Xe=Z&65535|j<<16,m[6]=Mt=J&65535|V<<16,D=Qe,F=Bt,J=F&65535,V=F>>>16,Z=D&65535,j=D>>>16,D=l[7],F=m[7],J+=F&65535,V+=F>>>16,Z+=D&65535,j+=D>>>16,V+=J>>>16,Z+=V>>>16,j+=Z>>>16,l[7]=Qe=Z&65535|j<<16,m[7]=Bt=J&65535|V<<16,kt+=128,f-=128}return f}function Ye(l,m,g){var f=new Int32Array(8),v=new Int32Array(8),N=new Uint8Array(256),U,q=g;for(f[0]=1779033703,f[1]=3144134277,f[2]=1013904242,f[3]=2773480762,f[4]=1359893119,f[5]=2600822924,f[6]=528734635,f[7]=1541459225,v[0]=4089235720,v[1]=2227873595,v[2]=4271175723,v[3]=1595750129,v[4]=2917565137,v[5]=725511199,v[6]=4215389547,v[7]=327033209,mt(f,v,m,g),g%=128,U=0;U<g;U++)N[U]=m[q-g+U];for(N[g]=128,g=256-128*(g<112?1:0),N[g-9]=0,k(N,g-8,q/536870912|0,q<<3),mt(f,v,N,g),U=0;U<8;U++)k(l,8*U,f[U],v[U]);return 0}function fr(l,m){var g=t(),f=t(),v=t(),N=t(),U=t(),q=t(),G=t(),de=t(),Q=t();S(g,l[1],l[0]),S(Q,m[1],m[0]),W(g,g,Q),c(f,l[0],l[1]),c(Q,m[0],m[1]),W(f,f,Q),W(v,l[3],m[3]),W(v,v,b),W(N,l[2],m[2]),c(N,N,N),S(U,f,g),S(q,N,v),c(G,N,v),c(de,f,g),W(l[0],U,q),W(l[1],de,G),W(l[2],G,q),W(l[3],U,de)}function wt(l,m,g){var f;for(f=0;f<4;f++)w(l[f],m[f],g)}function ct(l,m){var g=t(),f=t(),v=t();R(v,m[2]),W(g,m[0],v),W(f,m[1],v),A(l,f),l[31]^=T(g)<<7}function yr(l,m,g){var f,v;for(u(l[0],o),u(l[1],a),u(l[2],a),u(l[3],o),v=255;v>=0;--v)f=g[v/8|0]>>(v&7)&1,wt(l,m,f),fr(m,l),fr(l,l),wt(l,m,f)}function ot(l,m){var g=[t(),t(),t(),t()];u(g[0],_),u(g[1],I),u(g[2],a),W(g[3],_,I),yr(l,g,m)}function ut(l,m,g){var f=new Uint8Array(64),v=[t(),t(),t(),t()],N;for(g||r(m,32),Ye(f,m,32),f[0]&=248,f[31]&=127,f[31]|=64,ot(v,f),ct(l,v),N=0;N<32;N++)m[N+32]=l[N];return 0}var cr=new Float64Array([237,211,245,92,26,99,18,88,214,156,247,162,222,249,222,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16]);function lt(l,m){var g,f,v,N;for(f=63;f>=32;--f){for(g=0,v=f-32,N=f-12;v<N;++v)m[v]+=g-16*m[f]*cr[v-(f-32)],g=Math.floor((m[v]+128)/256),m[v]-=g*256;m[v]+=g,m[f]=0}for(g=0,v=0;v<32;v++)m[v]+=g-(m[31]>>4)*cr[v],g=m[v]>>8,m[v]&=255;for(v=0;v<32;v++)m[v]-=g*cr[v];for(f=0;f<32;f++)m[f+1]+=m[f]>>8,l[f]=m[f]&255}function ht(l){var m=new Float64Array(64),g;for(g=0;g<64;g++)m[g]=l[g];for(g=0;g<64;g++)l[g]=0;lt(l,m)}function Sr(l,m,g,f){var v=new Uint8Array(64),N=new Uint8Array(64),U=new Uint8Array(64),q,G,de=new Float64Array(64),Q=[t(),t(),t(),t()];Ye(v,f,32),v[0]&=248,v[31]&=127,v[31]|=64;var xe=g+64;for(q=0;q<g;q++)l[64+q]=m[q];for(q=0;q<32;q++)l[32+q]=v[32+q];for(Ye(U,l.subarray(32),g+32),ht(U),ot(Q,U),ct(l,Q),q=32;q<64;q++)l[q]=f[q];for(Ye(N,l,g+64),ht(N),q=0;q<64;q++)de[q]=0;for(q=0;q<32;q++)de[q]=U[q];for(q=0;q<32;q++)for(G=0;G<32;G++)de[q+G]+=N[q]*v[G];return lt(l.subarray(32),de),xe}function bt(l,m){var g=t(),f=t(),v=t(),N=t(),U=t(),q=t(),G=t();return u(l[2],a),x(l[1],m),d(v,l[1]),W(N,v,p),S(v,v,l[2]),c(N,l[2],N),d(U,N),d(q,U),W(G,q,U),W(g,G,v),W(g,g,N),L(g,g),W(g,g,v),W(g,g,N),W(g,g,N),W(l[0],g,N),d(f,l[0]),W(f,f,N),C(f,v)&&W(l[0],l[0],P),d(f,l[0]),W(f,f,N),C(f,v)?-1:(T(l[0])===m[31]>>7&&S(l[0],o,l[0]),W(l[3],l[0],l[1]),0)}function dt(l,m,g,f){var v,N=new Uint8Array(32),U=new Uint8Array(64),q=[t(),t(),t(),t()],G=[t(),t(),t(),t()];if(g<64||bt(G,f))return-1;for(v=0;v<g;v++)l[v]=m[v];for(v=0;v<32;v++)l[v+32]=f[v];if(Ye(U,l,g),ht(U),yr(q,G,U),ot(G,m.subarray(32)),fr(q,G),ct(N,q),g-=64,ne(m,0,N,0)){for(v=0;v<g;v++)l[v]=0;return-1}for(v=0;v<g;v++)l[v]=m[v+64];return g}var gr=32,st=24,tt=32,Qt=16,rt=32,at=32,tr=32,nt=32,pt=32,Ar=st,Et=tt,_t=Qt,Dt=64,Je=32,et=64,mr=32,yt=64;e.lowlevel={crypto_core_hsalsa20:ge,crypto_stream_xor:Ve,crypto_stream:ze,crypto_stream_salsa20_xor:Ee,crypto_stream_salsa20:Re,crypto_onetimeauth:O,crypto_onetimeauth_verify:z,crypto_verify_16:re,crypto_verify_32:ne,crypto_secretbox:E,crypto_secretbox_open:s,crypto_scalarmult:$,crypto_scalarmult_base:X,crypto_box_beforenm:te,crypto_box_afternm:oe,crypto_box:he,crypto_box_open:Ne,crypto_box_keypair:le,crypto_hash:Ye,crypto_sign:Sr,crypto_sign_keypair:ut,crypto_sign_open:dt,crypto_secretbox_KEYBYTES:gr,crypto_secretbox_NONCEBYTES:st,crypto_secretbox_ZEROBYTES:tt,crypto_secretbox_BOXZEROBYTES:Qt,crypto_scalarmult_BYTES:rt,crypto_scalarmult_SCALARBYTES:at,crypto_box_PUBLICKEYBYTES:tr,crypto_box_SECRETKEYBYTES:nt,crypto_box_BEFORENMBYTES:pt,crypto_box_NONCEBYTES:Ar,crypto_box_ZEROBYTES:Et,crypto_box_BOXZEROBYTES:_t,crypto_sign_BYTES:Dt,crypto_sign_PUBLICKEYBYTES:Je,crypto_sign_SECRETKEYBYTES:et,crypto_sign_SEEDBYTES:mr,crypto_hash_BYTES:yt,gf:t,D:p,L:cr,pack25519:A,unpack25519:x,M:W,A:c,S:d,Z:S,pow2523:L,add:fr,set25519:u,modL:lt,scalarmult:yr,scalarbase:ot};function vt(l,m){if(l.length!==gr)throw new Error("bad key size");if(m.length!==st)throw new Error("bad nonce size")}function qr(l,m){if(l.length!==tr)throw new Error("bad public key size");if(m.length!==nt)throw new Error("bad secret key size")}function qe(){for(var l=0;l<arguments.length;l++)if(!(arguments[l]instanceof Uint8Array))throw new TypeError("unexpected type, use Uint8Array")}function xt(l){for(var m=0;m<l.length;m++)l[m]=0}e.randomBytes=function(l){var m=new Uint8Array(l);return r(m,l),m},e.secretbox=function(l,m,g){qe(l,m,g),vt(g,m);for(var f=new Uint8Array(tt+l.length),v=new Uint8Array(f.length),N=0;N<l.length;N++)f[N+tt]=l[N];return E(v,f,f.length,m,g),v.subarray(Qt)},e.secretbox.open=function(l,m,g){qe(l,m,g),vt(g,m);for(var f=new Uint8Array(Qt+l.length),v=new Uint8Array(f.length),N=0;N<l.length;N++)f[N+Qt]=l[N];return f.length<32||s(v,f,f.length,m,g)!==0?null:v.subarray(tt)},e.secretbox.keyLength=gr,e.secretbox.nonceLength=st,e.secretbox.overheadLength=Qt,e.scalarMult=function(l,m){if(qe(l,m),l.length!==at)throw new Error("bad n size");if(m.length!==rt)throw new Error("bad p size");var g=new Uint8Array(rt);return $(g,l,m),g},e.scalarMult.base=function(l){if(qe(l),l.length!==at)throw new Error("bad n size");var m=new Uint8Array(rt);return X(m,l),m},e.scalarMult.scalarLength=at,e.scalarMult.groupElementLength=rt,e.box=function(l,m,g,f){var v=e.box.before(g,f);return e.secretbox(l,m,v)},e.box.before=function(l,m){qe(l,m),qr(l,m);var g=new Uint8Array(pt);return te(g,l,m),g},e.box.after=e.secretbox,e.box.open=function(l,m,g,f){var v=e.box.before(g,f);return e.secretbox.open(l,m,v)},e.box.open.after=e.secretbox.open,e.box.keyPair=function(){var l=new Uint8Array(tr),m=new Uint8Array(nt);return le(l,m),{publicKey:l,secretKey:m}},e.box.keyPair.fromSecretKey=function(l){if(qe(l),l.length!==nt)throw new Error("bad secret key size");var m=new Uint8Array(tr);return X(m,l),{publicKey:m,secretKey:new Uint8Array(l)}},e.box.publicKeyLength=tr,e.box.secretKeyLength=nt,e.box.sharedKeyLength=pt,e.box.nonceLength=Ar,e.box.overheadLength=e.secretbox.overheadLength,e.sign=function(l,m){if(qe(l,m),m.length!==et)throw new Error("bad secret key size");var g=new Uint8Array(Dt+l.length);return Sr(g,l,l.length,m),g},e.sign.open=function(l,m){if(qe(l,m),m.length!==Je)throw new Error("bad public key size");var g=new Uint8Array(l.length),f=dt(g,l,l.length,m);if(f<0)return null;for(var v=new Uint8Array(f),N=0;N<v.length;N++)v[N]=g[N];return v},e.sign.detached=function(l,m){for(var g=e.sign(l,m),f=new Uint8Array(Dt),v=0;v<f.length;v++)f[v]=g[v];return f},e.sign.detached.verify=function(l,m,g){if(qe(l,m,g),m.length!==Dt)throw new Error("bad signature size");if(g.length!==Je)throw new Error("bad public key size");var f=new Uint8Array(Dt+l.length),v=new Uint8Array(Dt+l.length),N;for(N=0;N<Dt;N++)f[N]=m[N];for(N=0;N<l.length;N++)f[N+Dt]=l[N];return dt(v,f,f.length,g)>=0},e.sign.keyPair=function(){var l=new Uint8Array(Je),m=new Uint8Array(et);return ut(l,m),{publicKey:l,secretKey:m}},e.sign.keyPair.fromSecretKey=function(l){if(qe(l),l.length!==et)throw new Error("bad secret key size");for(var m=new Uint8Array(Je),g=0;g<m.length;g++)m[g]=l[32+g];return{publicKey:m,secretKey:new Uint8Array(l)}},e.sign.keyPair.fromSeed=function(l){if(qe(l),l.length!==mr)throw new Error("bad seed size");for(var m=new Uint8Array(Je),g=new Uint8Array(et),f=0;f<32;f++)g[f]=l[f];return ut(m,g,!0),{publicKey:m,secretKey:g}},e.sign.publicKeyLength=Je,e.sign.secretKeyLength=et,e.sign.seedLength=mr,e.sign.signatureLength=Dt,e.hash=function(l){qe(l);var m=new Uint8Array(yt);return Ye(m,l,l.length),m},e.hash.hashLength=yt,e.verify=function(l,m){return qe(l,m),l.length===0||m.length===0||l.length!==m.length?!1:K(l,0,m,0,l.length)===0},e.setPRNG=function(l){r=l},function(){var l=typeof self!="undefined"?self.crypto||self.msCrypto:null;if(l&&l.getRandomValues){var m=65536;e.setPRNG(function(g,f){var v,N=new Uint8Array(f);for(v=0;v<f;v+=m)l.getRandomValues(N.subarray(v,v+Math.min(f-v,m)));for(v=0;v<f;v++)g[v]=N[v];xt(N)})}else typeof require!="undefined"&&(l=Oi(),l&&l.randomBytes&&e.setPRNG(function(g,f){var v,N=l.randomBytes(f);for(v=0;v<f;v++)g[v]=N[v];xt(N)}))}()})(typeof Pi!="undefined"&&Pi.exports?Pi.exports:self.nacl=self.nacl||{})});var Ma=Ae(Ri=>{"use strict";Ri.byteLength=t0;Ri.toByteArray=n0;Ri.fromByteArray=s0;var Tr=[],ur=[],jl=typeof Uint8Array!="undefined"?Uint8Array:Array,cs="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";for(var Bn=0,e0=cs.length;Bn<e0;++Bn)Tr[Bn]=cs[Bn],ur[cs.charCodeAt(Bn)]=Bn;ur["-".charCodeAt(0)]=62;ur["_".charCodeAt(0)]=63;function Ca(e){var t=e.length;if(t%4>0)throw new Error("Invalid string. Length must be a multiple of 4");var r=e.indexOf("=");r===-1&&(r=t);var i=r===t?0:4-r%4;return[r,i]}function t0(e){var t=Ca(e),r=t[0],i=t[1];return(r+i)*3/4-i}function r0(e,t,r){return(t+r)*3/4-r}function n0(e){var t,r=Ca(e),i=r[0],n=r[1],o=new jl(r0(e,i,n)),a=0,h=n>0?i-4:i,p;for(p=0;p<h;p+=4)t=ur[e.charCodeAt(p)]<<18|ur[e.charCodeAt(p+1)]<<12|ur[e.charCodeAt(p+2)]<<6|ur[e.charCodeAt(p+3)],o[a++]=t>>16&255,o[a++]=t>>8&255,o[a++]=t&255;return n===2&&(t=ur[e.charCodeAt(p)]<<2|ur[e.charCodeAt(p+1)]>>4,o[a++]=t&255),n===1&&(t=ur[e.charCodeAt(p)]<<10|ur[e.charCodeAt(p+1)]<<4|ur[e.charCodeAt(p+2)]>>2,o[a++]=t>>8&255,o[a++]=t&255),o}function i0(e){return Tr[e>>18&63]+Tr[e>>12&63]+Tr[e>>6&63]+Tr[e&63]}function o0(e,t,r){for(var i,n=[],o=t;o<r;o+=3)i=(e[o]<<16&16711680)+(e[o+1]<<8&65280)+(e[o+2]&255),n.push(i0(i));return n.join("")}function s0(e){for(var t,r=e.length,i=r%3,n=[],o=16383,a=0,h=r-i;a<h;a+=o)n.push(o0(e,a,a+o>h?h:a+o));return i===1?(t=e[r-1],n.push(Tr[t>>2]+Tr[t<<4&63]+"==")):i===2&&(t=(e[r-2]<<8)+e[r-1],n.push(Tr[t>>10]+Tr[t>>4&63]+Tr[t<<2&63]+"=")),n.join("")}});var Ba=Ae(us=>{us.read=function(e,t,r,i,n){var o,a,h=n*8-i-1,p=(1<<h)-1,b=p>>1,_=-7,I=r?n-1:0,P=r?-1:1,k=e[t+I];for(I+=P,o=k&(1<<-_)-1,k>>=-_,_+=h;_>0;o=o*256+e[t+I],I+=P,_-=8);for(a=o&(1<<-_)-1,o>>=-_,_+=i;_>0;a=a*256+e[t+I],I+=P,_-=8);if(o===0)o=1-b;else{if(o===p)return a?NaN:(k?-1:1)*Infinity;a=a+Math.pow(2,i),o=o-b}return(k?-1:1)*a*Math.pow(2,o-i)};us.write=function(e,t,r,i,n,o){var a,h,p,b=o*8-n-1,_=(1<<b)-1,I=_>>1,P=n===23?Math.pow(2,-24)-Math.pow(2,-77):0,k=i?0:o-1,K=i?1:-1,re=t<0||t===0&&1/t<0?1:0;for(t=Math.abs(t),isNaN(t)||t===Infinity?(h=isNaN(t)?1:0,a=_):(a=Math.floor(Math.log(t)/Math.LN2),t*(p=Math.pow(2,-a))<1&&(a--,p*=2),a+I>=1?t+=P/p:t+=P*Math.pow(2,1-I),t*p>=2&&(a++,p/=2),a+I>=_?(h=0,a=_):a+I>=1?(h=(t*p-1)*Math.pow(2,n),a=a+I):(h=t*Math.pow(2,I-1)*Math.pow(2,n),a=0));n>=8;e[r+k]=h&255,k+=K,h/=256,n-=8);for(a=a<<n|h,b+=n;b>0;e[r+k]=a&255,k+=K,a/=256,b-=8);e[r+k-K]|=re*128}});var Nn=Ae(Rn=>{"use strict";var ls=Ma(),In=Ba(),Ia=typeof Symbol=="function"&&typeof Symbol.for=="function"?Symbol.for("nodejs.util.inspect.custom"):null;Rn.Buffer=H;Rn.SlowBuffer=h0;Rn.INSPECT_MAX_BYTES=50;var Ni=2147483647;Rn.kMaxLength=Ni;H.TYPED_ARRAY_SUPPORT=a0();!H.TYPED_ARRAY_SUPPORT&&typeof console!="undefined"&&typeof console.error=="function"&&console.error("This browser lacks typed array (Uint8Array) support which is required by `buffer` v5.x. Use `buffer` v4.x if you require old browser support.");function a0(){try{let e=new Uint8Array(1),t={foo:function(){return 42}};return Object.setPrototypeOf(t,Uint8Array.prototype),Object.setPrototypeOf(e,t),e.foo()===42}catch(e){return!1}}Object.defineProperty(H.prototype,"parent",{enumerable:!0,get:function(){if(!!H.isBuffer(this))return this.buffer}});Object.defineProperty(H.prototype,"offset",{enumerable:!0,get:function(){if(!!H.isBuffer(this))return this.byteOffset}});function Hr(e){if(e>Ni)throw new RangeError('The value "'+e+'" is invalid for option "size"');let t=new Uint8Array(e);return Object.setPrototypeOf(t,H.prototype),t}function H(e,t,r){if(typeof e=="number"){if(typeof t=="string")throw new TypeError('The "string" argument must be of type string. Received type number');return hs(e)}return Oa(e,t,r)}H.poolSize=8192;function Oa(e,t,r){if(typeof e=="string")return c0(e,t);if(ArrayBuffer.isView(e))return u0(e);if(e==null)throw new TypeError("The first argument must be one of type string, Buffer, ArrayBuffer, Array, or Array-like Object. Received type "+typeof e);if(Cr(e,ArrayBuffer)||e&&Cr(e.buffer,ArrayBuffer)||typeof SharedArrayBuffer!="undefined"&&(Cr(e,SharedArrayBuffer)||e&&Cr(e.buffer,SharedArrayBuffer)))return ps(e,t,r);if(typeof e=="number")throw new TypeError('The "value" argument must not be of type number. Received type number');let i=e.valueOf&&e.valueOf();if(i!=null&&i!==e)return H.from(i,t,r);let n=l0(e);if(n)return n;if(typeof Symbol!="undefined"&&Symbol.toPrimitive!=null&&typeof e[Symbol.toPrimitive]=="function")return H.from(e[Symbol.toPrimitive]("string"),t,r);throw new TypeError("The first argument must be one of type string, Buffer, ArrayBuffer, Array, or Array-like Object. Received type "+typeof e)}H.from=function(e,t,r){return Oa(e,t,r)};Object.setPrototypeOf(H.prototype,Uint8Array.prototype);Object.setPrototypeOf(H,Uint8Array);function Pa(e){if(typeof e!="number")throw new TypeError('"size" argument must be of type number');if(e<0)throw new RangeError('The value "'+e+'" is invalid for option "size"')}function f0(e,t,r){return Pa(e),e<=0?Hr(e):t!==void 0?typeof r=="string"?Hr(e).fill(t,r):Hr(e).fill(t):Hr(e)}H.alloc=function(e,t,r){return f0(e,t,r)};function hs(e){return Pa(e),Hr(e<0?0:ys(e)|0)}H.allocUnsafe=function(e){return hs(e)};H.allocUnsafeSlow=function(e){return hs(e)};function c0(e,t){if((typeof t!="string"||t==="")&&(t="utf8"),!H.isEncoding(t))throw new TypeError("Unknown encoding: "+t);let r=Ra(e,t)|0,i=Hr(r),n=i.write(e,t);return n!==r&&(i=i.slice(0,n)),i}function ds(e){let t=e.length<0?0:ys(e.length)|0,r=Hr(t);for(let i=0;i<t;i+=1)r[i]=e[i]&255;return r}function u0(e){if(Cr(e,Uint8Array)){let t=new Uint8Array(e);return ps(t.buffer,t.byteOffset,t.byteLength)}return ds(e)}function ps(e,t,r){if(t<0||e.byteLength<t)throw new RangeError('"offset" is outside of buffer bounds');if(e.byteLength<t+(r||0))throw new RangeError('"length" is outside of buffer bounds');let i;return t===void 0&&r===void 0?i=new Uint8Array(e):r===void 0?i=new Uint8Array(e,t):i=new Uint8Array(e,t,r),Object.setPrototypeOf(i,H.prototype),i}function l0(e){if(H.isBuffer(e)){let t=ys(e.length)|0,r=Hr(t);return r.length===0||e.copy(r,0,0,t),r}if(e.length!==void 0)return typeof e.length!="number"||ws(e.length)?Hr(0):ds(e);if(e.type==="Buffer"&&Array.isArray(e.data))return ds(e.data)}function ys(e){if(e>=Ni)throw new RangeError("Attempt to allocate Buffer larger than maximum size: 0x"+Ni.toString(16)+" bytes");return e|0}function h0(e){return+e!=e&&(e=0),H.alloc(+e)}H.isBuffer=function(t){return t!=null&&t._isBuffer===!0&&t!==H.prototype};H.compare=function(t,r){if(Cr(t,Uint8Array)&&(t=H.from(t,t.offset,t.byteLength)),Cr(r,Uint8Array)&&(r=H.from(r,r.offset,r.byteLength)),!H.isBuffer(t)||!H.isBuffer(r))throw new TypeError('The "buf1", "buf2" arguments must be one of type Buffer or Uint8Array');if(t===r)return 0;let i=t.length,n=r.length;for(let o=0,a=Math.min(i,n);o<a;++o)if(t[o]!==r[o]){i=t[o],n=r[o];break}return i<n?-1:n<i?1:0};H.isEncoding=function(t){switch(String(t).toLowerCase()){case"hex":case"utf8":case"utf-8":case"ascii":case"latin1":case"binary":case"base64":case"ucs2":case"ucs-2":case"utf16le":case"utf-16le":return!0;default:return!1}};H.concat=function(t,r){if(!Array.isArray(t))throw new TypeError('"list" argument must be an Array of Buffers');if(t.length===0)return H.alloc(0);let i;if(r===void 0)for(r=0,i=0;i<t.length;++i)r+=t[i].length;let n=H.allocUnsafe(r),o=0;for(i=0;i<t.length;++i){let a=t[i];if(Cr(a,Uint8Array))o+a.length>n.length?(H.isBuffer(a)||(a=H.from(a)),a.copy(n,o)):Uint8Array.prototype.set.call(n,a,o);else if(H.isBuffer(a))a.copy(n,o);else throw new TypeError('"list" argument must be an Array of Buffers');o+=a.length}return n};function Ra(e,t){if(H.isBuffer(e))return e.length;if(ArrayBuffer.isView(e)||Cr(e,ArrayBuffer))return e.byteLength;if(typeof e!="string")throw new TypeError('The "string" argument must be one of type string, Buffer, or ArrayBuffer. Received type '+typeof e);let r=e.length,i=arguments.length>2&&arguments[2]===!0;if(!i&&r===0)return 0;let n=!1;for(;;)switch(t){case"ascii":case"latin1":case"binary":return r;case"utf8":case"utf-8":return ms(e).length;case"ucs2":case"ucs-2":case"utf16le":case"utf-16le":return r*2;case"hex":return r>>>1;case"base64":return Ka(e).length;default:if(n)return i?-1:ms(e).length;t=(""+t).toLowerCase(),n=!0}}H.byteLength=Ra;function d0(e,t,r){let i=!1;if((t===void 0||t<0)&&(t=0),t>this.length||((r===void 0||r>this.length)&&(r=this.length),r<=0)||(r>>>=0,t>>>=0,r<=t))return"";for(e||(e="utf8");;)switch(e){case"hex":return _0(this,t,r);case"utf8":case"utf-8":return Ua(this,t,r);case"ascii":return b0(this,t,r);case"latin1":case"binary":return E0(this,t,r);case"base64":return v0(this,t,r);case"ucs2":case"ucs-2":case"utf16le":case"utf-16le":return S0(this,t,r);default:if(i)throw new TypeError("Unknown encoding: "+e);e=(e+"").toLowerCase(),i=!0}}H.prototype._isBuffer=!0;function pn(e,t,r){let i=e[t];e[t]=e[r],e[r]=i}H.prototype.swap16=function(){let t=this.length;if(t%2!=0)throw new RangeError("Buffer size must be a multiple of 16-bits");for(let r=0;r<t;r+=2)pn(this,r,r+1);return this};H.prototype.swap32=function(){let t=this.length;if(t%4!=0)throw new RangeError("Buffer size must be a multiple of 32-bits");for(let r=0;r<t;r+=4)pn(this,r,r+3),pn(this,r+1,r+2);return this};H.prototype.swap64=function(){let t=this.length;if(t%8!=0)throw new RangeError("Buffer size must be a multiple of 64-bits");for(let r=0;r<t;r+=8)pn(this,r,r+7),pn(this,r+1,r+6),pn(this,r+2,r+5),pn(this,r+3,r+4);return this};H.prototype.toString=function(){let t=this.length;return t===0?"":arguments.length===0?Ua(this,0,t):d0.apply(this,arguments)};H.prototype.toLocaleString=H.prototype.toString;H.prototype.equals=function(t){if(!H.isBuffer(t))throw new TypeError("Argument must be a Buffer");return this===t?!0:H.compare(this,t)===0};H.prototype.inspect=function(){let t="",r=Rn.INSPECT_MAX_BYTES;return t=this.toString("hex",0,r).replace(/(.{2})/g,"$1 ").trim(),this.length>r&&(t+=" ... "),"<Buffer "+t+">"};Ia&&(H.prototype[Ia]=H.prototype.inspect);H.prototype.compare=function(t,r,i,n,o){if(Cr(t,Uint8Array)&&(t=H.from(t,t.offset,t.byteLength)),!H.isBuffer(t))throw new TypeError('The "target" argument must be one of type Buffer or Uint8Array. Received type '+typeof t);if(r===void 0&&(r=0),i===void 0&&(i=t?t.length:0),n===void 0&&(n=0),o===void 0&&(o=this.length),r<0||i>t.length||n<0||o>this.length)throw new RangeError("out of range index");if(n>=o&&r>=i)return 0;if(n>=o)return-1;if(r>=i)return 1;if(r>>>=0,i>>>=0,n>>>=0,o>>>=0,this===t)return 0;let a=o-n,h=i-r,p=Math.min(a,h),b=this.slice(n,o),_=t.slice(r,i);for(let I=0;I<p;++I)if(b[I]!==_[I]){a=b[I],h=_[I];break}return a<h?-1:h<a?1:0};function Na(e,t,r,i,n){if(e.length===0)return-1;if(typeof r=="string"?(i=r,r=0):r>2147483647?r=2147483647:r<-2147483648&&(r=-2147483648),r=+r,ws(r)&&(r=n?0:e.length-1),r<0&&(r=e.length+r),r>=e.length){if(n)return-1;r=e.length-1}else if(r<0)if(n)r=0;else return-1;if(typeof t=="string"&&(t=H.from(t,i)),H.isBuffer(t))return t.length===0?-1:ka(e,t,r,i,n);if(typeof t=="number")return t=t&255,typeof Uint8Array.prototype.indexOf=="function"?n?Uint8Array.prototype.indexOf.call(e,t,r):Uint8Array.prototype.lastIndexOf.call(e,t,r):ka(e,[t],r,i,n);throw new TypeError("val must be string, number or Buffer")}function ka(e,t,r,i,n){let o=1,a=e.length,h=t.length;if(i!==void 0&&(i=String(i).toLowerCase(),i==="ucs2"||i==="ucs-2"||i==="utf16le"||i==="utf-16le")){if(e.length<2||t.length<2)return-1;o=2,a/=2,h/=2,r/=2}function p(_,I){return o===1?_[I]:_.readUInt16BE(I*o)}let b;if(n){let _=-1;for(b=r;b<a;b++)if(p(e,b)===p(t,_===-1?0:b-_)){if(_===-1&&(_=b),b-_+1===h)return _*o}else _!==-1&&(b-=b-_),_=-1}else for(r+h>a&&(r=a-h),b=r;b>=0;b--){let _=!0;for(let I=0;I<h;I++)if(p(e,b+I)!==p(t,I)){_=!1;break}if(_)return b}return-1}H.prototype.includes=function(t,r,i){return this.indexOf(t,r,i)!==-1};H.prototype.indexOf=function(t,r,i){return Na(this,t,r,i,!0)};H.prototype.lastIndexOf=function(t,r,i){return Na(this,t,r,i,!1)};function p0(e,t,r,i){r=Number(r)||0;let n=e.length-r;i?(i=Number(i),i>n&&(i=n)):i=n;let o=t.length;i>o/2&&(i=o/2);let a;for(a=0;a<i;++a){let h=parseInt(t.substr(a*2,2),16);if(ws(h))return a;e[r+a]=h}return a}function y0(e,t,r,i){return ki(ms(t,e.length-r),e,r,i)}function g0(e,t,r,i){return ki(M0(t),e,r,i)}function m0(e,t,r,i){return ki(Ka(t),e,r,i)}function w0(e,t,r,i){return ki(B0(t,e.length-r),e,r,i)}H.prototype.write=function(t,r,i,n){if(r===void 0)n="utf8",i=this.length,r=0;else if(i===void 0&&typeof r=="string")n=r,i=this.length,r=0;else if(isFinite(r))r=r>>>0,isFinite(i)?(i=i>>>0,n===void 0&&(n="utf8")):(n=i,i=void 0);else throw new Error("Buffer.write(string, encoding, offset[, length]) is no longer supported");let o=this.length-r;if((i===void 0||i>o)&&(i=o),t.length>0&&(i<0||r<0)||r>this.length)throw new RangeError("Attempt to write outside buffer bounds");n||(n="utf8");let a=!1;for(;;)switch(n){case"hex":return p0(this,t,r,i);case"utf8":case"utf-8":return y0(this,t,r,i);case"ascii":case"latin1":case"binary":return g0(this,t,r,i);case"base64":return m0(this,t,r,i);case"ucs2":case"ucs-2":case"utf16le":case"utf-16le":return w0(this,t,r,i);default:if(a)throw new TypeError("Unknown encoding: "+n);n=(""+n).toLowerCase(),a=!0}};H.prototype.toJSON=function(){return{type:"Buffer",data:Array.prototype.slice.call(this._arr||this,0)}};function v0(e,t,r){return t===0&&r===e.length?ls.fromByteArray(e):ls.fromByteArray(e.slice(t,r))}function Ua(e,t,r){r=Math.min(e.length,r);let i=[],n=t;for(;n<r;){let o=e[n],a=null,h=o>239?4:o>223?3:o>191?2:1;if(n+h<=r){let p,b,_,I;switch(h){case 1:o<128&&(a=o);break;case 2:p=e[n+1],(p&192)==128&&(I=(o&31)<<6|p&63,I>127&&(a=I));break;case 3:p=e[n+1],b=e[n+2],(p&192)==128&&(b&192)==128&&(I=(o&15)<<12|(p&63)<<6|b&63,I>2047&&(I<55296||I>57343)&&(a=I));break;case 4:p=e[n+1],b=e[n+2],_=e[n+3],(p&192)==128&&(b&192)==128&&(_&192)==128&&(I=(o&15)<<18|(p&63)<<12|(b&63)<<6|_&63,I>65535&&I<1114112&&(a=I))}}a===null?(a=65533,h=1):a>65535&&(a-=65536,i.push(a>>>10&1023|55296),a=56320|a&1023),i.push(a),n+=h}return x0(i)}var La=4096;function x0(e){let t=e.length;if(t<=La)return String.fromCharCode.apply(String,e);let r="",i=0;for(;i<t;)r+=String.fromCharCode.apply(String,e.slice(i,i+=La));return r}function b0(e,t,r){let i="";r=Math.min(e.length,r);for(let n=t;n<r;++n)i+=String.fromCharCode(e[n]&127);return i}function E0(e,t,r){let i="";r=Math.min(e.length,r);for(let n=t;n<r;++n)i+=String.fromCharCode(e[n]);return i}function _0(e,t,r){let i=e.length;(!t||t<0)&&(t=0),(!r||r<0||r>i)&&(r=i);let n="";for(let o=t;o<r;++o)n+=I0[e[o]];return n}function S0(e,t,r){let i=e.slice(t,r),n="";for(let o=0;o<i.length-1;o+=2)n+=String.fromCharCode(i[o]+i[o+1]*256);return n}H.prototype.slice=function(t,r){let i=this.length;t=~~t,r=r===void 0?i:~~r,t<0?(t+=i,t<0&&(t=0)):t>i&&(t=i),r<0?(r+=i,r<0&&(r=0)):r>i&&(r=i),r<t&&(r=t);let n=this.subarray(t,r);return Object.setPrototypeOf(n,H.prototype),n};function Lt(e,t,r){if(e%1!=0||e<0)throw new RangeError("offset is not uint");if(e+t>r)throw new RangeError("Trying to access beyond buffer length")}H.prototype.readUintLE=H.prototype.readUIntLE=function(t,r,i){t=t>>>0,r=r>>>0,i||Lt(t,r,this.length);let n=this[t],o=1,a=0;for(;++a<r&&(o*=256);)n+=this[t+a]*o;return n};H.prototype.readUintBE=H.prototype.readUIntBE=function(t,r,i){t=t>>>0,r=r>>>0,i||Lt(t,r,this.length);let n=this[t+--r],o=1;for(;r>0&&(o*=256);)n+=this[t+--r]*o;return n};H.prototype.readUint8=H.prototype.readUInt8=function(t,r){return t=t>>>0,r||Lt(t,1,this.length),this[t]};H.prototype.readUint16LE=H.prototype.readUInt16LE=function(t,r){return t=t>>>0,r||Lt(t,2,this.length),this[t]|this[t+1]<<8};H.prototype.readUint16BE=H.prototype.readUInt16BE=function(t,r){return t=t>>>0,r||Lt(t,2,this.length),this[t]<<8|this[t+1]};H.prototype.readUint32LE=H.prototype.readUInt32LE=function(t,r){return t=t>>>0,r||Lt(t,4,this.length),(this[t]|this[t+1]<<8|this[t+2]<<16)+this[t+3]*16777216};H.prototype.readUint32BE=H.prototype.readUInt32BE=function(t,r){return t=t>>>0,r||Lt(t,4,this.length),this[t]*16777216+(this[t+1]<<16|this[t+2]<<8|this[t+3])};H.prototype.readBigUInt64LE=Qr(function(t){t=t>>>0,Pn(t,"offset");let r=this[t],i=this[t+7];(r===void 0||i===void 0)&&ii(t,this.length-8);let n=r+this[++t]*2**8+this[++t]*2**16+this[++t]*2**24,o=this[++t]+this[++t]*2**8+this[++t]*2**16+i*2**24;return BigInt(n)+(BigInt(o)<<BigInt(32))});H.prototype.readBigUInt64BE=Qr(function(t){t=t>>>0,Pn(t,"offset");let r=this[t],i=this[t+7];(r===void 0||i===void 0)&&ii(t,this.length-8);let n=r*2**24+this[++t]*2**16+this[++t]*2**8+this[++t],o=this[++t]*2**24+this[++t]*2**16+this[++t]*2**8+i;return(BigInt(n)<<BigInt(32))+BigInt(o)});H.prototype.readIntLE=function(t,r,i){t=t>>>0,r=r>>>0,i||Lt(t,r,this.length);let n=this[t],o=1,a=0;for(;++a<r&&(o*=256);)n+=this[t+a]*o;return o*=128,n>=o&&(n-=Math.pow(2,8*r)),n};H.prototype.readIntBE=function(t,r,i){t=t>>>0,r=r>>>0,i||Lt(t,r,this.length);let n=r,o=1,a=this[t+--n];for(;n>0&&(o*=256);)a+=this[t+--n]*o;return o*=128,a>=o&&(a-=Math.pow(2,8*r)),a};H.prototype.readInt8=function(t,r){return t=t>>>0,r||Lt(t,1,this.length),this[t]&128?(255-this[t]+1)*-1:this[t]};H.prototype.readInt16LE=function(t,r){t=t>>>0,r||Lt(t,2,this.length);let i=this[t]|this[t+1]<<8;return i&32768?i|4294901760:i};H.prototype.readInt16BE=function(t,r){t=t>>>0,r||Lt(t,2,this.length);let i=this[t+1]|this[t]<<8;return i&32768?i|4294901760:i};H.prototype.readInt32LE=function(t,r){return t=t>>>0,r||Lt(t,4,this.length),this[t]|this[t+1]<<8|this[t+2]<<16|this[t+3]<<24};H.prototype.readInt32BE=function(t,r){return t=t>>>0,r||Lt(t,4,this.length),this[t]<<24|this[t+1]<<16|this[t+2]<<8|this[t+3]};H.prototype.readBigInt64LE=Qr(function(t){t=t>>>0,Pn(t,"offset");let r=this[t],i=this[t+7];(r===void 0||i===void 0)&&ii(t,this.length-8);let n=this[t+4]+this[t+5]*2**8+this[t+6]*2**16+(i<<24);return(BigInt(n)<<BigInt(32))+BigInt(r+this[++t]*2**8+this[++t]*2**16+this[++t]*2**24)});H.prototype.readBigInt64BE=Qr(function(t){t=t>>>0,Pn(t,"offset");let r=this[t],i=this[t+7];(r===void 0||i===void 0)&&ii(t,this.length-8);let n=(r<<24)+this[++t]*2**16+this[++t]*2**8+this[++t];return(BigInt(n)<<BigInt(32))+BigInt(this[++t]*2**24+this[++t]*2**16+this[++t]*2**8+i)});H.prototype.readFloatLE=function(t,r){return t=t>>>0,r||Lt(t,4,this.length),In.read(this,t,!0,23,4)};H.prototype.readFloatBE=function(t,r){return t=t>>>0,r||Lt(t,4,this.length),In.read(this,t,!1,23,4)};H.prototype.readDoubleLE=function(t,r){return t=t>>>0,r||Lt(t,8,this.length),In.read(this,t,!0,52,8)};H.prototype.readDoubleBE=function(t,r){return t=t>>>0,r||Lt(t,8,this.length),In.read(this,t,!1,52,8)};function jt(e,t,r,i,n,o){if(!H.isBuffer(e))throw new TypeError('"buffer" argument must be a Buffer instance');if(t>n||t<o)throw new RangeError('"value" argument is out of bounds');if(r+i>e.length)throw new RangeError("Index out of range")}H.prototype.writeUintLE=H.prototype.writeUIntLE=function(t,r,i,n){if(t=+t,r=r>>>0,i=i>>>0,!n){let h=Math.pow(2,8*i)-1;jt(this,t,r,i,h,0)}let o=1,a=0;for(this[r]=t&255;++a<i&&(o*=256);)this[r+a]=t/o&255;return r+i};H.prototype.writeUintBE=H.prototype.writeUIntBE=function(t,r,i,n){if(t=+t,r=r>>>0,i=i>>>0,!n){let h=Math.pow(2,8*i)-1;jt(this,t,r,i,h,0)}let o=i-1,a=1;for(this[r+o]=t&255;--o>=0&&(a*=256);)this[r+o]=t/a&255;return r+i};H.prototype.writeUint8=H.prototype.writeUInt8=function(t,r,i){return t=+t,r=r>>>0,i||jt(this,t,r,1,255,0),this[r]=t&255,r+1};H.prototype.writeUint16LE=H.prototype.writeUInt16LE=function(t,r,i){return t=+t,r=r>>>0,i||jt(this,t,r,2,65535,0),this[r]=t&255,this[r+1]=t>>>8,r+2};H.prototype.writeUint16BE=H.prototype.writeUInt16BE=function(t,r,i){return t=+t,r=r>>>0,i||jt(this,t,r,2,65535,0),this[r]=t>>>8,this[r+1]=t&255,r+2};H.prototype.writeUint32LE=H.prototype.writeUInt32LE=function(t,r,i){return t=+t,r=r>>>0,i||jt(this,t,r,4,4294967295,0),this[r+3]=t>>>24,this[r+2]=t>>>16,this[r+1]=t>>>8,this[r]=t&255,r+4};H.prototype.writeUint32BE=H.prototype.writeUInt32BE=function(t,r,i){return t=+t,r=r>>>0,i||jt(this,t,r,4,4294967295,0),this[r]=t>>>24,this[r+1]=t>>>16,this[r+2]=t>>>8,this[r+3]=t&255,r+4};function Da(e,t,r,i,n){za(t,i,n,e,r,7);let o=Number(t&BigInt(4294967295));e[r++]=o,o=o>>8,e[r++]=o,o=o>>8,e[r++]=o,o=o>>8,e[r++]=o;let a=Number(t>>BigInt(32)&BigInt(4294967295));return e[r++]=a,a=a>>8,e[r++]=a,a=a>>8,e[r++]=a,a=a>>8,e[r++]=a,r}function Wa(e,t,r,i,n){za(t,i,n,e,r,7);let o=Number(t&BigInt(4294967295));e[r+7]=o,o=o>>8,e[r+6]=o,o=o>>8,e[r+5]=o,o=o>>8,e[r+4]=o;let a=Number(t>>BigInt(32)&BigInt(4294967295));return e[r+3]=a,a=a>>8,e[r+2]=a,a=a>>8,e[r+1]=a,a=a>>8,e[r]=a,r+8}H.prototype.writeBigUInt64LE=Qr(function(t,r=0){return Da(this,t,r,BigInt(0),BigInt("0xffffffffffffffff"))});H.prototype.writeBigUInt64BE=Qr(function(t,r=0){return Wa(this,t,r,BigInt(0),BigInt("0xffffffffffffffff"))});H.prototype.writeIntLE=function(t,r,i,n){if(t=+t,r=r>>>0,!n){let p=Math.pow(2,8*i-1);jt(this,t,r,i,p-1,-p)}let o=0,a=1,h=0;for(this[r]=t&255;++o<i&&(a*=256);)t<0&&h===0&&this[r+o-1]!==0&&(h=1),this[r+o]=(t/a>>0)-h&255;return r+i};H.prototype.writeIntBE=function(t,r,i,n){if(t=+t,r=r>>>0,!n){let p=Math.pow(2,8*i-1);jt(this,t,r,i,p-1,-p)}let o=i-1,a=1,h=0;for(this[r+o]=t&255;--o>=0&&(a*=256);)t<0&&h===0&&this[r+o+1]!==0&&(h=1),this[r+o]=(t/a>>0)-h&255;return r+i};H.prototype.writeInt8=function(t,r,i){return t=+t,r=r>>>0,i||jt(this,t,r,1,127,-128),t<0&&(t=255+t+1),this[r]=t&255,r+1};H.prototype.writeInt16LE=function(t,r,i){return t=+t,r=r>>>0,i||jt(this,t,r,2,32767,-32768),this[r]=t&255,this[r+1]=t>>>8,r+2};H.prototype.writeInt16BE=function(t,r,i){return t=+t,r=r>>>0,i||jt(this,t,r,2,32767,-32768),this[r]=t>>>8,this[r+1]=t&255,r+2};H.prototype.writeInt32LE=function(t,r,i){return t=+t,r=r>>>0,i||jt(this,t,r,4,2147483647,-2147483648),this[r]=t&255,this[r+1]=t>>>8,this[r+2]=t>>>16,this[r+3]=t>>>24,r+4};H.prototype.writeInt32BE=function(t,r,i){return t=+t,r=r>>>0,i||jt(this,t,r,4,2147483647,-2147483648),t<0&&(t=4294967295+t+1),this[r]=t>>>24,this[r+1]=t>>>16,this[r+2]=t>>>8,this[r+3]=t&255,r+4};H.prototype.writeBigInt64LE=Qr(function(t,r=0){return Da(this,t,r,-BigInt("0x8000000000000000"),BigInt("0x7fffffffffffffff"))});H.prototype.writeBigInt64BE=Qr(function(t,r=0){return Wa(this,t,r,-BigInt("0x8000000000000000"),BigInt("0x7fffffffffffffff"))});function Fa(e,t,r,i,n,o){if(r+i>e.length)throw new RangeError("Index out of range");if(r<0)throw new RangeError("Index out of range")}function qa(e,t,r,i,n){return t=+t,r=r>>>0,n||Fa(e,t,r,4,34028234663852886e22,-34028234663852886e22),In.write(e,t,r,i,23,4),r+4}H.prototype.writeFloatLE=function(t,r,i){return qa(this,t,r,!0,i)};H.prototype.writeFloatBE=function(t,r,i){return qa(this,t,r,!1,i)};function Ha(e,t,r,i,n){return t=+t,r=r>>>0,n||Fa(e,t,r,8,17976931348623157e292,-17976931348623157e292),In.write(e,t,r,i,52,8),r+8}H.prototype.writeDoubleLE=function(t,r,i){return Ha(this,t,r,!0,i)};H.prototype.writeDoubleBE=function(t,r,i){return Ha(this,t,r,!1,i)};H.prototype.copy=function(t,r,i,n){if(!H.isBuffer(t))throw new TypeError("argument should be a Buffer");if(i||(i=0),!n&&n!==0&&(n=this.length),r>=t.length&&(r=t.length),r||(r=0),n>0&&n<i&&(n=i),n===i||t.length===0||this.length===0)return 0;if(r<0)throw new RangeError("targetStart out of bounds");if(i<0||i>=this.length)throw new RangeError("Index out of range");if(n<0)throw new RangeError("sourceEnd out of bounds");n>this.length&&(n=this.length),t.length-r<n-i&&(n=t.length-r+i);let o=n-i;return this===t&&typeof Uint8Array.prototype.copyWithin=="function"?this.copyWithin(r,i,n):Uint8Array.prototype.set.call(t,this.subarray(i,n),r),o};H.prototype.fill=function(t,r,i,n){if(typeof t=="string"){if(typeof r=="string"?(n=r,r=0,i=this.length):typeof i=="string"&&(n=i,i=this.length),n!==void 0&&typeof n!="string")throw new TypeError("encoding must be a string");if(typeof n=="string"&&!H.isEncoding(n))throw new TypeError("Unknown encoding: "+n);if(t.length===1){let a=t.charCodeAt(0);(n==="utf8"&&a<128||n==="latin1")&&(t=a)}}else typeof t=="number"?t=t&255:typeof t=="boolean"&&(t=Number(t));if(r<0||this.length<r||this.length<i)throw new RangeError("Out of range index");if(i<=r)return this;r=r>>>0,i=i===void 0?this.length:i>>>0,t||(t=0);let o;if(typeof t=="number")for(o=r;o<i;++o)this[o]=t;else{let a=H.isBuffer(t)?t:H.from(t,n),h=a.length;if(h===0)throw new TypeError('The value "'+t+'" is invalid for argument "value"');for(o=0;o<i-r;++o)this[o+r]=a[o%h]}return this};var On={};function gs(e,t,r){On[e]=class extends r{constructor(){super();Object.defineProperty(this,"message",{value:t.apply(this,arguments),writable:!0,configurable:!0}),this.name=`${this.name} [${e}]`,this.stack,delete this.name}get code(){return e}set code(n){Object.defineProperty(this,"code",{configurable:!0,enumerable:!0,value:n,writable:!0})}toString(){return`${this.name} [${e}]: ${this.message}`}}}gs("ERR_BUFFER_OUT_OF_BOUNDS",function(e){return e?`${e} is outside of buffer bounds`:"Attempt to access memory outside buffer bounds"},RangeError);gs("ERR_INVALID_ARG_TYPE",function(e,t){return`The "${e}" argument must be of type number. Received type ${typeof t}`},TypeError);gs("ERR_OUT_OF_RANGE",function(e,t,r){let i=`The value of "${e}" is out of range.`,n=r;return Number.isInteger(r)&&Math.abs(r)>2**32?n=$a(String(r)):typeof r=="bigint"&&(n=String(r),(r>BigInt(2)**BigInt(32)||r<-(BigInt(2)**BigInt(32)))&&(n=$a(n)),n+="n"),i+=` It must be ${t}. Received ${n}`,i},RangeError);function $a(e){let t="",r=e.length,i=e[0]==="-"?1:0;for(;r>=i+4;r-=3)t=`_${e.slice(r-3,r)}${t}`;return`${e.slice(0,r)}${t}`}function A0(e,t,r){Pn(t,"offset"),(e[t]===void 0||e[t+r]===void 0)&&ii(t,e.length-(r+1))}function za(e,t,r,i,n,o){if(e>r||e<t){let a=typeof t=="bigint"?"n":"",h;throw o>3?t===0||t===BigInt(0)?h=`>= 0${a} and < 2${a} ** ${(o+1)*8}${a}`:h=`>= -(2${a} ** ${(o+1)*8-1}${a}) and < 2 ** ${(o+1)*8-1}${a}`:h=`>= ${t}${a} and <= ${r}${a}`,new On.ERR_OUT_OF_RANGE("value",h,e)}A0(i,n,o)}function Pn(e,t){if(typeof e!="number")throw new On.ERR_INVALID_ARG_TYPE(t,"number",e)}function ii(e,t,r){throw Math.floor(e)!==e?(Pn(e,r),new On.ERR_OUT_OF_RANGE(r||"offset","an integer",e)):t<0?new On.ERR_BUFFER_OUT_OF_BOUNDS:new On.ERR_OUT_OF_RANGE(r||"offset",`>= ${r?1:0} and <= ${t}`,e)}var T0=/[^+/0-9A-Za-z-_]/g;function C0(e){if(e=e.split("=")[0],e=e.trim().replace(T0,""),e.length<2)return"";for(;e.length%4!=0;)e=e+"=";return e}function ms(e,t){t=t||Infinity;let r,i=e.length,n=null,o=[];for(let a=0;a<i;++a){if(r=e.charCodeAt(a),r>55295&&r<57344){if(!n){if(r>56319){(t-=3)>-1&&o.push(239,191,189);continue}else if(a+1===i){(t-=3)>-1&&o.push(239,191,189);continue}n=r;continue}if(r<56320){(t-=3)>-1&&o.push(239,191,189),n=r;continue}r=(n-55296<<10|r-56320)+65536}else n&&(t-=3)>-1&&o.push(239,191,189);if(n=null,r<128){if((t-=1)<0)break;o.push(r)}else if(r<2048){if((t-=2)<0)break;o.push(r>>6|192,r&63|128)}else if(r<65536){if((t-=3)<0)break;o.push(r>>12|224,r>>6&63|128,r&63|128)}else if(r<1114112){if((t-=4)<0)break;o.push(r>>18|240,r>>12&63|128,r>>6&63|128,r&63|128)}else throw new Error("Invalid code point")}return o}function M0(e){let t=[];for(let r=0;r<e.length;++r)t.push(e.charCodeAt(r)&255);return t}function B0(e,t){let r,i,n,o=[];for(let a=0;a<e.length&&!((t-=2)<0);++a)r=e.charCodeAt(a),i=r>>8,n=r%256,o.push(n),o.push(i);return o}function Ka(e){return ls.toByteArray(C0(e))}function ki(e,t,r,i){let n;for(n=0;n<i&&!(n+r>=t.length||n>=e.length);++n)t[n+r]=e[n];return n}function Cr(e,t){return e instanceof t||e!=null&&e.constructor!=null&&e.constructor.name!=null&&e.constructor.name===t.name}function ws(e){return e!==e}var I0=function(){let e="0123456789abcdef",t=new Array(256);for(let r=0;r<16;++r){let i=r*16;for(let n=0;n<16;++n)t[i+n]=e[r]+e[n]}return t}();function Qr(e){return typeof BigInt=="undefined"?O0:e}function O0(){throw new Error("BigInt not supported")}});var Va=Ae(()=>{});var Ui=Ae((Ga,vs)=>{(function(e,t){"use strict";function r(E,s){if(!E)throw new Error(s||"Assertion failed")}function i(E,s){E.super_=s;var u=function(){};u.prototype=s.prototype,E.prototype=new u,E.prototype.constructor=E}function n(E,s,u){if(n.isBN(E))return E;this.negative=0,this.words=null,this.length=0,this.red=null,E!==null&&((s==="le"||s==="be")&&(u=s,s=10),this._init(E||0,s||10,u||"be"))}typeof e=="object"?e.exports=n:t.BN=n,n.BN=n,n.wordSize=26;var o;try{typeof window!="undefined"&&typeof window.Buffer!="undefined"?o=window.Buffer:o=Va().Buffer}catch(E){}n.isBN=function(s){return s instanceof n?!0:s!==null&&typeof s=="object"&&s.constructor.wordSize===n.wordSize&&Array.isArray(s.words)},n.max=function(s,u){return s.cmp(u)>0?s:u},n.min=function(s,u){return s.cmp(u)<0?s:u},n.prototype._init=function(s,u,y){if(typeof s=="number")return this._initNumber(s,u,y);if(typeof s=="object")return this._initArray(s,u,y);u==="hex"&&(u=16),r(u===(u|0)&&u>=2&&u<=36),s=s.toString().replace(/\s+/g,"");var w=0;s[0]==="-"&&(w++,this.negative=1),w<s.length&&(u===16?this._parseHex(s,w,y):(this._parseBase(s,u,w),y==="le"&&this._initArray(this.toArray(),u,y)))},n.prototype._initNumber=function(s,u,y){s<0&&(this.negative=1,s=-s),s<67108864?(this.words=[s&67108863],this.length=1):s<4503599627370496?(this.words=[s&67108863,s/67108864&67108863],this.length=2):(r(s<9007199254740992),this.words=[s&67108863,s/67108864&67108863,1],this.length=3),y==="le"&&this._initArray(this.toArray(),u,y)},n.prototype._initArray=function(s,u,y){if(r(typeof s.length=="number"),s.length<=0)return this.words=[0],this.length=1,this;this.length=Math.ceil(s.length/3),this.words=new Array(this.length);for(var w=0;w<this.length;w++)this.words[w]=0;var A,C,T=0;if(y==="be")for(w=s.length-1,A=0;w>=0;w-=3)C=s[w]|s[w-1]<<8|s[w-2]<<16,this.words[A]|=C<<T&67108863,this.words[A+1]=C>>>26-T&67108863,T+=24,T>=26&&(T-=26,A++);else if(y==="le")for(w=0,A=0;w<s.length;w+=3)C=s[w]|s[w+1]<<8|s[w+2]<<16,this.words[A]|=C<<T&67108863,this.words[A+1]=C>>>26-T&67108863,T+=24,T>=26&&(T-=26,A++);return this._strip()};function a(E,s){var u=E.charCodeAt(s);if(u>=48&&u<=57)return u-48;if(u>=65&&u<=70)return u-55;if(u>=97&&u<=102)return u-87;r(!1,"Invalid character in "+E)}function h(E,s,u){var y=a(E,u);return u-1>=s&&(y|=a(E,u-1)<<4),y}n.prototype._parseHex=function(s,u,y){this.length=Math.ceil((s.length-u)/6),this.words=new Array(this.length);for(var w=0;w<this.length;w++)this.words[w]=0;var A=0,C=0,T;if(y==="be")for(w=s.length-1;w>=u;w-=2)T=h(s,u,w)<<A,this.words[C]|=T&67108863,A>=18?(A-=18,C+=1,this.words[C]|=T>>>26):A+=8;else{var x=s.length-u;for(w=x%2==0?u+1:u;w<s.length;w+=2)T=h(s,u,w)<<A,this.words[C]|=T&67108863,A>=18?(A-=18,C+=1,this.words[C]|=T>>>26):A+=8}this._strip()};function p(E,s,u,y){for(var w=0,A=0,C=Math.min(E.length,u),T=s;T<C;T++){var x=E.charCodeAt(T)-48;w*=y,x>=49?A=x-49+10:x>=17?A=x-17+10:A=x,r(x>=0&&A<y,"Invalid character"),w+=A}return w}n.prototype._parseBase=function(s,u,y){this.words=[0],this.length=1;for(var w=0,A=1;A<=67108863;A*=u)w++;w--,A=A/u|0;for(var C=s.length-y,T=C%w,x=Math.min(C,C-T)+y,c=0,S=y;S<x;S+=w)c=p(s,S,S+w,u),this.imuln(A),this.words[0]+c<67108864?this.words[0]+=c:this._iaddn(c);if(T!==0){var W=1;for(c=p(s,S,s.length,u),S=0;S<T;S++)W*=u;this.imuln(W),this.words[0]+c<67108864?this.words[0]+=c:this._iaddn(c)}this._strip()},n.prototype.copy=function(s){s.words=new Array(this.length);for(var u=0;u<this.length;u++)s.words[u]=this.words[u];s.length=this.length,s.negative=this.negative,s.red=this.red};function b(E,s){E.words=s.words,E.length=s.length,E.negative=s.negative,E.red=s.red}if(n.prototype._move=function(s){b(s,this)},n.prototype.clone=function(){var s=new n(null);return this.copy(s),s},n.prototype._expand=function(s){for(;this.length<s;)this.words[this.length++]=0;return this},n.prototype._strip=function(){for(;this.length>1&&this.words[this.length-1]===0;)this.length--;return this._normSign()},n.prototype._normSign=function(){return this.length===1&&this.words[0]===0&&(this.negative=0),this},typeof Symbol!="undefined"&&typeof Symbol.for=="function")try{n.prototype[Symbol.for("nodejs.util.inspect.custom")]=_}catch(E){n.prototype.inspect=_}else n.prototype.inspect=_;function _(){return(this.red?"<BN-R: ":"<BN: ")+this.toString(16)+">"}var I=["","0","00","000","0000","00000","000000","0000000","00000000","000000000","0000000000","00000000000","000000000000","0000000000000","00000000000000","000000000000000","0000000000000000","00000000000000000","000000000000000000","0000000000000000000","00000000000000000000","000000000000000000000","0000000000000000000000","00000000000000000000000","000000000000000000000000","0000000000000000000000000"],P=[0,0,25,16,12,11,10,9,8,8,7,7,7,7,6,6,6,6,6,6,6,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5],k=[0,0,33554432,43046721,16777216,48828125,60466176,40353607,16777216,43046721,1e7,19487171,35831808,62748517,7529536,11390625,16777216,24137569,34012224,47045881,64e6,4084101,5153632,6436343,7962624,9765625,11881376,14348907,17210368,20511149,243e5,28629151,33554432,39135393,45435424,52521875,60466176];n.prototype.toString=function(s,u){s=s||10,u=u|0||1;var y;if(s===16||s==="hex"){y="";for(var w=0,A=0,C=0;C<this.length;C++){var T=this.words[C],x=((T<<w|A)&16777215).toString(16);A=T>>>24-w&16777215,w+=2,w>=26&&(w-=26,C--),A!==0||C!==this.length-1?y=I[6-x.length]+x+y:y=x+y}for(A!==0&&(y=A.toString(16)+y);y.length%u!=0;)y="0"+y;return this.negative!==0&&(y="-"+y),y}if(s===(s|0)&&s>=2&&s<=36){var c=P[s],S=k[s];y="";var W=this.clone();for(W.negative=0;!W.isZero();){var d=W.modrn(S).toString(s);W=W.idivn(S),W.isZero()?y=d+y:y=I[c-d.length]+d+y}for(this.isZero()&&(y="0"+y);y.length%u!=0;)y="0"+y;return this.negative!==0&&(y="-"+y),y}r(!1,"Base should be between 2 and 36")},n.prototype.toNumber=function(){var s=this.words[0];return this.length===2?s+=this.words[1]*67108864:this.length===3&&this.words[2]===1?s+=4503599627370496+this.words[1]*67108864:this.length>2&&r(!1,"Number can only safely store up to 53 bits"),this.negative!==0?-s:s},n.prototype.toJSON=function(){return this.toString(16,2)},o&&(n.prototype.toBuffer=function(s,u){return this.toArrayLike(o,s,u)}),n.prototype.toArray=function(s,u){return this.toArrayLike(Array,s,u)};var K=function(s,u){return s.allocUnsafe?s.allocUnsafe(u):new s(u)};n.prototype.toArrayLike=function(s,u,y){this._strip();var w=this.byteLength(),A=y||Math.max(1,w);r(w<=A,"byte array longer than desired length"),r(A>0,"Requested array length <= 0");var C=K(s,A),T=u==="le"?"LE":"BE";return this["_toArrayLike"+T](C,w),C},n.prototype._toArrayLikeLE=function(s,u){for(var y=0,w=0,A=0,C=0;A<this.length;A++){var T=this.words[A]<<C|w;s[y++]=T&255,y<s.length&&(s[y++]=T>>8&255),y<s.length&&(s[y++]=T>>16&255),C===6?(y<s.length&&(s[y++]=T>>24&255),w=0,C=0):(w=T>>>24,C+=2)}if(y<s.length)for(s[y++]=w;y<s.length;)s[y++]=0},n.prototype._toArrayLikeBE=function(s,u){for(var y=s.length-1,w=0,A=0,C=0;A<this.length;A++){var T=this.words[A]<<C|w;s[y--]=T&255,y>=0&&(s[y--]=T>>8&255),y>=0&&(s[y--]=T>>16&255),C===6?(y>=0&&(s[y--]=T>>24&255),w=0,C=0):(w=T>>>24,C+=2)}if(y>=0)for(s[y--]=w;y>=0;)s[y--]=0},Math.clz32?n.prototype._countBits=function(s){return 32-Math.clz32(s)}:n.prototype._countBits=function(s){var u=s,y=0;return u>=4096&&(y+=13,u>>>=13),u>=64&&(y+=7,u>>>=7),u>=8&&(y+=4,u>>>=4),u>=2&&(y+=2,u>>>=2),y+u},n.prototype._zeroBits=function(s){if(s===0)return 26;var u=s,y=0;return(u&8191)==0&&(y+=13,u>>>=13),(u&127)==0&&(y+=7,u>>>=7),(u&15)==0&&(y+=4,u>>>=4),(u&3)==0&&(y+=2,u>>>=2),(u&1)==0&&y++,y},n.prototype.bitLength=function(){var s=this.words[this.length-1],u=this._countBits(s);return(this.length-1)*26+u};function re(E){for(var s=new Array(E.bitLength()),u=0;u<s.length;u++){var y=u/26|0,w=u%26;s[u]=E.words[y]>>>w&1}return s}n.prototype.zeroBits=function(){if(this.isZero())return 0;for(var s=0,u=0;u<this.length;u++){var y=this._zeroBits(this.words[u]);if(s+=y,y!==26)break}return s},n.prototype.byteLength=function(){return Math.ceil(this.bitLength()/8)},n.prototype.toTwos=function(s){return this.negative!==0?this.abs().inotn(s).iaddn(1):this.clone()},n.prototype.fromTwos=function(s){return this.testn(s-1)?this.notn(s).iaddn(1).ineg():this.clone()},n.prototype.isNeg=function(){return this.negative!==0},n.prototype.neg=function(){return this.clone().ineg()},n.prototype.ineg=function(){return this.isZero()||(this.negative^=1),this},n.prototype.iuor=function(s){for(;this.length<s.length;)this.words[this.length++]=0;for(var u=0;u<s.length;u++)this.words[u]=this.words[u]|s.words[u];return this._strip()},n.prototype.ior=function(s){return r((this.negative|s.negative)==0),this.iuor(s)},n.prototype.or=function(s){return this.length>s.length?this.clone().ior(s):s.clone().ior(this)},n.prototype.uor=function(s){return this.length>s.length?this.clone().iuor(s):s.clone().iuor(this)},n.prototype.iuand=function(s){var u;this.length>s.length?u=s:u=this;for(var y=0;y<u.length;y++)this.words[y]=this.words[y]&s.words[y];return this.length=u.length,this._strip()},n.prototype.iand=function(s){return r((this.negative|s.negative)==0),this.iuand(s)},n.prototype.and=function(s){return this.length>s.length?this.clone().iand(s):s.clone().iand(this)},n.prototype.uand=function(s){return this.length>s.length?this.clone().iuand(s):s.clone().iuand(this)},n.prototype.iuxor=function(s){var u,y;this.length>s.length?(u=this,y=s):(u=s,y=this);for(var w=0;w<y.length;w++)this.words[w]=u.words[w]^y.words[w];if(this!==u)for(;w<u.length;w++)this.words[w]=u.words[w];return this.length=u.length,this._strip()},n.prototype.ixor=function(s){return r((this.negative|s.negative)==0),this.iuxor(s)},n.prototype.xor=function(s){return this.length>s.length?this.clone().ixor(s):s.clone().ixor(this)},n.prototype.uxor=function(s){return this.length>s.length?this.clone().iuxor(s):s.clone().iuxor(this)},n.prototype.inotn=function(s){r(typeof s=="number"&&s>=0);var u=Math.ceil(s/26)|0,y=s%26;this._expand(u),y>0&&u--;for(var w=0;w<u;w++)this.words[w]=~this.words[w]&67108863;return y>0&&(this.words[w]=~this.words[w]&67108863>>26-y),this._strip()},n.prototype.notn=function(s){return this.clone().inotn(s)},n.prototype.setn=function(s,u){r(typeof s=="number"&&s>=0);var y=s/26|0,w=s%26;return this._expand(y+1),u?this.words[y]=this.words[y]|1<<w:this.words[y]=this.words[y]&~(1<<w),this._strip()},n.prototype.iadd=function(s){var u;if(this.negative!==0&&s.negative===0)return this.negative=0,u=this.isub(s),this.negative^=1,this._normSign();if(this.negative===0&&s.negative!==0)return s.negative=0,u=this.isub(s),s.negative=1,u._normSign();var y,w;this.length>s.length?(y=this,w=s):(y=s,w=this);for(var A=0,C=0;C<w.length;C++)u=(y.words[C]|0)+(w.words[C]|0)+A,this.words[C]=u&67108863,A=u>>>26;for(;A!==0&&C<y.length;C++)u=(y.words[C]|0)+A,this.words[C]=u&67108863,A=u>>>26;if(this.length=y.length,A!==0)this.words[this.length]=A,this.length++;else if(y!==this)for(;C<y.length;C++)this.words[C]=y.words[C];return this},n.prototype.add=function(s){var u;return s.negative!==0&&this.negative===0?(s.negative=0,u=this.sub(s),s.negative^=1,u):s.negative===0&&this.negative!==0?(this.negative=0,u=s.sub(this),this.negative=1,u):this.length>s.length?this.clone().iadd(s):s.clone().iadd(this)},n.prototype.isub=function(s){if(s.negative!==0){s.negative=0;var u=this.iadd(s);return s.negative=1,u._normSign()}else if(this.negative!==0)return this.negative=0,this.iadd(s),this.negative=1,this._normSign();var y=this.cmp(s);if(y===0)return this.negative=0,this.length=1,this.words[0]=0,this;var w,A;y>0?(w=this,A=s):(w=s,A=this);for(var C=0,T=0;T<A.length;T++)u=(w.words[T]|0)-(A.words[T]|0)+C,C=u>>26,this.words[T]=u&67108863;for(;C!==0&&T<w.length;T++)u=(w.words[T]|0)+C,C=u>>26,this.words[T]=u&67108863;if(C===0&&T<w.length&&w!==this)for(;T<w.length;T++)this.words[T]=w.words[T];return this.length=Math.max(this.length,T),w!==this&&(this.negative=1),this._strip()},n.prototype.sub=function(s){return this.clone().isub(s)};function ne(E,s,u){u.negative=s.negative^E.negative;var y=E.length+s.length|0;u.length=y,y=y-1|0;var w=E.words[0]|0,A=s.words[0]|0,C=w*A,T=C&67108863,x=C/67108864|0;u.words[0]=T;for(var c=1;c<y;c++){for(var S=x>>>26,W=x&67108863,d=Math.min(c,s.length-1),R=Math.max(0,c-E.length+1);R<=d;R++){var L=c-R|0;w=E.words[L]|0,A=s.words[R]|0,C=w*A+W,S+=C/67108864|0,W=C&67108863}u.words[c]=W|0,x=S|0}return x!==0?u.words[c]=x|0:u.length--,u._strip()}var Y=function(s,u,y){var w=s.words,A=u.words,C=y.words,T=0,x,c,S,W=w[0]|0,d=W&8191,R=W>>>13,L=w[1]|0,$=L&8191,X=L>>>13,le=w[2]|0,te=le&8191,oe=le>>>13,je=w[3]|0,he=je&8191,Ne=je>>>13,_r=w[4]|0,mt=_r&8191,Ye=_r>>>13,fr=w[5]|0,wt=fr&8191,ct=fr>>>13,yr=w[6]|0,ot=yr&8191,ut=yr>>>13,cr=w[7]|0,lt=cr&8191,ht=cr>>>13,Sr=w[8]|0,bt=Sr&8191,dt=Sr>>>13,gr=w[9]|0,st=gr&8191,tt=gr>>>13,Qt=A[0]|0,rt=Qt&8191,at=Qt>>>13,tr=A[1]|0,nt=tr&8191,pt=tr>>>13,Ar=A[2]|0,Et=Ar&8191,_t=Ar>>>13,Dt=A[3]|0,Je=Dt&8191,et=Dt>>>13,mr=A[4]|0,yt=mr&8191,vt=mr>>>13,qr=A[5]|0,qe=qr&8191,xt=qr>>>13,l=A[6]|0,m=l&8191,g=l>>>13,f=A[7]|0,v=f&8191,N=f>>>13,U=A[8]|0,q=U&8191,G=U>>>13,de=A[9]|0,Q=de&8191,xe=de>>>13;y.negative=s.negative^u.negative,y.length=19,x=Math.imul(d,rt),c=Math.imul(d,at),c=c+Math.imul(R,rt)|0,S=Math.imul(R,at);var ce=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(ce>>>26)|0,ce&=67108863,x=Math.imul($,rt),c=Math.imul($,at),c=c+Math.imul(X,rt)|0,S=Math.imul(X,at),x=x+Math.imul(d,nt)|0,c=c+Math.imul(d,pt)|0,c=c+Math.imul(R,nt)|0,S=S+Math.imul(R,pt)|0;var Se=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(Se>>>26)|0,Se&=67108863,x=Math.imul(te,rt),c=Math.imul(te,at),c=c+Math.imul(oe,rt)|0,S=Math.imul(oe,at),x=x+Math.imul($,nt)|0,c=c+Math.imul($,pt)|0,c=c+Math.imul(X,nt)|0,S=S+Math.imul(X,pt)|0,x=x+Math.imul(d,Et)|0,c=c+Math.imul(d,_t)|0,c=c+Math.imul(R,Et)|0,S=S+Math.imul(R,_t)|0;var Te=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(Te>>>26)|0,Te&=67108863,x=Math.imul(he,rt),c=Math.imul(he,at),c=c+Math.imul(Ne,rt)|0,S=Math.imul(Ne,at),x=x+Math.imul(te,nt)|0,c=c+Math.imul(te,pt)|0,c=c+Math.imul(oe,nt)|0,S=S+Math.imul(oe,pt)|0,x=x+Math.imul($,Et)|0,c=c+Math.imul($,_t)|0,c=c+Math.imul(X,Et)|0,S=S+Math.imul(X,_t)|0,x=x+Math.imul(d,Je)|0,c=c+Math.imul(d,et)|0,c=c+Math.imul(R,Je)|0,S=S+Math.imul(R,et)|0;var Ie=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(Ie>>>26)|0,Ie&=67108863,x=Math.imul(mt,rt),c=Math.imul(mt,at),c=c+Math.imul(Ye,rt)|0,S=Math.imul(Ye,at),x=x+Math.imul(he,nt)|0,c=c+Math.imul(he,pt)|0,c=c+Math.imul(Ne,nt)|0,S=S+Math.imul(Ne,pt)|0,x=x+Math.imul(te,Et)|0,c=c+Math.imul(te,_t)|0,c=c+Math.imul(oe,Et)|0,S=S+Math.imul(oe,_t)|0,x=x+Math.imul($,Je)|0,c=c+Math.imul($,et)|0,c=c+Math.imul(X,Je)|0,S=S+Math.imul(X,et)|0,x=x+Math.imul(d,yt)|0,c=c+Math.imul(d,vt)|0,c=c+Math.imul(R,yt)|0,S=S+Math.imul(R,vt)|0;var Ce=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(Ce>>>26)|0,Ce&=67108863,x=Math.imul(wt,rt),c=Math.imul(wt,at),c=c+Math.imul(ct,rt)|0,S=Math.imul(ct,at),x=x+Math.imul(mt,nt)|0,c=c+Math.imul(mt,pt)|0,c=c+Math.imul(Ye,nt)|0,S=S+Math.imul(Ye,pt)|0,x=x+Math.imul(he,Et)|0,c=c+Math.imul(he,_t)|0,c=c+Math.imul(Ne,Et)|0,S=S+Math.imul(Ne,_t)|0,x=x+Math.imul(te,Je)|0,c=c+Math.imul(te,et)|0,c=c+Math.imul(oe,Je)|0,S=S+Math.imul(oe,et)|0,x=x+Math.imul($,yt)|0,c=c+Math.imul($,vt)|0,c=c+Math.imul(X,yt)|0,S=S+Math.imul(X,vt)|0,x=x+Math.imul(d,qe)|0,c=c+Math.imul(d,xt)|0,c=c+Math.imul(R,qe)|0,S=S+Math.imul(R,xt)|0;var Oe=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(Oe>>>26)|0,Oe&=67108863,x=Math.imul(ot,rt),c=Math.imul(ot,at),c=c+Math.imul(ut,rt)|0,S=Math.imul(ut,at),x=x+Math.imul(wt,nt)|0,c=c+Math.imul(wt,pt)|0,c=c+Math.imul(ct,nt)|0,S=S+Math.imul(ct,pt)|0,x=x+Math.imul(mt,Et)|0,c=c+Math.imul(mt,_t)|0,c=c+Math.imul(Ye,Et)|0,S=S+Math.imul(Ye,_t)|0,x=x+Math.imul(he,Je)|0,c=c+Math.imul(he,et)|0,c=c+Math.imul(Ne,Je)|0,S=S+Math.imul(Ne,et)|0,x=x+Math.imul(te,yt)|0,c=c+Math.imul(te,vt)|0,c=c+Math.imul(oe,yt)|0,S=S+Math.imul(oe,vt)|0,x=x+Math.imul($,qe)|0,c=c+Math.imul($,xt)|0,c=c+Math.imul(X,qe)|0,S=S+Math.imul(X,xt)|0,x=x+Math.imul(d,m)|0,c=c+Math.imul(d,g)|0,c=c+Math.imul(R,m)|0,S=S+Math.imul(R,g)|0;var ke=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(ke>>>26)|0,ke&=67108863,x=Math.imul(lt,rt),c=Math.imul(lt,at),c=c+Math.imul(ht,rt)|0,S=Math.imul(ht,at),x=x+Math.imul(ot,nt)|0,c=c+Math.imul(ot,pt)|0,c=c+Math.imul(ut,nt)|0,S=S+Math.imul(ut,pt)|0,x=x+Math.imul(wt,Et)|0,c=c+Math.imul(wt,_t)|0,c=c+Math.imul(ct,Et)|0,S=S+Math.imul(ct,_t)|0,x=x+Math.imul(mt,Je)|0,c=c+Math.imul(mt,et)|0,c=c+Math.imul(Ye,Je)|0,S=S+Math.imul(Ye,et)|0,x=x+Math.imul(he,yt)|0,c=c+Math.imul(he,vt)|0,c=c+Math.imul(Ne,yt)|0,S=S+Math.imul(Ne,vt)|0,x=x+Math.imul(te,qe)|0,c=c+Math.imul(te,xt)|0,c=c+Math.imul(oe,qe)|0,S=S+Math.imul(oe,xt)|0,x=x+Math.imul($,m)|0,c=c+Math.imul($,g)|0,c=c+Math.imul(X,m)|0,S=S+Math.imul(X,g)|0,x=x+Math.imul(d,v)|0,c=c+Math.imul(d,N)|0,c=c+Math.imul(R,v)|0,S=S+Math.imul(R,N)|0;var Pe=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(Pe>>>26)|0,Pe&=67108863,x=Math.imul(bt,rt),c=Math.imul(bt,at),c=c+Math.imul(dt,rt)|0,S=Math.imul(dt,at),x=x+Math.imul(lt,nt)|0,c=c+Math.imul(lt,pt)|0,c=c+Math.imul(ht,nt)|0,S=S+Math.imul(ht,pt)|0,x=x+Math.imul(ot,Et)|0,c=c+Math.imul(ot,_t)|0,c=c+Math.imul(ut,Et)|0,S=S+Math.imul(ut,_t)|0,x=x+Math.imul(wt,Je)|0,c=c+Math.imul(wt,et)|0,c=c+Math.imul(ct,Je)|0,S=S+Math.imul(ct,et)|0,x=x+Math.imul(mt,yt)|0,c=c+Math.imul(mt,vt)|0,c=c+Math.imul(Ye,yt)|0,S=S+Math.imul(Ye,vt)|0,x=x+Math.imul(he,qe)|0,c=c+Math.imul(he,xt)|0,c=c+Math.imul(Ne,qe)|0,S=S+Math.imul(Ne,xt)|0,x=x+Math.imul(te,m)|0,c=c+Math.imul(te,g)|0,c=c+Math.imul(oe,m)|0,S=S+Math.imul(oe,g)|0,x=x+Math.imul($,v)|0,c=c+Math.imul($,N)|0,c=c+Math.imul(X,v)|0,S=S+Math.imul(X,N)|0,x=x+Math.imul(d,q)|0,c=c+Math.imul(d,G)|0,c=c+Math.imul(R,q)|0,S=S+Math.imul(R,G)|0;var pe=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(pe>>>26)|0,pe&=67108863,x=Math.imul(st,rt),c=Math.imul(st,at),c=c+Math.imul(tt,rt)|0,S=Math.imul(tt,at),x=x+Math.imul(bt,nt)|0,c=c+Math.imul(bt,pt)|0,c=c+Math.imul(dt,nt)|0,S=S+Math.imul(dt,pt)|0,x=x+Math.imul(lt,Et)|0,c=c+Math.imul(lt,_t)|0,c=c+Math.imul(ht,Et)|0,S=S+Math.imul(ht,_t)|0,x=x+Math.imul(ot,Je)|0,c=c+Math.imul(ot,et)|0,c=c+Math.imul(ut,Je)|0,S=S+Math.imul(ut,et)|0,x=x+Math.imul(wt,yt)|0,c=c+Math.imul(wt,vt)|0,c=c+Math.imul(ct,yt)|0,S=S+Math.imul(ct,vt)|0,x=x+Math.imul(mt,qe)|0,c=c+Math.imul(mt,xt)|0,c=c+Math.imul(Ye,qe)|0,S=S+Math.imul(Ye,xt)|0,x=x+Math.imul(he,m)|0,c=c+Math.imul(he,g)|0,c=c+Math.imul(Ne,m)|0,S=S+Math.imul(Ne,g)|0,x=x+Math.imul(te,v)|0,c=c+Math.imul(te,N)|0,c=c+Math.imul(oe,v)|0,S=S+Math.imul(oe,N)|0,x=x+Math.imul($,q)|0,c=c+Math.imul($,G)|0,c=c+Math.imul(X,q)|0,S=S+Math.imul(X,G)|0,x=x+Math.imul(d,Q)|0,c=c+Math.imul(d,xe)|0,c=c+Math.imul(R,Q)|0,S=S+Math.imul(R,xe)|0;var we=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(we>>>26)|0,we&=67108863,x=Math.imul(st,nt),c=Math.imul(st,pt),c=c+Math.imul(tt,nt)|0,S=Math.imul(tt,pt),x=x+Math.imul(bt,Et)|0,c=c+Math.imul(bt,_t)|0,c=c+Math.imul(dt,Et)|0,S=S+Math.imul(dt,_t)|0,x=x+Math.imul(lt,Je)|0,c=c+Math.imul(lt,et)|0,c=c+Math.imul(ht,Je)|0,S=S+Math.imul(ht,et)|0,x=x+Math.imul(ot,yt)|0,c=c+Math.imul(ot,vt)|0,c=c+Math.imul(ut,yt)|0,S=S+Math.imul(ut,vt)|0,x=x+Math.imul(wt,qe)|0,c=c+Math.imul(wt,xt)|0,c=c+Math.imul(ct,qe)|0,S=S+Math.imul(ct,xt)|0,x=x+Math.imul(mt,m)|0,c=c+Math.imul(mt,g)|0,c=c+Math.imul(Ye,m)|0,S=S+Math.imul(Ye,g)|0,x=x+Math.imul(he,v)|0,c=c+Math.imul(he,N)|0,c=c+Math.imul(Ne,v)|0,S=S+Math.imul(Ne,N)|0,x=x+Math.imul(te,q)|0,c=c+Math.imul(te,G)|0,c=c+Math.imul(oe,q)|0,S=S+Math.imul(oe,G)|0,x=x+Math.imul($,Q)|0,c=c+Math.imul($,xe)|0,c=c+Math.imul(X,Q)|0,S=S+Math.imul(X,xe)|0;var ue=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(ue>>>26)|0,ue&=67108863,x=Math.imul(st,Et),c=Math.imul(st,_t),c=c+Math.imul(tt,Et)|0,S=Math.imul(tt,_t),x=x+Math.imul(bt,Je)|0,c=c+Math.imul(bt,et)|0,c=c+Math.imul(dt,Je)|0,S=S+Math.imul(dt,et)|0,x=x+Math.imul(lt,yt)|0,c=c+Math.imul(lt,vt)|0,c=c+Math.imul(ht,yt)|0,S=S+Math.imul(ht,vt)|0,x=x+Math.imul(ot,qe)|0,c=c+Math.imul(ot,xt)|0,c=c+Math.imul(ut,qe)|0,S=S+Math.imul(ut,xt)|0,x=x+Math.imul(wt,m)|0,c=c+Math.imul(wt,g)|0,c=c+Math.imul(ct,m)|0,S=S+Math.imul(ct,g)|0,x=x+Math.imul(mt,v)|0,c=c+Math.imul(mt,N)|0,c=c+Math.imul(Ye,v)|0,S=S+Math.imul(Ye,N)|0,x=x+Math.imul(he,q)|0,c=c+Math.imul(he,G)|0,c=c+Math.imul(Ne,q)|0,S=S+Math.imul(Ne,G)|0,x=x+Math.imul(te,Q)|0,c=c+Math.imul(te,xe)|0,c=c+Math.imul(oe,Q)|0,S=S+Math.imul(oe,xe)|0;var ye=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(ye>>>26)|0,ye&=67108863,x=Math.imul(st,Je),c=Math.imul(st,et),c=c+Math.imul(tt,Je)|0,S=Math.imul(tt,et),x=x+Math.imul(bt,yt)|0,c=c+Math.imul(bt,vt)|0,c=c+Math.imul(dt,yt)|0,S=S+Math.imul(dt,vt)|0,x=x+Math.imul(lt,qe)|0,c=c+Math.imul(lt,xt)|0,c=c+Math.imul(ht,qe)|0,S=S+Math.imul(ht,xt)|0,x=x+Math.imul(ot,m)|0,c=c+Math.imul(ot,g)|0,c=c+Math.imul(ut,m)|0,S=S+Math.imul(ut,g)|0,x=x+Math.imul(wt,v)|0,c=c+Math.imul(wt,N)|0,c=c+Math.imul(ct,v)|0,S=S+Math.imul(ct,N)|0,x=x+Math.imul(mt,q)|0,c=c+Math.imul(mt,G)|0,c=c+Math.imul(Ye,q)|0,S=S+Math.imul(Ye,G)|0,x=x+Math.imul(he,Q)|0,c=c+Math.imul(he,xe)|0,c=c+Math.imul(Ne,Q)|0,S=S+Math.imul(Ne,xe)|0;var me=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(me>>>26)|0,me&=67108863,x=Math.imul(st,yt),c=Math.imul(st,vt),c=c+Math.imul(tt,yt)|0,S=Math.imul(tt,vt),x=x+Math.imul(bt,qe)|0,c=c+Math.imul(bt,xt)|0,c=c+Math.imul(dt,qe)|0,S=S+Math.imul(dt,xt)|0,x=x+Math.imul(lt,m)|0,c=c+Math.imul(lt,g)|0,c=c+Math.imul(ht,m)|0,S=S+Math.imul(ht,g)|0,x=x+Math.imul(ot,v)|0,c=c+Math.imul(ot,N)|0,c=c+Math.imul(ut,v)|0,S=S+Math.imul(ut,N)|0,x=x+Math.imul(wt,q)|0,c=c+Math.imul(wt,G)|0,c=c+Math.imul(ct,q)|0,S=S+Math.imul(ct,G)|0,x=x+Math.imul(mt,Q)|0,c=c+Math.imul(mt,xe)|0,c=c+Math.imul(Ye,Q)|0,S=S+Math.imul(Ye,xe)|0;var ae=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(ae>>>26)|0,ae&=67108863,x=Math.imul(st,qe),c=Math.imul(st,xt),c=c+Math.imul(tt,qe)|0,S=Math.imul(tt,xt),x=x+Math.imul(bt,m)|0,c=c+Math.imul(bt,g)|0,c=c+Math.imul(dt,m)|0,S=S+Math.imul(dt,g)|0,x=x+Math.imul(lt,v)|0,c=c+Math.imul(lt,N)|0,c=c+Math.imul(ht,v)|0,S=S+Math.imul(ht,N)|0,x=x+Math.imul(ot,q)|0,c=c+Math.imul(ot,G)|0,c=c+Math.imul(ut,q)|0,S=S+Math.imul(ut,G)|0,x=x+Math.imul(wt,Q)|0,c=c+Math.imul(wt,xe)|0,c=c+Math.imul(ct,Q)|0,S=S+Math.imul(ct,xe)|0;var D=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(D>>>26)|0,D&=67108863,x=Math.imul(st,m),c=Math.imul(st,g),c=c+Math.imul(tt,m)|0,S=Math.imul(tt,g),x=x+Math.imul(bt,v)|0,c=c+Math.imul(bt,N)|0,c=c+Math.imul(dt,v)|0,S=S+Math.imul(dt,N)|0,x=x+Math.imul(lt,q)|0,c=c+Math.imul(lt,G)|0,c=c+Math.imul(ht,q)|0,S=S+Math.imul(ht,G)|0,x=x+Math.imul(ot,Q)|0,c=c+Math.imul(ot,xe)|0,c=c+Math.imul(ut,Q)|0,S=S+Math.imul(ut,xe)|0;var F=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(F>>>26)|0,F&=67108863,x=Math.imul(st,v),c=Math.imul(st,N),c=c+Math.imul(tt,v)|0,S=Math.imul(tt,N),x=x+Math.imul(bt,q)|0,c=c+Math.imul(bt,G)|0,c=c+Math.imul(dt,q)|0,S=S+Math.imul(dt,G)|0,x=x+Math.imul(lt,Q)|0,c=c+Math.imul(lt,xe)|0,c=c+Math.imul(ht,Q)|0,S=S+Math.imul(ht,xe)|0;var J=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(J>>>26)|0,J&=67108863,x=Math.imul(st,q),c=Math.imul(st,G),c=c+Math.imul(tt,q)|0,S=Math.imul(tt,G),x=x+Math.imul(bt,Q)|0,c=c+Math.imul(bt,xe)|0,c=c+Math.imul(dt,Q)|0,S=S+Math.imul(dt,xe)|0;var V=(T+x|0)+((c&8191)<<13)|0;T=(S+(c>>>13)|0)+(V>>>26)|0,V&=67108863,x=Math.imul(st,Q),c=Math.imul(st,xe),c=c+Math.imul(tt,Q)|0,S=Math.imul(tt,xe);var Z=(T+x|0)+((c&8191)<<13)|0;return T=(S+(c>>>13)|0)+(Z>>>26)|0,Z&=67108863,C[0]=ce,C[1]=Se,C[2]=Te,C[3]=Ie,C[4]=Ce,C[5]=Oe,C[6]=ke,C[7]=Pe,C[8]=pe,C[9]=we,C[10]=ue,C[11]=ye,C[12]=me,C[13]=ae,C[14]=D,C[15]=F,C[16]=J,C[17]=V,C[18]=Z,T!==0&&(C[19]=T,y.length++),y};Math.imul||(Y=ne);function ie(E,s,u){u.negative=s.negative^E.negative,u.length=E.length+s.length;for(var y=0,w=0,A=0;A<u.length-1;A++){var C=w;w=0;for(var T=y&67108863,x=Math.min(A,s.length-1),c=Math.max(0,A-E.length+1);c<=x;c++){var S=A-c,W=E.words[S]|0,d=s.words[c]|0,R=W*d,L=R&67108863;C=C+(R/67108864|0)|0,L=L+T|0,T=L&67108863,C=C+(L>>>26)|0,w+=C>>>26,C&=67108863}u.words[A]=T,y=C,C=w}return y!==0?u.words[A]=y:u.length--,u._strip()}function ee(E,s,u){return ie(E,s,u)}n.prototype.mulTo=function(s,u){var y,w=this.length+s.length;return this.length===10&&s.length===10?y=Y(this,s,u):w<63?y=ne(this,s,u):w<1024?y=ie(this,s,u):y=ee(this,s,u),y};function ge(E,s){this.x=E,this.y=s}ge.prototype.makeRBT=function(s){for(var u=new Array(s),y=n.prototype._countBits(s)-1,w=0;w<s;w++)u[w]=this.revBin(w,y,s);return u},ge.prototype.revBin=function(s,u,y){if(s===0||s===y-1)return s;for(var w=0,A=0;A<u;A++)w|=(s&1)<<u-A-1,s>>=1;return w},ge.prototype.permute=function(s,u,y,w,A,C){for(var T=0;T<C;T++)w[T]=u[s[T]],A[T]=y[s[T]]},ge.prototype.transform=function(s,u,y,w,A,C){this.permute(C,s,u,y,w,A);for(var T=1;T<A;T<<=1)for(var x=T<<1,c=Math.cos(2*Math.PI/x),S=Math.sin(2*Math.PI/x),W=0;W<A;W+=x)for(var d=c,R=S,L=0;L<T;L++){var $=y[W+L],X=w[W+L],le=y[W+L+T],te=w[W+L+T],oe=d*le-R*te;te=d*te+R*le,le=oe,y[W+L]=$+le,w[W+L]=X+te,y[W+L+T]=$-le,w[W+L+T]=X-te,L!==x&&(oe=c*d-S*R,R=c*R+S*d,d=oe)}},ge.prototype.guessLen13b=function(s,u){var y=Math.max(u,s)|1,w=y&1,A=0;for(y=y/2|0;y;y=y>>>1)A++;return 1<<A+1+w},ge.prototype.conjugate=function(s,u,y){if(!(y<=1))for(var w=0;w<y/2;w++){var A=s[w];s[w]=s[y-w-1],s[y-w-1]=A,A=u[w],u[w]=-u[y-w-1],u[y-w-1]=-A}},ge.prototype.normalize13b=function(s,u){for(var y=0,w=0;w<u/2;w++){var A=Math.round(s[2*w+1]/u)*8192+Math.round(s[2*w]/u)+y;s[w]=A&67108863,A<67108864?y=0:y=A/67108864|0}return s},ge.prototype.convert13b=function(s,u,y,w){for(var A=0,C=0;C<u;C++)A=A+(s[C]|0),y[2*C]=A&8191,A=A>>>13,y[2*C+1]=A&8191,A=A>>>13;for(C=2*u;C<w;++C)y[C]=0;r(A===0),r((A&~8191)==0)},ge.prototype.stub=function(s){for(var u=new Array(s),y=0;y<s;y++)u[y]=0;return u},ge.prototype.mulp=function(s,u,y){var w=2*this.guessLen13b(s.length,u.length),A=this.makeRBT(w),C=this.stub(w),T=new Array(w),x=new Array(w),c=new Array(w),S=new Array(w),W=new Array(w),d=new Array(w),R=y.words;R.length=w,this.convert13b(s.words,s.length,T,w),this.convert13b(u.words,u.length,S,w),this.transform(T,C,x,c,w,A),this.transform(S,C,W,d,w,A);for(var L=0;L<w;L++){var $=x[L]*W[L]-c[L]*d[L];c[L]=x[L]*d[L]+c[L]*W[L],x[L]=$}return this.conjugate(x,c,w),this.transform(x,c,R,C,w,A),this.conjugate(R,C,w),this.normalize13b(R,w),y.negative=s.negative^u.negative,y.length=s.length+u.length,y._strip()},n.prototype.mul=function(s){var u=new n(null);return u.words=new Array(this.length+s.length),this.mulTo(s,u)},n.prototype.mulf=function(s){var u=new n(null);return u.words=new Array(this.length+s.length),ee(this,s,u)},n.prototype.imul=function(s){return this.clone().mulTo(s,this)},n.prototype.imuln=function(s){var u=s<0;u&&(s=-s),r(typeof s=="number"),r(s<67108864);for(var y=0,w=0;w<this.length;w++){var A=(this.words[w]|0)*s,C=(A&67108863)+(y&67108863);y>>=26,y+=A/67108864|0,y+=C>>>26,this.words[w]=C&67108863}return y!==0&&(this.words[w]=y,this.length++),u?this.ineg():this},n.prototype.muln=function(s){return this.clone().imuln(s)},n.prototype.sqr=function(){return this.mul(this)},n.prototype.isqr=function(){return this.imul(this.clone())},n.prototype.pow=function(s){var u=re(s);if(u.length===0)return new n(1);for(var y=this,w=0;w<u.length&&u[w]===0;w++,y=y.sqr());if(++w<u.length)for(var A=y.sqr();w<u.length;w++,A=A.sqr())u[w]!==0&&(y=y.mul(A));return y},n.prototype.iushln=function(s){r(typeof s=="number"&&s>=0);var u=s%26,y=(s-u)/26,w=67108863>>>26-u<<26-u,A;if(u!==0){var C=0;for(A=0;A<this.length;A++){var T=this.words[A]&w,x=(this.words[A]|0)-T<<u;this.words[A]=x|C,C=T>>>26-u}C&&(this.words[A]=C,this.length++)}if(y!==0){for(A=this.length-1;A>=0;A--)this.words[A+y]=this.words[A];for(A=0;A<y;A++)this.words[A]=0;this.length+=y}return this._strip()},n.prototype.ishln=function(s){return r(this.negative===0),this.iushln(s)},n.prototype.iushrn=function(s,u,y){r(typeof s=="number"&&s>=0);var w;u?w=(u-u%26)/26:w=0;var A=s%26,C=Math.min((s-A)/26,this.length),T=67108863^67108863>>>A<<A,x=y;if(w-=C,w=Math.max(0,w),x){for(var c=0;c<C;c++)x.words[c]=this.words[c];x.length=C}if(C!==0)if(this.length>C)for(this.length-=C,c=0;c<this.length;c++)this.words[c]=this.words[c+C];else this.words[0]=0,this.length=1;var S=0;for(c=this.length-1;c>=0&&(S!==0||c>=w);c--){var W=this.words[c]|0;this.words[c]=S<<26-A|W>>>A,S=W&T}return x&&S!==0&&(x.words[x.length++]=S),this.length===0&&(this.words[0]=0,this.length=1),this._strip()},n.prototype.ishrn=function(s,u,y){return r(this.negative===0),this.iushrn(s,u,y)},n.prototype.shln=function(s){return this.clone().ishln(s)},n.prototype.ushln=function(s){return this.clone().iushln(s)},n.prototype.shrn=function(s){return this.clone().ishrn(s)},n.prototype.ushrn=function(s){return this.clone().iushrn(s)},n.prototype.testn=function(s){r(typeof s=="number"&&s>=0);var u=s%26,y=(s-u)/26,w=1<<u;if(this.length<=y)return!1;var A=this.words[y];return!!(A&w)},n.prototype.imaskn=function(s){r(typeof s=="number"&&s>=0);var u=s%26,y=(s-u)/26;if(r(this.negative===0,"imaskn works only with positive numbers"),this.length<=y)return this;if(u!==0&&y++,this.length=Math.min(y,this.length),u!==0){var w=67108863^67108863>>>u<<u;this.words[this.length-1]&=w}return this._strip()},n.prototype.maskn=function(s){return this.clone().imaskn(s)},n.prototype.iaddn=function(s){return r(typeof s=="number"),r(s<67108864),s<0?this.isubn(-s):this.negative!==0?this.length===1&&(this.words[0]|0)<=s?(this.words[0]=s-(this.words[0]|0),this.negative=0,this):(this.negative=0,this.isubn(s),this.negative=1,this):this._iaddn(s)},n.prototype._iaddn=function(s){this.words[0]+=s;for(var u=0;u<this.length&&this.words[u]>=67108864;u++)this.words[u]-=67108864,u===this.length-1?this.words[u+1]=1:this.words[u+1]++;return this.length=Math.max(this.length,u+1),this},n.prototype.isubn=function(s){if(r(typeof s=="number"),r(s<67108864),s<0)return this.iaddn(-s);if(this.negative!==0)return this.negative=0,this.iaddn(s),this.negative=1,this;if(this.words[0]-=s,this.length===1&&this.words[0]<0)this.words[0]=-this.words[0],this.negative=1;else for(var u=0;u<this.length&&this.words[u]<0;u++)this.words[u]+=67108864,this.words[u+1]-=1;return this._strip()},n.prototype.addn=function(s){return this.clone().iaddn(s)},n.prototype.subn=function(s){return this.clone().isubn(s)},n.prototype.iabs=function(){return this.negative=0,this},n.prototype.abs=function(){return this.clone().iabs()},n.prototype._ishlnsubmul=function(s,u,y){var w=s.length+y,A;this._expand(w);var C,T=0;for(A=0;A<s.length;A++){C=(this.words[A+y]|0)+T;var x=(s.words[A]|0)*u;C-=x&67108863,T=(C>>26)-(x/67108864|0),this.words[A+y]=C&67108863}for(;A<this.length-y;A++)C=(this.words[A+y]|0)+T,T=C>>26,this.words[A+y]=C&67108863;if(T===0)return this._strip();for(r(T===-1),T=0,A=0;A<this.length;A++)C=-(this.words[A]|0)+T,T=C>>26,this.words[A]=C&67108863;return this.negative=1,this._strip()},n.prototype._wordDiv=function(s,u){var y=this.length-s.length,w=this.clone(),A=s,C=A.words[A.length-1]|0,T=this._countBits(C);y=26-T,y!==0&&(A=A.ushln(y),w.iushln(y),C=A.words[A.length-1]|0);var x=w.length-A.length,c;if(u!=="mod"){c=new n(null),c.length=x+1,c.words=new Array(c.length);for(var S=0;S<c.length;S++)c.words[S]=0}var W=w.clone()._ishlnsubmul(A,1,x);W.negative===0&&(w=W,c&&(c.words[x]=1));for(var d=x-1;d>=0;d--){var R=(w.words[A.length+d]|0)*67108864+(w.words[A.length+d-1]|0);for(R=Math.min(R/C|0,67108863),w._ishlnsubmul(A,R,d);w.negative!==0;)R--,w.negative=0,w._ishlnsubmul(A,1,d),w.isZero()||(w.negative^=1);c&&(c.words[d]=R)}return c&&c._strip(),w._strip(),u!=="div"&&y!==0&&w.iushrn(y),{div:c||null,mod:w}},n.prototype.divmod=function(s,u,y){if(r(!s.isZero()),this.isZero())return{div:new n(0),mod:new n(0)};var w,A,C;return this.negative!==0&&s.negative===0?(C=this.neg().divmod(s,u),u!=="mod"&&(w=C.div.neg()),u!=="div"&&(A=C.mod.neg(),y&&A.negative!==0&&A.iadd(s)),{div:w,mod:A}):this.negative===0&&s.negative!==0?(C=this.divmod(s.neg(),u),u!=="mod"&&(w=C.div.neg()),{div:w,mod:C.mod}):(this.negative&s.negative)!=0?(C=this.neg().divmod(s.neg(),u),u!=="div"&&(A=C.mod.neg(),y&&A.negative!==0&&A.isub(s)),{div:C.div,mod:A}):s.length>this.length||this.cmp(s)<0?{div:new n(0),mod:this}:s.length===1?u==="div"?{div:this.divn(s.words[0]),mod:null}:u==="mod"?{div:null,mod:new n(this.modrn(s.words[0]))}:{div:this.divn(s.words[0]),mod:new n(this.modrn(s.words[0]))}:this._wordDiv(s,u)},n.prototype.div=function(s){return this.divmod(s,"div",!1).div},n.prototype.mod=function(s){return this.divmod(s,"mod",!1).mod},n.prototype.umod=function(s){return this.divmod(s,"mod",!0).mod},n.prototype.divRound=function(s){var u=this.divmod(s);if(u.mod.isZero())return u.div;var y=u.div.negative!==0?u.mod.isub(s):u.mod,w=s.ushrn(1),A=s.andln(1),C=y.cmp(w);return C<0||A===1&&C===0?u.div:u.div.negative!==0?u.div.isubn(1):u.div.iaddn(1)},n.prototype.modrn=function(s){var u=s<0;u&&(s=-s),r(s<=67108863);for(var y=(1<<26)%s,w=0,A=this.length-1;A>=0;A--)w=(y*w+(this.words[A]|0))%s;return u?-w:w},n.prototype.modn=function(s){return this.modrn(s)},n.prototype.idivn=function(s){var u=s<0;u&&(s=-s),r(s<=67108863);for(var y=0,w=this.length-1;w>=0;w--){var A=(this.words[w]|0)+y*67108864;this.words[w]=A/s|0,y=A%s}return this._strip(),u?this.ineg():this},n.prototype.divn=function(s){return this.clone().idivn(s)},n.prototype.egcd=function(s){r(s.negative===0),r(!s.isZero());var u=this,y=s.clone();u.negative!==0?u=u.umod(s):u=u.clone();for(var w=new n(1),A=new n(0),C=new n(0),T=new n(1),x=0;u.isEven()&&y.isEven();)u.iushrn(1),y.iushrn(1),++x;for(var c=y.clone(),S=u.clone();!u.isZero();){for(var W=0,d=1;(u.words[0]&d)==0&&W<26;++W,d<<=1);if(W>0)for(u.iushrn(W);W-- >0;)(w.isOdd()||A.isOdd())&&(w.iadd(c),A.isub(S)),w.iushrn(1),A.iushrn(1);for(var R=0,L=1;(y.words[0]&L)==0&&R<26;++R,L<<=1);if(R>0)for(y.iushrn(R);R-- >0;)(C.isOdd()||T.isOdd())&&(C.iadd(c),T.isub(S)),C.iushrn(1),T.iushrn(1);u.cmp(y)>=0?(u.isub(y),w.isub(C),A.isub(T)):(y.isub(u),C.isub(w),T.isub(A))}return{a:C,b:T,gcd:y.iushln(x)}},n.prototype._invmp=function(s){r(s.negative===0),r(!s.isZero());var u=this,y=s.clone();u.negative!==0?u=u.umod(s):u=u.clone();for(var w=new n(1),A=new n(0),C=y.clone();u.cmpn(1)>0&&y.cmpn(1)>0;){for(var T=0,x=1;(u.words[0]&x)==0&&T<26;++T,x<<=1);if(T>0)for(u.iushrn(T);T-- >0;)w.isOdd()&&w.iadd(C),w.iushrn(1);for(var c=0,S=1;(y.words[0]&S)==0&&c<26;++c,S<<=1);if(c>0)for(y.iushrn(c);c-- >0;)A.isOdd()&&A.iadd(C),A.iushrn(1);u.cmp(y)>=0?(u.isub(y),w.isub(A)):(y.isub(u),A.isub(w))}var W;return u.cmpn(1)===0?W=w:W=A,W.cmpn(0)<0&&W.iadd(s),W},n.prototype.gcd=function(s){if(this.isZero())return s.abs();if(s.isZero())return this.abs();var u=this.clone(),y=s.clone();u.negative=0,y.negative=0;for(var w=0;u.isEven()&&y.isEven();w++)u.iushrn(1),y.iushrn(1);do{for(;u.isEven();)u.iushrn(1);for(;y.isEven();)y.iushrn(1);var A=u.cmp(y);if(A<0){var C=u;u=y,y=C}else if(A===0||y.cmpn(1)===0)break;u.isub(y)}while(!0);return y.iushln(w)},n.prototype.invm=function(s){return this.egcd(s).a.umod(s)},n.prototype.isEven=function(){return(this.words[0]&1)==0},n.prototype.isOdd=function(){return(this.words[0]&1)==1},n.prototype.andln=function(s){return this.words[0]&s},n.prototype.bincn=function(s){r(typeof s=="number");var u=s%26,y=(s-u)/26,w=1<<u;if(this.length<=y)return this._expand(y+1),this.words[y]|=w,this;for(var A=w,C=y;A!==0&&C<this.length;C++){var T=this.words[C]|0;T+=A,A=T>>>26,T&=67108863,this.words[C]=T}return A!==0&&(this.words[C]=A,this.length++),this},n.prototype.isZero=function(){return this.length===1&&this.words[0]===0},n.prototype.cmpn=function(s){var u=s<0;if(this.negative!==0&&!u)return-1;if(this.negative===0&&u)return 1;this._strip();var y;if(this.length>1)y=1;else{u&&(s=-s),r(s<=67108863,"Number is too big");var w=this.words[0]|0;y=w===s?0:w<s?-1:1}return this.negative!==0?-y|0:y},n.prototype.cmp=function(s){if(this.negative!==0&&s.negative===0)return-1;if(this.negative===0&&s.negative!==0)return 1;var u=this.ucmp(s);return this.negative!==0?-u|0:u},n.prototype.ucmp=function(s){if(this.length>s.length)return 1;if(this.length<s.length)return-1;for(var u=0,y=this.length-1;y>=0;y--){var w=this.words[y]|0,A=s.words[y]|0;if(w!==A){w<A?u=-1:w>A&&(u=1);break}}return u},n.prototype.gtn=function(s){return this.cmpn(s)===1},n.prototype.gt=function(s){return this.cmp(s)===1},n.prototype.gten=function(s){return this.cmpn(s)>=0},n.prototype.gte=function(s){return this.cmp(s)>=0},n.prototype.ltn=function(s){return this.cmpn(s)===-1},n.prototype.lt=function(s){return this.cmp(s)===-1},n.prototype.lten=function(s){return this.cmpn(s)<=0},n.prototype.lte=function(s){return this.cmp(s)<=0},n.prototype.eqn=function(s){return this.cmpn(s)===0},n.prototype.eq=function(s){return this.cmp(s)===0},n.red=function(s){return new O(s)},n.prototype.toRed=function(s){return r(!this.red,"Already a number in reduction context"),r(this.negative===0,"red works only with positives"),s.convertTo(this)._forceRed(s)},n.prototype.fromRed=function(){return r(this.red,"fromRed works only with numbers in reduction context"),this.red.convertFrom(this)},n.prototype._forceRed=function(s){return this.red=s,this},n.prototype.forceRed=function(s){return r(!this.red,"Already a number in reduction context"),this._forceRed(s)},n.prototype.redAdd=function(s){return r(this.red,"redAdd works only with red numbers"),this.red.add(this,s)},n.prototype.redIAdd=function(s){return r(this.red,"redIAdd works only with red numbers"),this.red.iadd(this,s)},n.prototype.redSub=function(s){return r(this.red,"redSub works only with red numbers"),this.red.sub(this,s)},n.prototype.redISub=function(s){return r(this.red,"redISub works only with red numbers"),this.red.isub(this,s)},n.prototype.redShl=function(s){return r(this.red,"redShl works only with red numbers"),this.red.shl(this,s)},n.prototype.redMul=function(s){return r(this.red,"redMul works only with red numbers"),this.red._verify2(this,s),this.red.mul(this,s)},n.prototype.redIMul=function(s){return r(this.red,"redMul works only with red numbers"),this.red._verify2(this,s),this.red.imul(this,s)},n.prototype.redSqr=function(){return r(this.red,"redSqr works only with red numbers"),this.red._verify1(this),this.red.sqr(this)},n.prototype.redISqr=function(){return r(this.red,"redISqr works only with red numbers"),this.red._verify1(this),this.red.isqr(this)},n.prototype.redSqrt=function(){return r(this.red,"redSqrt works only with red numbers"),this.red._verify1(this),this.red.sqrt(this)},n.prototype.redInvm=function(){return r(this.red,"redInvm works only with red numbers"),this.red._verify1(this),this.red.invm(this)},n.prototype.redNeg=function(){return r(this.red,"redNeg works only with red numbers"),this.red._verify1(this),this.red.neg(this)},n.prototype.redPow=function(s){return r(this.red&&!s.red,"redPow(normalNum)"),this.red._verify1(this),this.red.pow(this,s)};var be={k256:null,p224:null,p192:null,p25519:null};function Ee(E,s){this.name=E,this.p=new n(s,16),this.n=this.p.bitLength(),this.k=new n(1).iushln(this.n).isub(this.p),this.tmp=this._tmp()}Ee.prototype._tmp=function(){var s=new n(null);return s.words=new Array(Math.ceil(this.n/13)),s},Ee.prototype.ireduce=function(s){var u=s,y;do this.split(u,this.tmp),u=this.imulK(u),u=u.iadd(this.tmp),y=u.bitLength();while(y>this.n);var w=y<this.n?-1:u.ucmp(this.p);return w===0?(u.words[0]=0,u.length=1):w>0?u.isub(this.p):u.strip!==void 0?u.strip():u._strip(),u},Ee.prototype.split=function(s,u){s.iushrn(this.n,0,u)},Ee.prototype.imulK=function(s){return s.imul(this.k)};function Re(){Ee.call(this,"k256","ffffffff ffffffff ffffffff ffffffff ffffffff ffffffff fffffffe fffffc2f")}i(Re,Ee),Re.prototype.split=function(s,u){for(var y=4194303,w=Math.min(s.length,9),A=0;A<w;A++)u.words[A]=s.words[A];if(u.length=w,s.length<=9){s.words[0]=0,s.length=1;return}var C=s.words[9];for(u.words[u.length++]=C&y,A=10;A<s.length;A++){var T=s.words[A]|0;s.words[A-10]=(T&y)<<4|C>>>22,C=T}C>>>=22,s.words[A-10]=C,C===0&&s.length>10?s.length-=10:s.length-=9},Re.prototype.imulK=function(s){s.words[s.length]=0,s.words[s.length+1]=0,s.length+=2;for(var u=0,y=0;y<s.length;y++){var w=s.words[y]|0;u+=w*977,s.words[y]=u&67108863,u=w*64+(u/67108864|0)}return s.words[s.length-1]===0&&(s.length--,s.words[s.length-1]===0&&s.length--),s};function ze(){Ee.call(this,"p224","ffffffff ffffffff ffffffff ffffffff 00000000 00000000 00000001")}i(ze,Ee);function Ve(){Ee.call(this,"p192","ffffffff ffffffff ffffffff fffffffe ffffffff ffffffff")}i(Ve,Ee);function B(){Ee.call(this,"25519","7fffffffffffffff ffffffffffffffff ffffffffffffffff ffffffffffffffed")}i(B,Ee),B.prototype.imulK=function(s){for(var u=0,y=0;y<s.length;y++){var w=(s.words[y]|0)*19+u,A=w&67108863;w>>>=26,s.words[y]=A,u=w}return u!==0&&(s.words[s.length++]=u),s},n._prime=function(s){if(be[s])return be[s];var u;if(s==="k256")u=new Re;else if(s==="p224")u=new ze;else if(s==="p192")u=new Ve;else if(s==="p25519")u=new B;else throw new Error("Unknown prime "+s);return be[s]=u,u};function O(E){if(typeof E=="string"){var s=n._prime(E);this.m=s.p,this.prime=s}else r(E.gtn(1),"modulus must be greater than 1"),this.m=E,this.prime=null}O.prototype._verify1=function(s){r(s.negative===0,"red works only with positives"),r(s.red,"red works only with red numbers")},O.prototype._verify2=function(s,u){r((s.negative|u.negative)==0,"red works only with positives"),r(s.red&&s.red===u.red,"red works only with red numbers")},O.prototype.imod=function(s){return this.prime?this.prime.ireduce(s)._forceRed(this):(b(s,s.umod(this.m)._forceRed(this)),s)},O.prototype.neg=function(s){return s.isZero()?s.clone():this.m.sub(s)._forceRed(this)},O.prototype.add=function(s,u){this._verify2(s,u);var y=s.add(u);return y.cmp(this.m)>=0&&y.isub(this.m),y._forceRed(this)},O.prototype.iadd=function(s,u){this._verify2(s,u);var y=s.iadd(u);return y.cmp(this.m)>=0&&y.isub(this.m),y},O.prototype.sub=function(s,u){this._verify2(s,u);var y=s.sub(u);return y.cmpn(0)<0&&y.iadd(this.m),y._forceRed(this)},O.prototype.isub=function(s,u){this._verify2(s,u);var y=s.isub(u);return y.cmpn(0)<0&&y.iadd(this.m),y},O.prototype.shl=function(s,u){return this._verify1(s),this.imod(s.ushln(u))},O.prototype.imul=function(s,u){return this._verify2(s,u),this.imod(s.imul(u))},O.prototype.mul=function(s,u){return this._verify2(s,u),this.imod(s.mul(u))},O.prototype.isqr=function(s){return this.imul(s,s.clone())},O.prototype.sqr=function(s){return this.mul(s,s)},O.prototype.sqrt=function(s){if(s.isZero())return s.clone();var u=this.m.andln(3);if(r(u%2==1),u===3){var y=this.m.add(new n(1)).iushrn(2);return this.pow(s,y)}for(var w=this.m.subn(1),A=0;!w.isZero()&&w.andln(1)===0;)A++,w.iushrn(1);r(!w.isZero());var C=new n(1).toRed(this),T=C.redNeg(),x=this.m.subn(1).iushrn(1),c=this.m.bitLength();for(c=new n(2*c*c).toRed(this);this.pow(c,x).cmp(T)!==0;)c.redIAdd(T);for(var S=this.pow(c,w),W=this.pow(s,w.addn(1).iushrn(1)),d=this.pow(s,w),R=A;d.cmp(C)!==0;){for(var L=d,$=0;L.cmp(C)!==0;$++)L=L.redSqr();r($<R);var X=this.pow(S,new n(1).iushln(R-$-1));W=W.redMul(X),S=X.redSqr(),d=d.redMul(S),R=$}return W},O.prototype.invm=function(s){var u=s._invmp(this.m);return u.negative!==0?(u.negative=0,this.imod(u).redNeg()):this.imod(u)},O.prototype.pow=function(s,u){if(u.isZero())return new n(1).toRed(this);if(u.cmpn(1)===0)return s.clone();var y=4,w=new Array(1<<y);w[0]=new n(1).toRed(this),w[1]=s;for(var A=2;A<w.length;A++)w[A]=this.mul(w[A-1],s);var C=w[0],T=0,x=0,c=u.bitLength()%26;for(c===0&&(c=26),A=u.length-1;A>=0;A--){for(var S=u.words[A],W=c-1;W>=0;W--){var d=S>>W&1;if(C!==w[0]&&(C=this.sqr(C)),d===0&&T===0){x=0;continue}T<<=1,T|=d,x++,!(x!==y&&(A!==0||W!==0))&&(C=this.mul(C,w[T]),x=0,T=0)}c=26}return C},O.prototype.convertTo=function(s){var u=s.umod(this.m);return u===s?u.clone():u},O.prototype.convertFrom=function(s){var u=s.clone();return u.red=null,u},n.mont=function(s){return new z(s)};function z(E){O.call(this,E),this.shift=this.m.bitLength(),this.shift%26!=0&&(this.shift+=26-this.shift%26),this.r=new n(1).iushln(this.shift),this.r2=this.imod(this.r.sqr()),this.rinv=this.r._invmp(this.m),this.minv=this.rinv.mul(this.r).isubn(1).div(this.m),this.minv=this.minv.umod(this.r),this.minv=this.r.sub(this.minv)}i(z,O),z.prototype.convertTo=function(s){return this.imod(s.ushln(this.shift))},z.prototype.convertFrom=function(s){var u=this.imod(s.mul(this.rinv));return u.red=null,u},z.prototype.imul=function(s,u){if(s.isZero()||u.isZero())return s.words[0]=0,s.length=1,s;var y=s.imul(u),w=y.maskn(this.shift).mul(this.minv).imaskn(this.shift).mul(this.m),A=y.isub(w).iushrn(this.shift),C=A;return A.cmp(this.m)>=0?C=A.isub(this.m):A.cmpn(0)<0&&(C=A.iadd(this.m)),C._forceRed(this)},z.prototype.mul=function(s,u){if(s.isZero()||u.isZero())return new n(0)._forceRed(this);var y=s.mul(u),w=y.maskn(this.shift).mul(this.minv).imaskn(this.shift).mul(this.m),A=y.isub(w).iushrn(this.shift),C=A;return A.cmp(this.m)>=0?C=A.isub(this.m):A.cmpn(0)<0&&(C=A.iadd(this.m)),C._forceRed(this)},z.prototype.invm=function(s){var u=this.imod(s._invmp(this.m).mul(this.r2));return u._forceRed(this)}})(typeof vs=="undefined"||vs,Ga)});var xs=Ae((dm,Li)=>{(function(){"use strict";var e="input is invalid type",t="finalize already called",r=typeof window=="object",i=r?window:{};i.JS_SHA3_NO_WINDOW&&(r=!1);var n=!r&&typeof self=="object",o=!i.JS_SHA3_NO_NODE_JS&&typeof process=="object"&&process.versions&&process.versions.node;o?i=global:n&&(i=self);var a=!i.JS_SHA3_NO_COMMON_JS&&typeof Li=="object"&&Li.exports,h=typeof define=="function"&&define.amd,p=!i.JS_SHA3_NO_ARRAY_BUFFER&&typeof ArrayBuffer!="undefined",b="0123456789abcdef".split(""),_=[31,7936,2031616,520093696],I=[4,1024,262144,67108864],P=[1,256,65536,16777216],k=[6,1536,393216,100663296],K=[0,8,16,24],re=[1,0,32898,0,32906,2147483648,2147516416,2147483648,32907,0,2147483649,0,2147516545,2147483648,32777,2147483648,138,0,136,0,2147516425,0,2147483658,0,2147516555,0,139,2147483648,32905,2147483648,32771,2147483648,32770,2147483648,128,2147483648,32778,0,2147483658,2147483648,2147516545,2147483648,32896,2147483648,2147483649,0,2147516424,2147483648],ne=[224,256,384,512],Y=[128,256],ie=["hex","buffer","arrayBuffer","array","digest"],ee={"128":168,"256":136};(i.JS_SHA3_NO_NODE_JS||!Array.isArray)&&(Array.isArray=function(d){return Object.prototype.toString.call(d)==="[object Array]"}),p&&(i.JS_SHA3_NO_ARRAY_BUFFER_IS_VIEW||!ArrayBuffer.isView)&&(ArrayBuffer.isView=function(d){return typeof d=="object"&&d.buffer&&d.buffer.constructor===ArrayBuffer});for(var ge=function(d,R,L){return function($){return new c(d,R,d).update($)[L]()}},be=function(d,R,L){return function($,X){return new c(d,R,X).update($)[L]()}},Ee=function(d,R,L){return function($,X,le,te){return s["cshake"+d].update($,X,le,te)[L]()}},Re=function(d,R,L){return function($,X,le,te){return s["kmac"+d].update($,X,le,te)[L]()}},ze=function(d,R,L,$){for(var X=0;X<ie.length;++X){var le=ie[X];d[le]=R(L,$,le)}return d},Ve=function(d,R){var L=ge(d,R,"hex");return L.create=function(){return new c(d,R,d)},L.update=function($){return L.create().update($)},ze(L,ge,d,R)},B=function(d,R){var L=be(d,R,"hex");return L.create=function($){return new c(d,R,$)},L.update=function($,X){return L.create(X).update($)},ze(L,be,d,R)},O=function(d,R){var L=ee[d],$=Ee(d,R,"hex");return $.create=function(X,le,te){return!le&&!te?s["shake"+d].create(X):new c(d,R,X).bytepad([le,te],L)},$.update=function(X,le,te,oe){return $.create(le,te,oe).update(X)},ze($,Ee,d,R)},z=function(d,R){var L=ee[d],$=Re(d,R,"hex");return $.create=function(X,le,te){return new S(d,R,le).bytepad(["KMAC",te],L).bytepad([X],L)},$.update=function(X,le,te,oe){return $.create(X,te,oe).update(le)},ze($,Re,d,R)},E=[{name:"keccak",padding:P,bits:ne,createMethod:Ve},{name:"sha3",padding:k,bits:ne,createMethod:Ve},{name:"shake",padding:_,bits:Y,createMethod:B},{name:"cshake",padding:I,bits:Y,createMethod:O},{name:"kmac",padding:I,bits:Y,createMethod:z}],s={},u=[],y=0;y<E.length;++y)for(var w=E[y],A=w.bits,C=0;C<A.length;++C){var T=w.name+"_"+A[C];if(u.push(T),s[T]=w.createMethod(A[C],w.padding),w.name!=="sha3"){var x=w.name+A[C];u.push(x),s[x]=s[T]}}function c(d,R,L){this.blocks=[],this.s=[],this.padding=R,this.outputBits=L,this.reset=!0,this.finalized=!1,this.block=0,this.start=0,this.blockCount=1600-(d<<1)>>5,this.byteCount=this.blockCount<<2,this.outputBlocks=L>>5,this.extraBytes=(L&31)>>3;for(var $=0;$<50;++$)this.s[$]=0}c.prototype.update=function(d){if(this.finalized)throw new Error(t);var R,L=typeof d;if(L!=="string"){if(L==="object"){if(d===null)throw new Error(e);if(p&&d.constructor===ArrayBuffer)d=new Uint8Array(d);else if(!Array.isArray(d)&&(!p||!ArrayBuffer.isView(d)))throw new Error(e)}else throw new Error(e);R=!0}for(var $=this.blocks,X=this.byteCount,le=d.length,te=this.blockCount,oe=0,je=this.s,he,Ne;oe<le;){if(this.reset)for(this.reset=!1,$[0]=this.block,he=1;he<te+1;++he)$[he]=0;if(R)for(he=this.start;oe<le&&he<X;++oe)$[he>>2]|=d[oe]<<K[he++&3];else for(he=this.start;oe<le&&he<X;++oe)Ne=d.charCodeAt(oe),Ne<128?$[he>>2]|=Ne<<K[he++&3]:Ne<2048?($[he>>2]|=(192|Ne>>6)<<K[he++&3],$[he>>2]|=(128|Ne&63)<<K[he++&3]):Ne<55296||Ne>=57344?($[he>>2]|=(224|Ne>>12)<<K[he++&3],$[he>>2]|=(128|Ne>>6&63)<<K[he++&3],$[he>>2]|=(128|Ne&63)<<K[he++&3]):(Ne=65536+((Ne&1023)<<10|d.charCodeAt(++oe)&1023),$[he>>2]|=(240|Ne>>18)<<K[he++&3],$[he>>2]|=(128|Ne>>12&63)<<K[he++&3],$[he>>2]|=(128|Ne>>6&63)<<K[he++&3],$[he>>2]|=(128|Ne&63)<<K[he++&3]);if(this.lastByteIndex=he,he>=X){for(this.start=he-X,this.block=$[te],he=0;he<te;++he)je[he]^=$[he];W(je),this.reset=!0}else this.start=he}return this},c.prototype.encode=function(d,R){var L=d&255,$=1,X=[L];for(d=d>>8,L=d&255;L>0;)X.unshift(L),d=d>>8,L=d&255,++$;return R?X.push($):X.unshift($),this.update(X),X.length},c.prototype.encodeString=function(d){var R,L=typeof d;if(L!=="string"){if(L==="object"){if(d===null)throw new Error(e);if(p&&d.constructor===ArrayBuffer)d=new Uint8Array(d);else if(!Array.isArray(d)&&(!p||!ArrayBuffer.isView(d)))throw new Error(e)}else throw new Error(e);R=!0}var $=0,X=d.length;if(R)$=X;else for(var le=0;le<d.length;++le){var te=d.charCodeAt(le);te<128?$+=1:te<2048?$+=2:te<55296||te>=57344?$+=3:(te=65536+((te&1023)<<10|d.charCodeAt(++le)&1023),$+=4)}return $+=this.encode($*8),this.update(d),$},c.prototype.bytepad=function(d,R){for(var L=this.encode(R),$=0;$<d.length;++$)L+=this.encodeString(d[$]);var X=R-L%R,le=[];return le.length=X,this.update(le),this},c.prototype.finalize=function(){if(!this.finalized){this.finalized=!0;var d=this.blocks,R=this.lastByteIndex,L=this.blockCount,$=this.s;if(d[R>>2]|=this.padding[R&3],this.lastByteIndex===this.byteCount)for(d[0]=d[L],R=1;R<L+1;++R)d[R]=0;for(d[L-1]|=2147483648,R=0;R<L;++R)$[R]^=d[R];W($)}},c.prototype.toString=c.prototype.hex=function(){this.finalize();for(var d=this.blockCount,R=this.s,L=this.outputBlocks,$=this.extraBytes,X=0,le=0,te="",oe;le<L;){for(X=0;X<d&&le<L;++X,++le)oe=R[X],te+=b[oe>>4&15]+b[oe&15]+b[oe>>12&15]+b[oe>>8&15]+b[oe>>20&15]+b[oe>>16&15]+b[oe>>28&15]+b[oe>>24&15];le%d==0&&(W(R),X=0)}return $&&(oe=R[X],te+=b[oe>>4&15]+b[oe&15],$>1&&(te+=b[oe>>12&15]+b[oe>>8&15]),$>2&&(te+=b[oe>>20&15]+b[oe>>16&15])),te},c.prototype.arrayBuffer=function(){this.finalize();var d=this.blockCount,R=this.s,L=this.outputBlocks,$=this.extraBytes,X=0,le=0,te=this.outputBits>>3,oe;$?oe=new ArrayBuffer(L+1<<2):oe=new ArrayBuffer(te);for(var je=new Uint32Array(oe);le<L;){for(X=0;X<d&&le<L;++X,++le)je[le]=R[X];le%d==0&&W(R)}return $&&(je[X]=R[X],oe=oe.slice(0,te)),oe},c.prototype.buffer=c.prototype.arrayBuffer,c.prototype.digest=c.prototype.array=function(){this.finalize();for(var d=this.blockCount,R=this.s,L=this.outputBlocks,$=this.extraBytes,X=0,le=0,te=[],oe,je;le<L;){for(X=0;X<d&&le<L;++X,++le)oe=le<<2,je=R[X],te[oe]=je&255,te[oe+1]=je>>8&255,te[oe+2]=je>>16&255,te[oe+3]=je>>24&255;le%d==0&&W(R)}return $&&(oe=le<<2,je=R[X],te[oe]=je&255,$>1&&(te[oe+1]=je>>8&255),$>2&&(te[oe+2]=je>>16&255)),te};function S(d,R,L){c.call(this,d,R,L)}S.prototype=new c,S.prototype.finalize=function(){return this.encode(this.outputBits,!0),c.prototype.finalize.call(this)};var W=function(d){var R,L,$,X,le,te,oe,je,he,Ne,_r,mt,Ye,fr,wt,ct,yr,ot,ut,cr,lt,ht,Sr,bt,dt,gr,st,tt,Qt,rt,at,tr,nt,pt,Ar,Et,_t,Dt,Je,et,mr,yt,vt,qr,qe,xt,l,m,g,f,v,N,U,q,G,de,Q,xe,ce,Se,Te,Ie,Ce;for($=0;$<48;$+=2)X=d[0]^d[10]^d[20]^d[30]^d[40],le=d[1]^d[11]^d[21]^d[31]^d[41],te=d[2]^d[12]^d[22]^d[32]^d[42],oe=d[3]^d[13]^d[23]^d[33]^d[43],je=d[4]^d[14]^d[24]^d[34]^d[44],he=d[5]^d[15]^d[25]^d[35]^d[45],Ne=d[6]^d[16]^d[26]^d[36]^d[46],_r=d[7]^d[17]^d[27]^d[37]^d[47],mt=d[8]^d[18]^d[28]^d[38]^d[48],Ye=d[9]^d[19]^d[29]^d[39]^d[49],R=mt^(te<<1|oe>>>31),L=Ye^(oe<<1|te>>>31),d[0]^=R,d[1]^=L,d[10]^=R,d[11]^=L,d[20]^=R,d[21]^=L,d[30]^=R,d[31]^=L,d[40]^=R,d[41]^=L,R=X^(je<<1|he>>>31),L=le^(he<<1|je>>>31),d[2]^=R,d[3]^=L,d[12]^=R,d[13]^=L,d[22]^=R,d[23]^=L,d[32]^=R,d[33]^=L,d[42]^=R,d[43]^=L,R=te^(Ne<<1|_r>>>31),L=oe^(_r<<1|Ne>>>31),d[4]^=R,d[5]^=L,d[14]^=R,d[15]^=L,d[24]^=R,d[25]^=L,d[34]^=R,d[35]^=L,d[44]^=R,d[45]^=L,R=je^(mt<<1|Ye>>>31),L=he^(Ye<<1|mt>>>31),d[6]^=R,d[7]^=L,d[16]^=R,d[17]^=L,d[26]^=R,d[27]^=L,d[36]^=R,d[37]^=L,d[46]^=R,d[47]^=L,R=Ne^(X<<1|le>>>31),L=_r^(le<<1|X>>>31),d[8]^=R,d[9]^=L,d[18]^=R,d[19]^=L,d[28]^=R,d[29]^=L,d[38]^=R,d[39]^=L,d[48]^=R,d[49]^=L,fr=d[0],wt=d[1],xt=d[11]<<4|d[10]>>>28,l=d[10]<<4|d[11]>>>28,tt=d[20]<<3|d[21]>>>29,Qt=d[21]<<3|d[20]>>>29,Se=d[31]<<9|d[30]>>>23,Te=d[30]<<9|d[31]>>>23,yt=d[40]<<18|d[41]>>>14,vt=d[41]<<18|d[40]>>>14,pt=d[2]<<1|d[3]>>>31,Ar=d[3]<<1|d[2]>>>31,ct=d[13]<<12|d[12]>>>20,yr=d[12]<<12|d[13]>>>20,m=d[22]<<10|d[23]>>>22,g=d[23]<<10|d[22]>>>22,rt=d[33]<<13|d[32]>>>19,at=d[32]<<13|d[33]>>>19,Ie=d[42]<<2|d[43]>>>30,Ce=d[43]<<2|d[42]>>>30,q=d[5]<<30|d[4]>>>2,G=d[4]<<30|d[5]>>>2,Et=d[14]<<6|d[15]>>>26,_t=d[15]<<6|d[14]>>>26,ot=d[25]<<11|d[24]>>>21,ut=d[24]<<11|d[25]>>>21,f=d[34]<<15|d[35]>>>17,v=d[35]<<15|d[34]>>>17,tr=d[45]<<29|d[44]>>>3,nt=d[44]<<29|d[45]>>>3,bt=d[6]<<28|d[7]>>>4,dt=d[7]<<28|d[6]>>>4,de=d[17]<<23|d[16]>>>9,Q=d[16]<<23|d[17]>>>9,Dt=d[26]<<25|d[27]>>>7,Je=d[27]<<25|d[26]>>>7,cr=d[36]<<21|d[37]>>>11,lt=d[37]<<21|d[36]>>>11,N=d[47]<<24|d[46]>>>8,U=d[46]<<24|d[47]>>>8,qr=d[8]<<27|d[9]>>>5,qe=d[9]<<27|d[8]>>>5,gr=d[18]<<20|d[19]>>>12,st=d[19]<<20|d[18]>>>12,xe=d[29]<<7|d[28]>>>25,ce=d[28]<<7|d[29]>>>25,et=d[38]<<8|d[39]>>>24,mr=d[39]<<8|d[38]>>>24,ht=d[48]<<14|d[49]>>>18,Sr=d[49]<<14|d[48]>>>18,d[0]=fr^~ct&ot,d[1]=wt^~yr&ut,d[10]=bt^~gr&tt,d[11]=dt^~st&Qt,d[20]=pt^~Et&Dt,d[21]=Ar^~_t&Je,d[30]=qr^~xt&m,d[31]=qe^~l&g,d[40]=q^~de&xe,d[41]=G^~Q&ce,d[2]=ct^~ot&cr,d[3]=yr^~ut&lt,d[12]=gr^~tt&rt,d[13]=st^~Qt&at,d[22]=Et^~Dt&et,d[23]=_t^~Je&mr,d[32]=xt^~m&f,d[33]=l^~g&v,d[42]=de^~xe&Se,d[43]=Q^~ce&Te,d[4]=ot^~cr&ht,d[5]=ut^~lt&Sr,d[14]=tt^~rt&tr,d[15]=Qt^~at&nt,d[24]=Dt^~et&yt,d[25]=Je^~mr&vt,d[34]=m^~f&N,d[35]=g^~v&U,d[44]=xe^~Se&Ie,d[45]=ce^~Te&Ce,d[6]=cr^~ht&fr,d[7]=lt^~Sr&wt,d[16]=rt^~tr&bt,d[17]=at^~nt&dt,d[26]=et^~yt&pt,d[27]=mr^~vt&Ar,d[36]=f^~N&qr,d[37]=v^~U&qe,d[46]=Se^~Ie&q,d[47]=Te^~Ce&G,d[8]=ht^~fr&ct,d[9]=Sr^~wt&yr,d[18]=tr^~bt&gr,d[19]=nt^~dt&st,d[28]=yt^~pt&Et,d[29]=vt^~Ar&_t,d[38]=N^~qr&xt,d[39]=U^~qe&l,d[48]=Ie^~q&de,d[49]=Ce^~G&Q,d[0]^=re[$],d[1]^=re[$+1]};if(a)Li.exports=s;else{for(y=0;y<u.length;++y)i[u[y]]=s[u[y]];h&&define(function(){return s})}})()});var kn=Ae(Jt=>{"use strict";Object.defineProperty(Jt,"__esModule",{value:!0});Jt.output=Jt.exists=Jt.hash=Jt.bytes=Jt.bool=Jt.number=void 0;function Di(e){if(!Number.isSafeInteger(e)||e<0)throw new Error(`Wrong positive integer: ${e}`)}Jt.number=Di;function Za(e){if(typeof e!="boolean")throw new Error(`Expected boolean, not ${e}`)}Jt.bool=Za;function bs(e,...t){if(!(e instanceof Uint8Array))throw new TypeError("Expected Uint8Array");if(t.length>0&&!t.includes(e.length))throw new TypeError(`Expected Uint8Array of length ${t}, not of length=${e.length}`)}Jt.bytes=bs;function Ya(e){if(typeof e!="function"||typeof e.create!="function")throw new Error("Hash should be wrapped by utils.wrapConstructor");Di(e.outputLen),Di(e.blockLen)}Jt.hash=Ya;function Ja(e,t=!0){if(e.destroyed)throw new Error("Hash instance has been destroyed");if(t&&e.finished)throw new Error("Hash#digest() has already been called")}Jt.exists=Ja;function Xa(e,t){bs(e);let r=t.outputLen;if(e.length<r)throw new Error(`digestInto() expects output buffer of length at least ${r}`)}Jt.output=Xa;var P0={number:Di,bool:Za,bytes:bs,hash:Ya,exists:Ja,output:Xa};Jt.default=P0});var Qa=Ae(Wi=>{"use strict";Object.defineProperty(Wi,"__esModule",{value:!0});Wi.crypto=void 0;var R0=Oi();Wi.crypto={node:R0,web:void 0}});var $r=Ae($e=>{"use strict";Object.defineProperty($e,"__esModule",{value:!0});$e.randomBytes=$e.wrapConstructorWithOpts=$e.wrapConstructor=$e.checkOpts=$e.Hash=$e.concatBytes=$e.toBytes=$e.utf8ToBytes=$e.asyncLoop=$e.nextTick=$e.hexToBytes=$e.bytesToHex=$e.isLE=$e.rotr=$e.createView=$e.u32=$e.u8=void 0;var Fi=Qa(),N0=e=>new Uint8Array(e.buffer,e.byteOffset,e.byteLength);$e.u8=N0;var k0=e=>new Uint32Array(e.buffer,e.byteOffset,Math.floor(e.byteLength/4));$e.u32=k0;var U0=e=>new DataView(e.buffer,e.byteOffset,e.byteLength);$e.createView=U0;var L0=(e,t)=>e<<32-t|e>>>t;$e.rotr=L0;$e.isLE=new Uint8Array(new Uint32Array([287454020]).buffer)[0]===68;if(!$e.isLE)throw new Error("Non little-endian hardware is not supported");var D0=Array.from({length:256},(e,t)=>t.toString(16).padStart(2,"0"));function W0(e){if(!(e instanceof Uint8Array))throw new Error("Uint8Array expected");let t="";for(let r=0;r<e.length;r++)t+=D0[e[r]];return t}$e.bytesToHex=W0;function F0(e){if(typeof e!="string")throw new TypeError("hexToBytes: expected string, got "+typeof e);if(e.length%2)throw new Error("hexToBytes: received invalid unpadded hex");let t=new Uint8Array(e.length/2);for(let r=0;r<t.length;r++){let i=r*2,n=e.slice(i,i+2),o=Number.parseInt(n,16);if(Number.isNaN(o)||o<0)throw new Error("Invalid byte sequence");t[r]=o}return t}$e.hexToBytes=F0;var q0=async()=>{};$e.nextTick=q0;async function H0(e,t,r){let i=Date.now();for(let n=0;n<e;n++){r(n);let o=Date.now()-i;o>=0&&o<t||(await(0,$e.nextTick)(),i+=o)}}$e.asyncLoop=H0;function ja(e){if(typeof e!="string")throw new TypeError(`utf8ToBytes expected string, got ${typeof e}`);return new TextEncoder().encode(e)}$e.utf8ToBytes=ja;function Es(e){if(typeof e=="string"&&(e=ja(e)),!(e instanceof Uint8Array))throw new TypeError(`Expected input type is Uint8Array (got ${typeof e})`);return e}$e.toBytes=Es;function $0(...e){if(!e.every(i=>i instanceof Uint8Array))throw new Error("Uint8Array list expected");if(e.length===1)return e[0];let t=e.reduce((i,n)=>i+n.length,0),r=new Uint8Array(t);for(let i=0,n=0;i<e.length;i++){let o=e[i];r.set(o,n),n+=o.length}return r}$e.concatBytes=$0;var ef=class{clone(){return this._cloneInto()}};$e.Hash=ef;var z0=e=>Object.prototype.toString.call(e)==="[object Object]"&&e.constructor===Object;function K0(e,t){if(t!==void 0&&(typeof t!="object"||!z0(t)))throw new TypeError("Options should be object or undefined");return Object.assign(e,t)}$e.checkOpts=K0;function V0(e){let t=i=>e().update(Es(i)).digest(),r=e();return t.outputLen=r.outputLen,t.blockLen=r.blockLen,t.create=()=>e(),t}$e.wrapConstructor=V0;function G0(e){let t=(i,n)=>e(n).update(Es(i)).digest(),r=e({});return t.outputLen=r.outputLen,t.blockLen=r.blockLen,t.create=i=>e(i),t}$e.wrapConstructorWithOpts=G0;function Z0(e=32){if(Fi.crypto.web)return Fi.crypto.web.getRandomValues(new Uint8Array(e));if(Fi.crypto.node)return new Uint8Array(Fi.crypto.node.randomBytes(e).buffer);throw new Error("The environment doesn't have randomBytes function")}$e.randomBytes=Z0});var si=Ae(oi=>{"use strict";Object.defineProperty(oi,"__esModule",{value:!0});oi.hmac=void 0;var qi=kn(),tf=$r(),_s=class extends tf.Hash{constructor(t,r){super();this.finished=!1,this.destroyed=!1,qi.default.hash(t);let i=(0,tf.toBytes)(r);if(this.iHash=t.create(),typeof this.iHash.update!="function")throw new TypeError("Expected instance of class which extends utils.Hash");this.blockLen=this.iHash.blockLen,this.outputLen=this.iHash.outputLen;let n=this.blockLen,o=new Uint8Array(n);o.set(i.length>n?t.create().update(i).digest():i);for(let a=0;a<o.length;a++)o[a]^=54;this.iHash.update(o),this.oHash=t.create();for(let a=0;a<o.length;a++)o[a]^=54^92;this.oHash.update(o),o.fill(0)}update(t){return qi.default.exists(this),this.iHash.update(t),this}digestInto(t){qi.default.exists(this),qi.default.bytes(t,this.outputLen),this.finished=!0,this.iHash.digestInto(t),this.oHash.update(t),this.oHash.digestInto(t),this.destroy()}digest(){let t=new Uint8Array(this.oHash.outputLen);return this.digestInto(t),t}_cloneInto(t){t||(t=Object.create(Object.getPrototypeOf(this),{}));let{oHash:r,iHash:i,finished:n,destroyed:o,blockLen:a,outputLen:h}=this;return t=t,t.finished=n,t.destroyed=o,t.blockLen=a,t.outputLen=h,t.oHash=r._cloneInto(t.oHash),t.iHash=i._cloneInto(t.iHash),t}destroy(){this.destroyed=!0,this.oHash.destroy(),this.iHash.destroy()}},Y0=(e,t,r)=>new _s(e,t).update(r).digest();oi.hmac=Y0;oi.hmac.create=(e,t)=>new _s(e,t)});var of=Ae(Ln=>{"use strict";Object.defineProperty(Ln,"__esModule",{value:!0});Ln.pbkdf2Async=Ln.pbkdf2=void 0;var Hi=kn(),J0=si(),Un=$r();function rf(e,t,r,i){Hi.default.hash(e);let n=(0,Un.checkOpts)({dkLen:32,asyncTick:10},i),{c:o,dkLen:a,asyncTick:h}=n;if(Hi.default.number(o),Hi.default.number(a),Hi.default.number(h),o<1)throw new Error("PBKDF2: iterations (c) should be >= 1");let p=(0,Un.toBytes)(t),b=(0,Un.toBytes)(r),_=new Uint8Array(a),I=J0.hmac.create(e,p),P=I._cloneInto().update(b);return{c:o,dkLen:a,asyncTick:h,DK:_,PRF:I,PRFSalt:P}}function nf(e,t,r,i,n){return e.destroy(),t.destroy(),i&&i.destroy(),n.fill(0),r}function X0(e,t,r,i){let{c:n,dkLen:o,DK:a,PRF:h,PRFSalt:p}=rf(e,t,r,i),b,_=new Uint8Array(4),I=(0,Un.createView)(_),P=new Uint8Array(h.outputLen);for(let k=1,K=0;K<o;k++,K+=h.outputLen){let re=a.subarray(K,K+h.outputLen);I.setInt32(0,k,!1),(b=p._cloneInto(b)).update(_).digestInto(P),re.set(P.subarray(0,re.length));for(let ne=1;ne<n;ne++){h._cloneInto(b).update(P).digestInto(P);for(let Y=0;Y<re.length;Y++)re[Y]^=P[Y]}}return nf(h,p,a,b,P)}Ln.pbkdf2=X0;async function Q0(e,t,r,i){let{c:n,dkLen:o,asyncTick:a,DK:h,PRF:p,PRFSalt:b}=rf(e,t,r,i),_,I=new Uint8Array(4),P=(0,Un.createView)(I),k=new Uint8Array(p.outputLen);for(let K=1,re=0;re<o;K++,re+=p.outputLen){let ne=h.subarray(re,re+p.outputLen);P.setInt32(0,K,!1),(_=b._cloneInto(_)).update(I).digestInto(k),ne.set(k.subarray(0,ne.length)),await(0,Un.asyncLoop)(n-1,a,Y=>{p._cloneInto(_).update(k).digestInto(k);for(let ie=0;ie<ne.length;ie++)ne[ie]^=k[ie]})}return nf(p,b,h,_,k)}Ln.pbkdf2Async=Q0});var zi=Ae($i=>{"use strict";Object.defineProperty($i,"__esModule",{value:!0});$i.SHA2=void 0;var Ss=kn(),ai=$r();function j0(e,t,r,i){if(typeof e.setBigUint64=="function")return e.setBigUint64(t,r,i);let n=BigInt(32),o=BigInt(4294967295),a=Number(r>>n&o),h=Number(r&o),p=i?4:0,b=i?0:4;e.setUint32(t+p,a,i),e.setUint32(t+b,h,i)}var sf=class extends ai.Hash{constructor(t,r,i,n){super();this.blockLen=t,this.outputLen=r,this.padOffset=i,this.isLE=n,this.finished=!1,this.length=0,this.pos=0,this.destroyed=!1,this.buffer=new Uint8Array(t),this.view=(0,ai.createView)(this.buffer)}update(t){Ss.default.exists(this);let{view:r,buffer:i,blockLen:n}=this;t=(0,ai.toBytes)(t);let o=t.length;for(let a=0;a<o;){let h=Math.min(n-this.pos,o-a);if(h===n){let p=(0,ai.createView)(t);for(;n<=o-a;a+=n)this.process(p,a);continue}i.set(t.subarray(a,a+h),this.pos),this.pos+=h,a+=h,this.pos===n&&(this.process(r,0),this.pos=0)}return this.length+=t.length,this.roundClean(),this}digestInto(t){Ss.default.exists(this),Ss.default.output(t,this),this.finished=!0;let{buffer:r,view:i,blockLen:n,isLE:o}=this,{pos:a}=this;r[a++]=128,this.buffer.subarray(a).fill(0),this.padOffset>n-a&&(this.process(i,0),a=0);for(let p=a;p<n;p++)r[p]=0;j0(i,n-8,BigInt(this.length*8),o),this.process(i,0);let h=(0,ai.createView)(t);this.get().forEach((p,b)=>h.setUint32(4*b,p,o))}digest(){let{buffer:t,outputLen:r}=this;this.digestInto(t);let i=t.slice(0,r);return this.destroy(),i}_cloneInto(t){t||(t=new this.constructor),t.set(...this.get());let{blockLen:r,buffer:i,length:n,finished:o,destroyed:a,pos:h}=this;return t.length=n,t.pos=h,t.finished=o,t.destroyed=a,n%r&&t.buffer.set(i),t}};$i.SHA2=sf});var Vi=Ae(Ki=>{"use strict";Object.defineProperty(Ki,"__esModule",{value:!0});Ki.sha256=void 0;var eh=zi(),wr=$r(),th=(e,t,r)=>e&t^~e&r,rh=(e,t,r)=>e&t^e&r^t&r,nh=new Uint32Array([1116352408,1899447441,3049323471,3921009573,961987163,1508970993,2453635748,2870763221,3624381080,310598401,607225278,1426881987,1925078388,2162078206,2614888103,3248222580,3835390401,4022224774,264347078,604807628,770255983,1249150122,1555081692,1996064986,2554220882,2821834349,2952996808,3210313671,3336571891,3584528711,113926993,338241895,666307205,773529912,1294757372,1396182291,1695183700,1986661051,2177026350,2456956037,2730485921,2820302411,3259730800,3345764771,3516065817,3600352804,4094571909,275423344,430227734,506948616,659060556,883997877,958139571,1322822218,1537002063,1747873779,1955562222,2024104815,2227730452,2361852424,2428436474,2756734187,3204031479,3329325298]),jr=new Uint32Array([1779033703,3144134277,1013904242,2773480762,1359893119,2600822924,528734635,1541459225]),en=new Uint32Array(64),af=class extends eh.SHA2{constructor(){super(64,32,8,!1);this.A=jr[0]|0,this.B=jr[1]|0,this.C=jr[2]|0,this.D=jr[3]|0,this.E=jr[4]|0,this.F=jr[5]|0,this.G=jr[6]|0,this.H=jr[7]|0}get(){let{A:t,B:r,C:i,D:n,E:o,F:a,G:h,H:p}=this;return[t,r,i,n,o,a,h,p]}set(t,r,i,n,o,a,h,p){this.A=t|0,this.B=r|0,this.C=i|0,this.D=n|0,this.E=o|0,this.F=a|0,this.G=h|0,this.H=p|0}process(t,r){for(let I=0;I<16;I++,r+=4)en[I]=t.getUint32(r,!1);for(let I=16;I<64;I++){let P=en[I-15],k=en[I-2],K=(0,wr.rotr)(P,7)^(0,wr.rotr)(P,18)^P>>>3,re=(0,wr.rotr)(k,17)^(0,wr.rotr)(k,19)^k>>>10;en[I]=re+en[I-7]+K+en[I-16]|0}let{A:i,B:n,C:o,D:a,E:h,F:p,G:b,H:_}=this;for(let I=0;I<64;I++){let P=(0,wr.rotr)(h,6)^(0,wr.rotr)(h,11)^(0,wr.rotr)(h,25),k=_+P+th(h,p,b)+nh[I]+en[I]|0,re=((0,wr.rotr)(i,2)^(0,wr.rotr)(i,13)^(0,wr.rotr)(i,22))+rh(i,n,o)|0;_=b,b=p,p=h,h=a+k|0,a=o,o=n,n=i,i=k+re|0}i=i+this.A|0,n=n+this.B|0,o=o+this.C|0,a=a+this.D|0,h=h+this.E|0,p=p+this.F|0,b=b+this.G|0,_=_+this.H|0,this.set(i,n,o,a,h,p,b,_)}roundClean(){en.fill(0)}destroy(){this.set(0,0,0,0,0,0,0,0),this.buffer.fill(0)}};Ki.sha256=(0,wr.wrapConstructor)(()=>new af)});var uf=Ae(lr=>{"use strict";Object.defineProperty(lr,"__esModule",{value:!0});lr.add=lr.toBig=lr.split=lr.fromBig=void 0;var Gi=BigInt(2**32-1),As=BigInt(32);function Ts(e,t=!1){return t?{h:Number(e&Gi),l:Number(e>>As&Gi)}:{h:Number(e>>As&Gi)|0,l:Number(e&Gi)|0}}lr.fromBig=Ts;function ff(e,t=!1){let r=new Uint32Array(e.length),i=new Uint32Array(e.length);for(let n=0;n<e.length;n++){let{h:o,l:a}=Ts(e[n],t);[r[n],i[n]]=[o,a]}return[r,i]}lr.split=ff;var ih=(e,t)=>BigInt(e>>>0)<<As|BigInt(t>>>0);lr.toBig=ih;var oh=(e,t,r)=>e>>>r,sh=(e,t,r)=>e<<32-r|t>>>r,ah=(e,t,r)=>e>>>r|t<<32-r,fh=(e,t,r)=>e<<32-r|t>>>r,ch=(e,t,r)=>e<<64-r|t>>>r-32,uh=(e,t,r)=>e>>>r-32|t<<64-r,lh=(e,t)=>t,hh=(e,t)=>e,dh=(e,t,r)=>e<<r|t>>>32-r,ph=(e,t,r)=>t<<r|e>>>32-r,yh=(e,t,r)=>t<<r-32|e>>>64-r,gh=(e,t,r)=>e<<r-32|t>>>64-r;function cf(e,t,r,i){let n=(t>>>0)+(i>>>0);return{h:e+r+(n/2**32|0)|0,l:n|0}}lr.add=cf;var mh=(e,t,r)=>(e>>>0)+(t>>>0)+(r>>>0),wh=(e,t,r,i)=>t+r+i+(e/2**32|0)|0,vh=(e,t,r,i)=>(e>>>0)+(t>>>0)+(r>>>0)+(i>>>0),xh=(e,t,r,i,n)=>t+r+i+n+(e/2**32|0)|0,bh=(e,t,r,i,n)=>(e>>>0)+(t>>>0)+(r>>>0)+(i>>>0)+(n>>>0),Eh=(e,t,r,i,n,o)=>t+r+i+n+o+(e/2**32|0)|0,_h={fromBig:Ts,split:ff,toBig:lr.toBig,shrSH:oh,shrSL:sh,rotrSH:ah,rotrSL:fh,rotrBH:ch,rotrBL:uh,rotr32H:lh,rotr32L:hh,rotlSH:dh,rotlSL:ph,rotlBH:yh,rotlBL:gh,add:cf,add3L:mh,add3H:wh,add4L:vh,add4H:xh,add5H:Eh,add5L:bh};lr.default=_h});var Zi=Ae(Mr=>{"use strict";Object.defineProperty(Mr,"__esModule",{value:!0});Mr.sha384=Mr.sha512_256=Mr.sha512=Mr.SHA512=void 0;var Sh=zi(),Fe=uf(),Cs=$r(),[Ah,Th]=Fe.default.split(["0x428a2f98d728ae22","0x7137449123ef65cd","0xb5c0fbcfec4d3b2f","0xe9b5dba58189dbbc","0x3956c25bf348b538","0x59f111f1b605d019","0x923f82a4af194f9b","0xab1c5ed5da6d8118","0xd807aa98a3030242","0x12835b0145706fbe","0x243185be4ee4b28c","0x550c7dc3d5ffb4e2","0x72be5d74f27b896f","0x80deb1fe3b1696b1","0x9bdc06a725c71235","0xc19bf174cf692694","0xe49b69c19ef14ad2","0xefbe4786384f25e3","0x0fc19dc68b8cd5b5","0x240ca1cc77ac9c65","0x2de92c6f592b0275","0x4a7484aa6ea6e483","0x5cb0a9dcbd41fbd4","0x76f988da831153b5","0x983e5152ee66dfab","0xa831c66d2db43210","0xb00327c898fb213f","0xbf597fc7beef0ee4","0xc6e00bf33da88fc2","0xd5a79147930aa725","0x06ca6351e003826f","0x142929670a0e6e70","0x27b70a8546d22ffc","0x2e1b21385c26c926","0x4d2c6dfc5ac42aed","0x53380d139d95b3df","0x650a73548baf63de","0x766a0abb3c77b2a8","0x81c2c92e47edaee6","0x92722c851482353b","0xa2bfe8a14cf10364","0xa81a664bbc423001","0xc24b8b70d0f89791","0xc76c51a30654be30","0xd192e819d6ef5218","0xd69906245565a910","0xf40e35855771202a","0x106aa07032bbd1b8","0x19a4c116b8d2d0c8","0x1e376c085141ab53","0x2748774cdf8eeb99","0x34b0bcb5e19b48a8","0x391c0cb3c5c95a63","0x4ed8aa4ae3418acb","0x5b9cca4f7763e373","0x682e6ff3d6b2b8a3","0x748f82ee5defb2fc","0x78a5636f43172f60","0x84c87814a1f0ab72","0x8cc702081a6439ec","0x90befffa23631e28","0xa4506cebde82bde9","0xbef9a3f7b2c67915","0xc67178f2e372532b","0xca273eceea26619c","0xd186b8c721c0c207","0xeada7dd6cde0eb1e","0xf57d4f7fee6ed178","0x06f067aa72176fba","0x0a637dc5a2c898a6","0x113f9804bef90dae","0x1b710b35131c471b","0x28db77f523047d84","0x32caab7b40c72493","0x3c9ebe0a15c9bebc","0x431d67c49c100d4c","0x4cc5d4becb3e42b6","0x597f299cfc657e2a","0x5fcb6fab3ad6faec","0x6c44198c4a475817"].map(e=>BigInt(e))),tn=new Uint32Array(80),rn=new Uint32Array(80),fi=class extends Sh.SHA2{constructor(){super(128,64,16,!1);this.Ah=1779033703|0,this.Al=4089235720|0,this.Bh=3144134277|0,this.Bl=2227873595|0,this.Ch=1013904242|0,this.Cl=4271175723|0,this.Dh=2773480762|0,this.Dl=1595750129|0,this.Eh=1359893119|0,this.El=2917565137|0,this.Fh=2600822924|0,this.Fl=725511199|0,this.Gh=528734635|0,this.Gl=4215389547|0,this.Hh=1541459225|0,this.Hl=327033209|0}get(){let{Ah:t,Al:r,Bh:i,Bl:n,Ch:o,Cl:a,Dh:h,Dl:p,Eh:b,El:_,Fh:I,Fl:P,Gh:k,Gl:K,Hh:re,Hl:ne}=this;return[t,r,i,n,o,a,h,p,b,_,I,P,k,K,re,ne]}set(t,r,i,n,o,a,h,p,b,_,I,P,k,K,re,ne){this.Ah=t|0,this.Al=r|0,this.Bh=i|0,this.Bl=n|0,this.Ch=o|0,this.Cl=a|0,this.Dh=h|0,this.Dl=p|0,this.Eh=b|0,this.El=_|0,this.Fh=I|0,this.Fl=P|0,this.Gh=k|0,this.Gl=K|0,this.Hh=re|0,this.Hl=ne|0}process(t,r){for(let ee=0;ee<16;ee++,r+=4)tn[ee]=t.getUint32(r),rn[ee]=t.getUint32(r+=4);for(let ee=16;ee<80;ee++){let ge=tn[ee-15]|0,be=rn[ee-15]|0,Ee=Fe.default.rotrSH(ge,be,1)^Fe.default.rotrSH(ge,be,8)^Fe.default.shrSH(ge,be,7),Re=Fe.default.rotrSL(ge,be,1)^Fe.default.rotrSL(ge,be,8)^Fe.default.shrSL(ge,be,7),ze=tn[ee-2]|0,Ve=rn[ee-2]|0,B=Fe.default.rotrSH(ze,Ve,19)^Fe.default.rotrBH(ze,Ve,61)^Fe.default.shrSH(ze,Ve,6),O=Fe.default.rotrSL(ze,Ve,19)^Fe.default.rotrBL(ze,Ve,61)^Fe.default.shrSL(ze,Ve,6),z=Fe.default.add4L(Re,O,rn[ee-7],rn[ee-16]),E=Fe.default.add4H(z,Ee,B,tn[ee-7],tn[ee-16]);tn[ee]=E|0,rn[ee]=z|0}let{Ah:i,Al:n,Bh:o,Bl:a,Ch:h,Cl:p,Dh:b,Dl:_,Eh:I,El:P,Fh:k,Fl:K,Gh:re,Gl:ne,Hh:Y,Hl:ie}=this;for(let ee=0;ee<80;ee++){let ge=Fe.default.rotrSH(I,P,14)^Fe.default.rotrSH(I,P,18)^Fe.default.rotrBH(I,P,41),be=Fe.default.rotrSL(I,P,14)^Fe.default.rotrSL(I,P,18)^Fe.default.rotrBL(I,P,41),Ee=I&k^~I&re,Re=P&K^~P&ne,ze=Fe.default.add5L(ie,be,Re,Th[ee],rn[ee]),Ve=Fe.default.add5H(ze,Y,ge,Ee,Ah[ee],tn[ee]),B=ze|0,O=Fe.default.rotrSH(i,n,28)^Fe.default.rotrBH(i,n,34)^Fe.default.rotrBH(i,n,39),z=Fe.default.rotrSL(i,n,28)^Fe.default.rotrBL(i,n,34)^Fe.default.rotrBL(i,n,39),E=i&o^i&h^o&h,s=n&a^n&p^a&p;Y=re|0,ie=ne|0,re=k|0,ne=K|0,k=I|0,K=P|0,{h:I,l:P}=Fe.default.add(b|0,_|0,Ve|0,B|0),b=h|0,_=p|0,h=o|0,p=a|0,o=i|0,a=n|0;let u=Fe.default.add3L(B,z,s);i=Fe.default.add3H(u,Ve,O,E),n=u|0}({h:i,l:n}=Fe.default.add(this.Ah|0,this.Al|0,i|0,n|0)),{h:o,l:a}=Fe.default.add(this.Bh|0,this.Bl|0,o|0,a|0),{h,l:p}=Fe.default.add(this.Ch|0,this.Cl|0,h|0,p|0),{h:b,l:_}=Fe.default.add(this.Dh|0,this.Dl|0,b|0,_|0),{h:I,l:P}=Fe.default.add(this.Eh|0,this.El|0,I|0,P|0),{h:k,l:K}=Fe.default.add(this.Fh|0,this.Fl|0,k|0,K|0),{h:re,l:ne}=Fe.default.add(this.Gh|0,this.Gl|0,re|0,ne|0),{h:Y,l:ie}=Fe.default.add(this.Hh|0,this.Hl|0,Y|0,ie|0),this.set(i,n,o,a,h,p,b,_,I,P,k,K,re,ne,Y,ie)}roundClean(){tn.fill(0),rn.fill(0)}destroy(){this.buffer.fill(0),this.set(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)}};Mr.SHA512=fi;var lf=class extends fi{constructor(){super();this.Ah=573645204|0,this.Al=4230739756|0,this.Bh=2673172387|0,this.Bl=3360449730|0,this.Ch=596883563|0,this.Cl=1867755857|0,this.Dh=2520282905|0,this.Dl=1497426621|0,this.Eh=2519219938|0,this.El=2827943907|0,this.Fh=3193839141|0,this.Fl=1401305490|0,this.Gh=721525244|0,this.Gl=746961066|0,this.Hh=246885852|0,this.Hl=2177182882|0,this.outputLen=32}},hf=class extends fi{constructor(){super();this.Ah=3418070365|0,this.Al=3238371032|0,this.Bh=1654270250|0,this.Bl=914150663|0,this.Ch=2438529370|0,this.Cl=812702999|0,this.Dh=355462360|0,this.Dl=4144912697|0,this.Eh=1731405415|0,this.El=4290775857|0,this.Fh=2394180231|0,this.Fl=1750603025|0,this.Gh=3675008525|0,this.Gl=1694076839|0,this.Hh=1203062813|0,this.Hl=3204075428|0,this.outputLen=48}};Mr.sha512=(0,Cs.wrapConstructor)(()=>new fi);Mr.sha512_256=(0,Cs.wrapConstructor)(()=>new lf);Mr.sha384=(0,Cs.wrapConstructor)(()=>new hf)});var Os=Ae(_e=>{"use strict";Object.defineProperty(_e,"__esModule",{value:!0});_e.bytes=_e.stringToBytes=_e.str=_e.bytesToString=_e.hex=_e.utf8=_e.bech32m=_e.bech32=_e.base58check=_e.base58xmr=_e.base58xrp=_e.base58flickr=_e.base58=_e.base64url=_e.base64=_e.base32crockford=_e.base32hex=_e.base32=_e.base16=_e.utils=_e.assertNumber=void 0;function nn(e){if(!Number.isSafeInteger(e))throw new Error(`Wrong integer: ${e}`)}_e.assertNumber=nn;function vr(...e){let t=(n,o)=>a=>n(o(a)),r=Array.from(e).reverse().reduce((n,o)=>n?t(n,o.encode):o.encode,void 0),i=e.reduce((n,o)=>n?t(n,o.decode):o.decode,void 0);return{encode:r,decode:i}}function Br(e){return{encode:t=>{if(!Array.isArray(t)||t.length&&typeof t[0]!="number")throw new Error("alphabet.encode input should be an array of numbers");return t.map(r=>{if(nn(r),r<0||r>=e.length)throw new Error(`Digit index outside alphabet: ${r} (alphabet: ${e.length})`);return e[r]})},decode:t=>{if(!Array.isArray(t)||t.length&&typeof t[0]!="string")throw new Error("alphabet.decode input should be array of strings");return t.map(r=>{if(typeof r!="string")throw new Error(`alphabet.decode: not string element=${r}`);let i=e.indexOf(r);if(i===-1)throw new Error(`Unknown letter: "${r}". Allowed: ${e}`);return i})}}}function Ir(e=""){if(typeof e!="string")throw new Error("join separator should be string");return{encode:t=>{if(!Array.isArray(t)||t.length&&typeof t[0]!="string")throw new Error("join.encode input should be array of strings");for(let r of t)if(typeof r!="string")throw new Error(`join.encode: non-string input=${r}`);return t.join(e)},decode:t=>{if(typeof t!="string")throw new Error("join.decode input should be string");return t.split(e)}}}function ci(e,t="="){if(nn(e),typeof t!="string")throw new Error("padding chr should be string");return{encode(r){if(!Array.isArray(r)||r.length&&typeof r[0]!="string")throw new Error("padding.encode input should be array of strings");for(let i of r)if(typeof i!="string")throw new Error(`padding.encode: non-string input=${i}`);for(;r.length*e%8;)r.push(t);return r},decode(r){if(!Array.isArray(r)||r.length&&typeof r[0]!="string")throw new Error("padding.encode input should be array of strings");for(let n of r)if(typeof n!="string")throw new Error(`padding.decode: non-string input=${n}`);let i=r.length;if(i*e%8)throw new Error("Invalid padding: string should have whole number of bytes");for(;i>0&&r[i-1]===t;i--)if(!((i-1)*e%8))throw new Error("Invalid padding: string has too much padding");return r.slice(0,i)}}}function df(e){if(typeof e!="function")throw new Error("normalize fn should be function");return{encode:t=>t,decode:t=>e(t)}}function pf(e,t,r){if(t<2)throw new Error(`convertRadix: wrong from=${t}, base cannot be less than 2`);if(r<2)throw new Error(`convertRadix: wrong to=${r}, base cannot be less than 2`);if(!Array.isArray(e))throw new Error("convertRadix: data should be array");if(!e.length)return[];let i=0,n=[],o=Array.from(e);for(o.forEach(a=>{if(nn(a),a<0||a>=t)throw new Error(`Wrong integer: ${a}`)});;){let a=0,h=!0;for(let p=i;p<o.length;p++){let b=o[p],_=t*a+b;if(!Number.isSafeInteger(_)||t*a/t!==a||_-b!=t*a)throw new Error("convertRadix: carry overflow");if(a=_%r,o[p]=Math.floor(_/r),!Number.isSafeInteger(o[p])||o[p]*r+a!==_)throw new Error("convertRadix: carry overflow");if(h)o[p]?h=!1:i=p;else continue}if(n.push(a),h)break}for(let a=0;a<e.length-1&&e[a]===0;a++)n.push(0);return n.reverse()}var yf=(e,t)=>t?yf(t,e%t):e,Yi=(e,t)=>e+(t-yf(e,t));function Ms(e,t,r,i){if(!Array.isArray(e))throw new Error("convertRadix2: data should be array");if(t<=0||t>32)throw new Error(`convertRadix2: wrong from=${t}`);if(r<=0||r>32)throw new Error(`convertRadix2: wrong to=${r}`);if(Yi(t,r)>32)throw new Error(`convertRadix2: carry overflow from=${t} to=${r} carryBits=${Yi(t,r)}`);let n=0,o=0,a=2**r-1,h=[];for(let p of e){if(nn(p),p>=2**t)throw new Error(`convertRadix2: invalid data word=${p} from=${t}`);if(n=n<<t|p,o+t>32)throw new Error(`convertRadix2: carry overflow pos=${o} from=${t}`);for(o+=t;o>=r;o-=r)h.push((n>>o-r&a)>>>0);n&=2**o-1}if(n=n<<r-o&a,!i&&o>=t)throw new Error("Excess padding");if(!i&&n)throw new Error(`Non-zero padding: ${n}`);return i&&o>0&&h.push(n>>>0),h}function gf(e){return nn(e),{encode:t=>{if(!(t instanceof Uint8Array))throw new Error("radix.encode input should be Uint8Array");return pf(Array.from(t),2**8,e)},decode:t=>{if(!Array.isArray(t)||t.length&&typeof t[0]!="number")throw new Error("radix.decode input should be array of strings");return Uint8Array.from(pf(t,e,2**8))}}}function zr(e,t=!1){if(nn(e),e<=0||e>32)throw new Error("radix2: bits should be in (0..32]");if(Yi(8,e)>32||Yi(e,8)>32)throw new Error("radix2: carry overflow");return{encode:r=>{if(!(r instanceof Uint8Array))throw new Error("radix2.encode input should be Uint8Array");return Ms(Array.from(r),8,e,!t)},decode:r=>{if(!Array.isArray(r)||r.length&&typeof r[0]!="number")throw new Error("radix2.decode input should be array of strings");return Uint8Array.from(Ms(r,e,8,t))}}}function mf(e){if(typeof e!="function")throw new Error("unsafeWrapper fn should be function");return function(...t){try{return e.apply(null,t)}catch(r){}}}function wf(e,t){if(nn(e),typeof t!="function")throw new Error("checksum fn should be function");return{encode(r){if(!(r instanceof Uint8Array))throw new Error("checksum.encode: input should be Uint8Array");let i=t(r).slice(0,e),n=new Uint8Array(r.length+e);return n.set(r),n.set(i,r.length),n},decode(r){if(!(r instanceof Uint8Array))throw new Error("checksum.decode: input should be Uint8Array");let i=r.slice(0,-e),n=t(i).slice(0,e),o=r.slice(-e);for(let a=0;a<e;a++)if(n[a]!==o[a])throw new Error("Invalid checksum");return i}}}_e.utils={alphabet:Br,chain:vr,checksum:wf,radix:gf,radix2:zr,join:Ir,padding:ci};_e.base16=vr(zr(4),Br("0123456789ABCDEF"),Ir(""));_e.base32=vr(zr(5),Br("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"),ci(5),Ir(""));_e.base32hex=vr(zr(5),Br("0123456789ABCDEFGHIJKLMNOPQRSTUV"),ci(5),Ir(""));_e.base32crockford=vr(zr(5),Br("0123456789ABCDEFGHJKMNPQRSTVWXYZ"),Ir(""),df(e=>e.toUpperCase().replace(/O/g,"0").replace(/[IL]/g,"1")));_e.base64=vr(zr(6),Br("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"),ci(6),Ir(""));_e.base64url=vr(zr(6),Br("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"),ci(6),Ir(""));var Bs=e=>vr(gf(58),Br(e),Ir(""));_e.base58=Bs("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");_e.base58flickr=Bs("123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ");_e.base58xrp=Bs("rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz");var vf=[0,2,3,5,6,7,9,10,11];_e.base58xmr={encode(e){let t="";for(let r=0;r<e.length;r+=8){let i=e.subarray(r,r+8);t+=_e.base58.encode(i).padStart(vf[i.length],"1")}return t},decode(e){let t=[];for(let r=0;r<e.length;r+=11){let i=e.slice(r,r+11),n=vf.indexOf(i.length),o=_e.base58.decode(i);for(let a=0;a<o.length-n;a++)if(o[a]!==0)throw new Error("base58xmr: wrong padding");t=t.concat(Array.from(o.slice(o.length-n)))}return Uint8Array.from(t)}};var Ch=e=>vr(wf(4,t=>e(e(t))),_e.base58);_e.base58check=Ch;var Is=vr(Br("qpzry9x8gf2tvdw0s3jn54khce6mua7l"),Ir("")),xf=[996825010,642813549,513874426,1027748829,705979059];function ui(e){let t=e>>25,r=(e&33554431)<<5;for(let i=0;i<xf.length;i++)(t>>i&1)==1&&(r^=xf[i]);return r}function bf(e,t,r=1){let i=e.length,n=1;for(let o=0;o<i;o++){let a=e.charCodeAt(o);if(a<33||a>126)throw new Error(`Invalid prefix (${e})`);n=ui(n)^a>>5}n=ui(n);for(let o=0;o<i;o++)n=ui(n)^e.charCodeAt(o)&31;for(let o of t)n=ui(n)^o;for(let o=0;o<6;o++)n=ui(n);return n^=r,Is.encode(Ms([n%2**30],30,5,!1))}function Ef(e){let t=e==="bech32"?1:734539939,r=zr(5),i=r.decode,n=r.encode,o=mf(i);function a(_,I,P=90){if(typeof _!="string")throw new Error(`bech32.encode prefix should be string, not ${typeof _}`);if(!Array.isArray(I)||I.length&&typeof I[0]!="number")throw new Error(`bech32.encode words should be array of numbers, not ${typeof I}`);let k=_.length+7+I.length;if(P!==!1&&k>P)throw new TypeError(`Length ${k} exceeds limit ${P}`);return _=_.toLowerCase(),`${_}1${Is.encode(I)}${bf(_,I,t)}`}function h(_,I=90){if(typeof _!="string")throw new Error(`bech32.decode input should be string, not ${typeof _}`);if(_.length<8||I!==!1&&_.length>I)throw new TypeError(`Wrong string length: ${_.length} (${_}). Expected (8..${I})`);let P=_.toLowerCase();if(_!==P&&_!==_.toUpperCase())throw new Error("String must be lowercase or uppercase");_=P;let k=_.lastIndexOf("1");if(k===0||k===-1)throw new Error('Letter "1" must be present between prefix and data only');let K=_.slice(0,k),re=_.slice(k+1);if(re.length<6)throw new Error("Data must be at least 6 characters long");let ne=Is.decode(re).slice(0,-6),Y=bf(K,ne,t);if(!re.endsWith(Y))throw new Error(`Invalid checksum in ${_}: expected "${Y}"`);return{prefix:K,words:ne}}let p=mf(h);function b(_){let{prefix:I,words:P}=h(_,!1);return{prefix:I,words:P,bytes:i(P)}}return{encode:a,decode:h,decodeToBytes:b,decodeUnsafe:p,fromWords:i,fromWordsUnsafe:o,toWords:n}}_e.bech32=Ef("bech32");_e.bech32m=Ef("bech32m");_e.utf8={encode:e=>new TextDecoder().decode(e),decode:e=>new TextEncoder().encode(e)};_e.hex=vr(zr(4),Br("0123456789abcdef"),Ir(""),df(e=>{if(typeof e!="string"||e.length%2)throw new TypeError(`hex.decode: expected string, got ${typeof e} with length ${e.length}`);return e.toLowerCase()}));var li={utf8:_e.utf8,hex:_e.hex,base16:_e.base16,base32:_e.base32,base64:_e.base64,base64url:_e.base64url,base58:_e.base58,base58xmr:_e.base58xmr},_f=`Invalid encoding type. Available types: ${Object.keys(li).join(", ")}`,Mh=(e,t)=>{if(typeof e!="string"||!li.hasOwnProperty(e))throw new TypeError(_f);if(!(t instanceof Uint8Array))throw new TypeError("bytesToString() expects Uint8Array");return li[e].encode(t)};_e.bytesToString=Mh;_e.str=_e.bytesToString;var Bh=(e,t)=>{if(!li.hasOwnProperty(e))throw new TypeError(_f);if(typeof t!="string")throw new TypeError("stringToBytes() expects string");return li[e].decode(t)};_e.stringToBytes=Bh;_e.bytes=_e.stringToBytes});var Rf=Ae(er=>{"use strict";Object.defineProperty(er,"__esModule",{value:!0});er.mnemonicToSeedSync=er.mnemonicToSeed=er.validateMnemonic=er.entropyToMnemonic=er.mnemonicToEntropy=er.generateMnemonic=void 0;var Sf=kn(),Af=of(),Ih=Vi(),Tf=Zi(),Oh=$r(),Ji=Os(),Ph=e=>e[0]==="\u3042\u3044\u3053\u304F\u3057\u3093";function Cf(e){if(typeof e!="string")throw new TypeError(`Invalid mnemonic type: ${typeof e}`);return e.normalize("NFKD")}function Ps(e){let t=Cf(e),r=t.split(" ");if(![12,15,18,21,24].includes(r.length))throw new Error("Invalid mnemonic");return{nfkd:t,words:r}}function Mf(e){Sf.default.bytes(e,16,20,24,28,32)}function Rh(e,t=128){if(Sf.default.number(t),t%32!=0||t>256)throw new TypeError("Invalid entropy");return Of((0,Oh.randomBytes)(t/8),e)}er.generateMnemonic=Rh;var Nh=e=>{let t=8-e.length/4;return new Uint8Array([(0,Ih.sha256)(e)[0]>>t<<t])};function Bf(e){if(!Array.isArray(e)||e.length!==2**11||typeof e[0]!="string")throw new Error("Worlist: expected array of 2048 strings");return e.forEach(t=>{if(typeof t!="string")throw new Error(`Wordlist: non-string element: ${t}`)}),Ji.utils.chain(Ji.utils.checksum(1,Nh),Ji.utils.radix2(11,!0),Ji.utils.alphabet(e))}function If(e,t){let{words:r}=Ps(e),i=Bf(t).decode(r);return Mf(i),i}er.mnemonicToEntropy=If;function Of(e,t){return Mf(e),Bf(t).encode(e).join(Ph(t)?"\u3000":" ")}er.entropyToMnemonic=Of;function kh(e,t){try{If(e,t)}catch(r){return!1}return!0}er.validateMnemonic=kh;var Pf=e=>Cf(`mnemonic${e}`);function Uh(e,t=""){return(0,Af.pbkdf2Async)(Tf.sha512,Ps(e).nfkd,Pf(t),{c:2048,dkLen:64})}er.mnemonicToSeed=Uh;function Lh(e,t=""){return(0,Af.pbkdf2)(Tf.sha512,Ps(e).nfkd,Pf(t),{c:2048,dkLen:64})}er.mnemonicToSeedSync=Lh});var Kf=Ae(qn=>{"use strict";Object.defineProperty(qn,"__esModule",{value:!0});qn.ripemd160=qn.RIPEMD160=void 0;var Zh=zi(),Yh=$r(),Jh=new Uint8Array([7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8]),Hf=Uint8Array.from({length:16},(e,t)=>t),Xh=Hf.map(e=>(9*e+5)%16),Ds=[Hf],Ws=[Xh];for(let e=0;e<4;e++)for(let t of[Ds,Ws])t.push(t[e].map(r=>Jh[r]));var $f=[[11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8],[12,13,11,15,6,9,9,7,12,15,11,13,7,8,7,7],[13,15,14,11,7,7,6,8,13,14,13,12,5,5,6,9],[14,11,12,14,8,6,5,5,15,12,15,14,9,9,8,6],[15,12,13,13,9,5,8,6,14,11,12,11,8,6,5,5]].map(e=>new Uint8Array(e)),Qh=Ds.map((e,t)=>e.map(r=>$f[t][r])),jh=Ws.map((e,t)=>e.map(r=>$f[t][r])),ed=new Uint32Array([0,1518500249,1859775393,2400959708,2840853838]),td=new Uint32Array([1352829926,1548603684,1836072691,2053994217,0]),ro=(e,t)=>e<<t|e>>>32-t;function zf(e,t,r,i){return e===0?t^r^i:e===1?t&r|~t&i:e===2?(t|~r)^i:e===3?t&i|r&~i:t^(r|~i)}var no=new Uint32Array(16),Fs=class extends Zh.SHA2{constructor(){super(64,20,8,!0);this.h0=1732584193|0,this.h1=4023233417|0,this.h2=2562383102|0,this.h3=271733878|0,this.h4=3285377520|0}get(){let{h0:t,h1:r,h2:i,h3:n,h4:o}=this;return[t,r,i,n,o]}set(t,r,i,n,o){this.h0=t|0,this.h1=r|0,this.h2=i|0,this.h3=n|0,this.h4=o|0}process(t,r){for(let k=0;k<16;k++,r+=4)no[k]=t.getUint32(r,!0);let i=this.h0|0,n=i,o=this.h1|0,a=o,h=this.h2|0,p=h,b=this.h3|0,_=b,I=this.h4|0,P=I;for(let k=0;k<5;k++){let K=4-k,re=ed[k],ne=td[k],Y=Ds[k],ie=Ws[k],ee=Qh[k],ge=jh[k];for(let be=0;be<16;be++){let Ee=ro(i+zf(k,o,h,b)+no[Y[be]]+re,ee[be])+I|0;i=I,I=b,b=ro(h,10)|0,h=o,o=Ee}for(let be=0;be<16;be++){let Ee=ro(n+zf(K,a,p,_)+no[ie[be]]+ne,ge[be])+P|0;n=P,P=_,_=ro(p,10)|0,p=a,a=Ee}}this.set(this.h1+h+_|0,this.h2+b+P|0,this.h3+I+n|0,this.h4+i+a|0,this.h0+o+p|0)}roundClean(){no.fill(0)}destroy(){this.destroyed=!0,this.buffer.fill(0),this.set(0,0,0,0,0)}};qn.RIPEMD160=Fs;qn.ripemd160=(0,Yh.wrapConstructor)(()=>new Fs)});var $s=Ae(Hs=>{"use strict";Object.defineProperty(Hs,"__esModule",{value:!0});Hs.default=cd;var io,fd=new Uint8Array(16);function cd(){if(!io&&(io=typeof crypto!="undefined"&&crypto.getRandomValues&&crypto.getRandomValues.bind(crypto)||typeof msCrypto!="undefined"&&typeof msCrypto.getRandomValues=="function"&&msCrypto.getRandomValues.bind(msCrypto),!io))throw new Error("crypto.getRandomValues() not supported. See https://github.com/uuidjs/uuid#getrandomvalues-not-supported");return io(fd)}});var Zf=Ae(oo=>{"use strict";Object.defineProperty(oo,"__esModule",{value:!0});oo.default=void 0;var ud=/^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000)$/i;oo.default=ud});var yi=Ae(so=>{"use strict";Object.defineProperty(so,"__esModule",{value:!0});so.default=void 0;var ld=hd(Zf());function hd(e){return e&&e.__esModule?e:{default:e}}function dd(e){return typeof e=="string"&&ld.default.test(e)}var pd=dd;so.default=pd});var gi=Ae(ao=>{"use strict";Object.defineProperty(ao,"__esModule",{value:!0});ao.default=void 0;var yd=gd(yi());function gd(e){return e&&e.__esModule?e:{default:e}}var Wt=[];for(let e=0;e<256;++e)Wt.push((e+256).toString(16).substr(1));function md(e,t=0){let r=(Wt[e[t+0]]+Wt[e[t+1]]+Wt[e[t+2]]+Wt[e[t+3]]+"-"+Wt[e[t+4]]+Wt[e[t+5]]+"-"+Wt[e[t+6]]+Wt[e[t+7]]+"-"+Wt[e[t+8]]+Wt[e[t+9]]+"-"+Wt[e[t+10]]+Wt[e[t+11]]+Wt[e[t+12]]+Wt[e[t+13]]+Wt[e[t+14]]+Wt[e[t+15]]).toLowerCase();if(!(0,yd.default)(r))throw TypeError("Stringified UUID is invalid");return r}var wd=md;ao.default=wd});var Xf=Ae(fo=>{"use strict";Object.defineProperty(fo,"__esModule",{value:!0});fo.default=void 0;var vd=Yf($s()),xd=Yf(gi());function Yf(e){return e&&e.__esModule?e:{default:e}}var Jf,zs,Ks=0,Vs=0;function bd(e,t,r){let i=t&&r||0,n=t||new Array(16);e=e||{};let o=e.node||Jf,a=e.clockseq!==void 0?e.clockseq:zs;if(o==null||a==null){let P=e.random||(e.rng||vd.default)();o==null&&(o=Jf=[P[0]|1,P[1],P[2],P[3],P[4],P[5]]),a==null&&(a=zs=(P[6]<<8|P[7])&16383)}let h=e.msecs!==void 0?e.msecs:Date.now(),p=e.nsecs!==void 0?e.nsecs:Vs+1,b=h-Ks+(p-Vs)/1e4;if(b<0&&e.clockseq===void 0&&(a=a+1&16383),(b<0||h>Ks)&&e.nsecs===void 0&&(p=0),p>=1e4)throw new Error("uuid.v1(): Can't create more than 10M uuids/sec");Ks=h,Vs=p,zs=a,h+=122192928e5;let _=((h&268435455)*1e4+p)%4294967296;n[i++]=_>>>24&255,n[i++]=_>>>16&255,n[i++]=_>>>8&255,n[i++]=_&255;let I=h/4294967296*1e4&268435455;n[i++]=I>>>8&255,n[i++]=I&255,n[i++]=I>>>24&15|16,n[i++]=I>>>16&255,n[i++]=a>>>8|128,n[i++]=a&255;for(let P=0;P<6;++P)n[i+P]=o[P];return t||(0,xd.default)(n)}var Ed=bd;fo.default=Ed});var Gs=Ae(co=>{"use strict";Object.defineProperty(co,"__esModule",{value:!0});co.default=void 0;var _d=Sd(yi());function Sd(e){return e&&e.__esModule?e:{default:e}}function Ad(e){if(!(0,_d.default)(e))throw TypeError("Invalid UUID");let t,r=new Uint8Array(16);return r[0]=(t=parseInt(e.slice(0,8),16))>>>24,r[1]=t>>>16&255,r[2]=t>>>8&255,r[3]=t&255,r[4]=(t=parseInt(e.slice(9,13),16))>>>8,r[5]=t&255,r[6]=(t=parseInt(e.slice(14,18),16))>>>8,r[7]=t&255,r[8]=(t=parseInt(e.slice(19,23),16))>>>8,r[9]=t&255,r[10]=(t=parseInt(e.slice(24,36),16))/1099511627776&255,r[11]=t/4294967296&255,r[12]=t>>>24&255,r[13]=t>>>16&255,r[14]=t>>>8&255,r[15]=t&255,r}var Td=Ad;co.default=Td});var Zs=Ae(mn=>{"use strict";Object.defineProperty(mn,"__esModule",{value:!0});mn.default=Id;mn.URL=mn.DNS=void 0;var Cd=Qf(gi()),Md=Qf(Gs());function Qf(e){return e&&e.__esModule?e:{default:e}}function Bd(e){e=unescape(encodeURIComponent(e));let t=[];for(let r=0;r<e.length;++r)t.push(e.charCodeAt(r));return t}var jf="6ba7b810-9dad-11d1-80b4-00c04fd430c8";mn.DNS=jf;var ec="6ba7b811-9dad-11d1-80b4-00c04fd430c8";mn.URL=ec;function Id(e,t,r){function i(n,o,a,h){if(typeof n=="string"&&(n=Bd(n)),typeof o=="string"&&(o=(0,Md.default)(o)),o.length!==16)throw TypeError("Namespace must be array-like (16 iterable integer values, 0-255)");let p=new Uint8Array(16+n.length);if(p.set(o),p.set(n,o.length),p=r(p),p[6]=p[6]&15|t,p[8]=p[8]&63|128,a){h=h||0;for(let b=0;b<16;++b)a[h+b]=p[b];return a}return(0,Cd.default)(p)}try{i.name=e}catch(n){}return i.DNS=jf,i.URL=ec,i}});var rc=Ae(lo=>{"use strict";Object.defineProperty(lo,"__esModule",{value:!0});lo.default=void 0;function Od(e){if(typeof e=="string"){let t=unescape(encodeURIComponent(e));e=new Uint8Array(t.length);for(let r=0;r<t.length;++r)e[r]=t.charCodeAt(r)}return Pd(Rd(Nd(e),e.length*8))}function Pd(e){let t=[],r=e.length*32,i="0123456789abcdef";for(let n=0;n<r;n+=8){let o=e[n>>5]>>>n%32&255,a=parseInt(i.charAt(o>>>4&15)+i.charAt(o&15),16);t.push(a)}return t}function tc(e){return(e+64>>>9<<4)+14+1}function Rd(e,t){e[t>>5]|=128<<t%32,e[tc(t)-1]=t;let r=1732584193,i=-271733879,n=-1732584194,o=271733878;for(let a=0;a<e.length;a+=16){let h=r,p=i,b=n,_=o;r=$t(r,i,n,o,e[a],7,-680876936),o=$t(o,r,i,n,e[a+1],12,-389564586),n=$t(n,o,r,i,e[a+2],17,606105819),i=$t(i,n,o,r,e[a+3],22,-1044525330),r=$t(r,i,n,o,e[a+4],7,-176418897),o=$t(o,r,i,n,e[a+5],12,1200080426),n=$t(n,o,r,i,e[a+6],17,-1473231341),i=$t(i,n,o,r,e[a+7],22,-45705983),r=$t(r,i,n,o,e[a+8],7,1770035416),o=$t(o,r,i,n,e[a+9],12,-1958414417),n=$t(n,o,r,i,e[a+10],17,-42063),i=$t(i,n,o,r,e[a+11],22,-1990404162),r=$t(r,i,n,o,e[a+12],7,1804603682),o=$t(o,r,i,n,e[a+13],12,-40341101),n=$t(n,o,r,i,e[a+14],17,-1502002290),i=$t(i,n,o,r,e[a+15],22,1236535329),r=zt(r,i,n,o,e[a+1],5,-165796510),o=zt(o,r,i,n,e[a+6],9,-1069501632),n=zt(n,o,r,i,e[a+11],14,643717713),i=zt(i,n,o,r,e[a],20,-373897302),r=zt(r,i,n,o,e[a+5],5,-701558691),o=zt(o,r,i,n,e[a+10],9,38016083),n=zt(n,o,r,i,e[a+15],14,-660478335),i=zt(i,n,o,r,e[a+4],20,-405537848),r=zt(r,i,n,o,e[a+9],5,568446438),o=zt(o,r,i,n,e[a+14],9,-1019803690),n=zt(n,o,r,i,e[a+3],14,-187363961),i=zt(i,n,o,r,e[a+8],20,1163531501),r=zt(r,i,n,o,e[a+13],5,-1444681467),o=zt(o,r,i,n,e[a+2],9,-51403784),n=zt(n,o,r,i,e[a+7],14,1735328473),i=zt(i,n,o,r,e[a+12],20,-1926607734),r=Kt(r,i,n,o,e[a+5],4,-378558),o=Kt(o,r,i,n,e[a+8],11,-2022574463),n=Kt(n,o,r,i,e[a+11],16,1839030562),i=Kt(i,n,o,r,e[a+14],23,-35309556),r=Kt(r,i,n,o,e[a+1],4,-1530992060),o=Kt(o,r,i,n,e[a+4],11,1272893353),n=Kt(n,o,r,i,e[a+7],16,-155497632),i=Kt(i,n,o,r,e[a+10],23,-1094730640),r=Kt(r,i,n,o,e[a+13],4,681279174),o=Kt(o,r,i,n,e[a],11,-358537222),n=Kt(n,o,r,i,e[a+3],16,-722521979),i=Kt(i,n,o,r,e[a+6],23,76029189),r=Kt(r,i,n,o,e[a+9],4,-640364487),o=Kt(o,r,i,n,e[a+12],11,-421815835),n=Kt(n,o,r,i,e[a+15],16,530742520),i=Kt(i,n,o,r,e[a+2],23,-995338651),r=Vt(r,i,n,o,e[a],6,-198630844),o=Vt(o,r,i,n,e[a+7],10,1126891415),n=Vt(n,o,r,i,e[a+14],15,-1416354905),i=Vt(i,n,o,r,e[a+5],21,-57434055),r=Vt(r,i,n,o,e[a+12],6,1700485571),o=Vt(o,r,i,n,e[a+3],10,-1894986606),n=Vt(n,o,r,i,e[a+10],15,-1051523),i=Vt(i,n,o,r,e[a+1],21,-2054922799),r=Vt(r,i,n,o,e[a+8],6,1873313359),o=Vt(o,r,i,n,e[a+15],10,-30611744),n=Vt(n,o,r,i,e[a+6],15,-1560198380),i=Vt(i,n,o,r,e[a+13],21,1309151649),r=Vt(r,i,n,o,e[a+4],6,-145523070),o=Vt(o,r,i,n,e[a+11],10,-1120210379),n=Vt(n,o,r,i,e[a+2],15,718787259),i=Vt(i,n,o,r,e[a+9],21,-343485551),r=sn(r,h),i=sn(i,p),n=sn(n,b),o=sn(o,_)}return[r,i,n,o]}function Nd(e){if(e.length===0)return[];let t=e.length*8,r=new Uint32Array(tc(t));for(let i=0;i<t;i+=8)r[i>>5]|=(e[i/8]&255)<<i%32;return r}function sn(e,t){let r=(e&65535)+(t&65535);return(e>>16)+(t>>16)+(r>>16)<<16|r&65535}function kd(e,t){return e<<t|e>>>32-t}function uo(e,t,r,i,n,o){return sn(kd(sn(sn(t,e),sn(i,o)),n),r)}function $t(e,t,r,i,n,o,a){return uo(t&r|~t&i,e,t,n,o,a)}function zt(e,t,r,i,n,o,a){return uo(t&i|r&~i,e,t,n,o,a)}function Kt(e,t,r,i,n,o,a){return uo(t^r^i,e,t,n,o,a)}function Vt(e,t,r,i,n,o,a){return uo(r^(t|~i),e,t,n,o,a)}var Ud=Od;lo.default=Ud});var ic=Ae(ho=>{"use strict";Object.defineProperty(ho,"__esModule",{value:!0});ho.default=void 0;var Ld=nc(Zs()),Dd=nc(rc());function nc(e){return e&&e.__esModule?e:{default:e}}var Wd=(0,Ld.default)("v3",48,Dd.default),Fd=Wd;ho.default=Fd});var sc=Ae(po=>{"use strict";Object.defineProperty(po,"__esModule",{value:!0});po.default=void 0;var qd=oc($s()),Hd=oc(gi());function oc(e){return e&&e.__esModule?e:{default:e}}function $d(e,t,r){e=e||{};let i=e.random||(e.rng||qd.default)();if(i[6]=i[6]&15|64,i[8]=i[8]&63|128,t){r=r||0;for(let n=0;n<16;++n)t[r+n]=i[n];return t}return(0,Hd.default)(i)}var zd=$d;po.default=zd});var ac=Ae(yo=>{"use strict";Object.defineProperty(yo,"__esModule",{value:!0});yo.default=void 0;function Kd(e,t,r,i){switch(e){case 0:return t&r^~t&i;case 1:return t^r^i;case 2:return t&r^t&i^r&i;case 3:return t^r^i}}function Ys(e,t){return e<<t|e>>>32-t}function Vd(e){let t=[1518500249,1859775393,2400959708,3395469782],r=[1732584193,4023233417,2562383102,271733878,3285377520];if(typeof e=="string"){let a=unescape(encodeURIComponent(e));e=[];for(let h=0;h<a.length;++h)e.push(a.charCodeAt(h))}else Array.isArray(e)||(e=Array.prototype.slice.call(e));e.push(128);let i=e.length/4+2,n=Math.ceil(i/16),o=new Array(n);for(let a=0;a<n;++a){let h=new Uint32Array(16);for(let p=0;p<16;++p)h[p]=e[a*64+p*4]<<24|e[a*64+p*4+1]<<16|e[a*64+p*4+2]<<8|e[a*64+p*4+3];o[a]=h}o[n-1][14]=(e.length-1)*8/Math.pow(2,32),o[n-1][14]=Math.floor(o[n-1][14]),o[n-1][15]=(e.length-1)*8&4294967295;for(let a=0;a<n;++a){let h=new Uint32Array(80);for(let k=0;k<16;++k)h[k]=o[a][k];for(let k=16;k<80;++k)h[k]=Ys(h[k-3]^h[k-8]^h[k-14]^h[k-16],1);let p=r[0],b=r[1],_=r[2],I=r[3],P=r[4];for(let k=0;k<80;++k){let K=Math.floor(k/20),re=Ys(p,5)+Kd(K,b,_,I)+P+t[K]+h[k]>>>0;P=I,I=_,_=Ys(b,30)>>>0,b=p,p=re}r[0]=r[0]+p>>>0,r[1]=r[1]+b>>>0,r[2]=r[2]+_>>>0,r[3]=r[3]+I>>>0,r[4]=r[4]+P>>>0}return[r[0]>>24&255,r[0]>>16&255,r[0]>>8&255,r[0]&255,r[1]>>24&255,r[1]>>16&255,r[1]>>8&255,r[1]&255,r[2]>>24&255,r[2]>>16&255,r[2]>>8&255,r[2]&255,r[3]>>24&255,r[3]>>16&255,r[3]>>8&255,r[3]&255,r[4]>>24&255,r[4]>>16&255,r[4]>>8&255,r[4]&255]}var Gd=Vd;yo.default=Gd});var cc=Ae(go=>{"use strict";Object.defineProperty(go,"__esModule",{value:!0});go.default=void 0;var Zd=fc(Zs()),Yd=fc(ac());function fc(e){return e&&e.__esModule?e:{default:e}}var Jd=(0,Zd.default)("v5",80,Yd.default),Xd=Jd;go.default=Xd});var uc=Ae(mo=>{"use strict";Object.defineProperty(mo,"__esModule",{value:!0});mo.default=void 0;var Qd="00000000-0000-0000-0000-000000000000";mo.default=Qd});var lc=Ae(wo=>{"use strict";Object.defineProperty(wo,"__esModule",{value:!0});wo.default=void 0;var jd=ep(yi());function ep(e){return e&&e.__esModule?e:{default:e}}function tp(e){if(!(0,jd.default)(e))throw TypeError("Invalid UUID");return parseInt(e.substr(14,1),16)}var rp=tp;wo.default=rp});var Js=Ae(xr=>{"use strict";Object.defineProperty(xr,"__esModule",{value:!0});Object.defineProperty(xr,"v1",{enumerable:!0,get:function(){return np.default}});Object.defineProperty(xr,"v3",{enumerable:!0,get:function(){return ip.default}});Object.defineProperty(xr,"v4",{enumerable:!0,get:function(){return op.default}});Object.defineProperty(xr,"v5",{enumerable:!0,get:function(){return sp.default}});Object.defineProperty(xr,"NIL",{enumerable:!0,get:function(){return ap.default}});Object.defineProperty(xr,"version",{enumerable:!0,get:function(){return fp.default}});Object.defineProperty(xr,"validate",{enumerable:!0,get:function(){return cp.default}});Object.defineProperty(xr,"stringify",{enumerable:!0,get:function(){return up.default}});Object.defineProperty(xr,"parse",{enumerable:!0,get:function(){return lp.default}});var np=Kr(Xf()),ip=Kr(ic()),op=Kr(sc()),sp=Kr(cc()),ap=Kr(uc()),fp=Kr(lc()),cp=Kr(yi()),up=Kr(gi()),lp=Kr(Gs());function Kr(e){return e&&e.__esModule?e:{default:e}}});var dc=Ae((Vm,hc)=>{"use strict";var hp=Js().v4,dp=function(e,t,r,i){if(typeof e!="string")throw new TypeError(e+" must be a string");i=i||{};let n=typeof i.version=="number"?i.version:2;if(n!==1&&n!==2)throw new TypeError(n+" must be 1 or 2");let o={method:e};if(n===2&&(o.jsonrpc="2.0"),t){if(typeof t!="object"&&!Array.isArray(t))throw new TypeError(t+" must be an object, array or omitted");o.params=t}if(typeof r=="undefined"){let a=typeof i.generator=="function"?i.generator:function(){return hp()};o.id=a(o,i)}else n===2&&r===null?i.notificationIdNull&&(o.id=null):o.id=r;return o};hc.exports=dp});var yc=Ae((Gm,pc)=>{"use strict";var pp=Js().v4,yp=dc(),mi=function(e,t){if(!(this instanceof mi))return new mi(e,t);t||(t={}),this.options={reviver:typeof t.reviver!="undefined"?t.reviver:null,replacer:typeof t.replacer!="undefined"?t.replacer:null,generator:typeof t.generator!="undefined"?t.generator:function(){return pp()},version:typeof t.version!="undefined"?t.version:2,notificationIdNull:typeof t.notificationIdNull=="boolean"?t.notificationIdNull:!1},this.callServer=e};pc.exports=mi;mi.prototype.request=function(e,t,r,i){let n=this,o=null,a=Array.isArray(e)&&typeof t=="function";if(this.options.version===1&&a)throw new TypeError("JSON-RPC 1.0 does not support batching");let h=!a&&e&&typeof e=="object"&&typeof t=="function";if(a||h)i=t,o=e;else{typeof r=="function"&&(i=r,r=void 0);let b=typeof i=="function";try{o=yp(e,t,r,{generator:this.options.generator,version:this.options.version,notificationIdNull:this.options.notificationIdNull})}catch(_){if(b)return i(_);throw _}if(!b)return o}let p;try{p=JSON.stringify(o,this.options.replacer)}catch(b){return i(b)}return this.callServer(p,function(b,_){n._parseResponse(b,_,i)}),o};mi.prototype._parseResponse=function(e,t,r){if(e){r(e);return}if(!t)return r();let i;try{i=JSON.parse(t,this.options.reviver)}catch(n){return r(n)}if(r.length===3)if(Array.isArray(i)){let n=function(a){return typeof a.error!="undefined"},o=function(a){return!n(a)};return r(null,i.filter(n),i.filter(o))}else return r(null,i.error,i.result);r(null,i)}});var Xs=Ae((Vr,mc)=>{var gc=typeof self!="undefined"?self:Vr,vo=function(){function e(){this.fetch=!1,this.DOMException=gc.DOMException}return e.prototype=gc,new e}();(function(e){var t=function(r){var i={searchParams:"URLSearchParams"in e,iterable:"Symbol"in e&&"iterator"in Symbol,blob:"FileReader"in e&&"Blob"in e&&function(){try{return new Blob,!0}catch(B){return!1}}(),formData:"FormData"in e,arrayBuffer:"ArrayBuffer"in e};function n(B){return B&&DataView.prototype.isPrototypeOf(B)}if(i.arrayBuffer)var o=["[object Int8Array]","[object Uint8Array]","[object Uint8ClampedArray]","[object Int16Array]","[object Uint16Array]","[object Int32Array]","[object Uint32Array]","[object Float32Array]","[object Float64Array]"],a=ArrayBuffer.isView||function(B){return B&&o.indexOf(Object.prototype.toString.call(B))>-1};function h(B){if(typeof B!="string"&&(B=String(B)),/[^a-z0-9\-#$%&'*+.^_`|~]/i.test(B))throw new TypeError("Invalid character in header field name");return B.toLowerCase()}function p(B){return typeof B!="string"&&(B=String(B)),B}function b(B){var O={next:function(){var z=B.shift();return{done:z===void 0,value:z}}};return i.iterable&&(O[Symbol.iterator]=function(){return O}),O}function _(B){this.map={},B instanceof _?B.forEach(function(O,z){this.append(z,O)},this):Array.isArray(B)?B.forEach(function(O){this.append(O[0],O[1])},this):B&&Object.getOwnPropertyNames(B).forEach(function(O){this.append(O,B[O])},this)}_.prototype.append=function(B,O){B=h(B),O=p(O);var z=this.map[B];this.map[B]=z?z+", "+O:O},_.prototype.delete=function(B){delete this.map[h(B)]},_.prototype.get=function(B){return B=h(B),this.has(B)?this.map[B]:null},_.prototype.has=function(B){return this.map.hasOwnProperty(h(B))},_.prototype.set=function(B,O){this.map[h(B)]=p(O)},_.prototype.forEach=function(B,O){for(var z in this.map)this.map.hasOwnProperty(z)&&B.call(O,this.map[z],z,this)},_.prototype.keys=function(){var B=[];return this.forEach(function(O,z){B.push(z)}),b(B)},_.prototype.values=function(){var B=[];return this.forEach(function(O){B.push(O)}),b(B)},_.prototype.entries=function(){var B=[];return this.forEach(function(O,z){B.push([z,O])}),b(B)},i.iterable&&(_.prototype[Symbol.iterator]=_.prototype.entries);function I(B){if(B.bodyUsed)return Promise.reject(new TypeError("Already read"));B.bodyUsed=!0}function P(B){return new Promise(function(O,z){B.onload=function(){O(B.result)},B.onerror=function(){z(B.error)}})}function k(B){var O=new FileReader,z=P(O);return O.readAsArrayBuffer(B),z}function K(B){var O=new FileReader,z=P(O);return O.readAsText(B),z}function re(B){for(var O=new Uint8Array(B),z=new Array(O.length),E=0;E<O.length;E++)z[E]=String.fromCharCode(O[E]);return z.join("")}function ne(B){if(B.slice)return B.slice(0);var O=new Uint8Array(B.byteLength);return O.set(new Uint8Array(B)),O.buffer}function Y(){return this.bodyUsed=!1,this._initBody=function(B){this._bodyInit=B,B?typeof B=="string"?this._bodyText=B:i.blob&&Blob.prototype.isPrototypeOf(B)?this._bodyBlob=B:i.formData&&FormData.prototype.isPrototypeOf(B)?this._bodyFormData=B:i.searchParams&&URLSearchParams.prototype.isPrototypeOf(B)?this._bodyText=B.toString():i.arrayBuffer&&i.blob&&n(B)?(this._bodyArrayBuffer=ne(B.buffer),this._bodyInit=new Blob([this._bodyArrayBuffer])):i.arrayBuffer&&(ArrayBuffer.prototype.isPrototypeOf(B)||a(B))?this._bodyArrayBuffer=ne(B):this._bodyText=B=Object.prototype.toString.call(B):this._bodyText="",this.headers.get("content-type")||(typeof B=="string"?this.headers.set("content-type","text/plain;charset=UTF-8"):this._bodyBlob&&this._bodyBlob.type?this.headers.set("content-type",this._bodyBlob.type):i.searchParams&&URLSearchParams.prototype.isPrototypeOf(B)&&this.headers.set("content-type","application/x-www-form-urlencoded;charset=UTF-8"))},i.blob&&(this.blob=function(){var B=I(this);if(B)return B;if(this._bodyBlob)return Promise.resolve(this._bodyBlob);if(this._bodyArrayBuffer)return Promise.resolve(new Blob([this._bodyArrayBuffer]));if(this._bodyFormData)throw new Error("could not read FormData body as blob");return Promise.resolve(new Blob([this._bodyText]))},this.arrayBuffer=function(){return this._bodyArrayBuffer?I(this)||Promise.resolve(this._bodyArrayBuffer):this.blob().then(k)}),this.text=function(){var B=I(this);if(B)return B;if(this._bodyBlob)return K(this._bodyBlob);if(this._bodyArrayBuffer)return Promise.resolve(re(this._bodyArrayBuffer));if(this._bodyFormData)throw new Error("could not read FormData body as text");return Promise.resolve(this._bodyText)},i.formData&&(this.formData=function(){return this.text().then(be)}),this.json=function(){return this.text().then(JSON.parse)},this}var ie=["DELETE","GET","HEAD","OPTIONS","POST","PUT"];function ee(B){var O=B.toUpperCase();return ie.indexOf(O)>-1?O:B}function ge(B,O){O=O||{};var z=O.body;if(B instanceof ge){if(B.bodyUsed)throw new TypeError("Already read");this.url=B.url,this.credentials=B.credentials,O.headers||(this.headers=new _(B.headers)),this.method=B.method,this.mode=B.mode,this.signal=B.signal,!z&&B._bodyInit!=null&&(z=B._bodyInit,B.bodyUsed=!0)}else this.url=String(B);if(this.credentials=O.credentials||this.credentials||"same-origin",(O.headers||!this.headers)&&(this.headers=new _(O.headers)),this.method=ee(O.method||this.method||"GET"),this.mode=O.mode||this.mode||null,this.signal=O.signal||this.signal,this.referrer=null,(this.method==="GET"||this.method==="HEAD")&&z)throw new TypeError("Body not allowed for GET or HEAD requests");this._initBody(z)}ge.prototype.clone=function(){return new ge(this,{body:this._bodyInit})};function be(B){var O=new FormData;return B.trim().split("&").forEach(function(z){if(z){var E=z.split("="),s=E.shift().replace(/\+/g," "),u=E.join("=").replace(/\+/g," ");O.append(decodeURIComponent(s),decodeURIComponent(u))}}),O}function Ee(B){var O=new _,z=B.replace(/\r?\n[\t ]+/g," ");return z.split(/\r?\n/).forEach(function(E){var s=E.split(":"),u=s.shift().trim();if(u){var y=s.join(":").trim();O.append(u,y)}}),O}Y.call(ge.prototype);function Re(B,O){O||(O={}),this.type="default",this.status=O.status===void 0?200:O.status,this.ok=this.status>=200&&this.status<300,this.statusText="statusText"in O?O.statusText:"OK",this.headers=new _(O.headers),this.url=O.url||"",this._initBody(B)}Y.call(Re.prototype),Re.prototype.clone=function(){return new Re(this._bodyInit,{status:this.status,statusText:this.statusText,headers:new _(this.headers),url:this.url})},Re.error=function(){var B=new Re(null,{status:0,statusText:""});return B.type="error",B};var ze=[301,302,303,307,308];Re.redirect=function(B,O){if(ze.indexOf(O)===-1)throw new RangeError("Invalid status code");return new Re(null,{status:O,headers:{location:B}})},r.DOMException=e.DOMException;try{new r.DOMException}catch(B){r.DOMException=function(O,z){this.message=O,this.name=z;var E=Error(O);this.stack=E.stack},r.DOMException.prototype=Object.create(Error.prototype),r.DOMException.prototype.constructor=r.DOMException}function Ve(B,O){return new Promise(function(z,E){var s=new ge(B,O);if(s.signal&&s.signal.aborted)return E(new r.DOMException("Aborted","AbortError"));var u=new XMLHttpRequest;function y(){u.abort()}u.onload=function(){var w={status:u.status,statusText:u.statusText,headers:Ee(u.getAllResponseHeaders()||"")};w.url="responseURL"in u?u.responseURL:w.headers.get("X-Request-URL");var A="response"in u?u.response:u.responseText;z(new Re(A,w))},u.onerror=function(){E(new TypeError("Network request failed"))},u.ontimeout=function(){E(new TypeError("Network request failed"))},u.onabort=function(){E(new r.DOMException("Aborted","AbortError"))},u.open(s.method,s.url,!0),s.credentials==="include"?u.withCredentials=!0:s.credentials==="omit"&&(u.withCredentials=!1),"responseType"in u&&i.blob&&(u.responseType="blob"),s.headers.forEach(function(w,A){u.setRequestHeader(A,w)}),s.signal&&(s.signal.addEventListener("abort",y),u.onreadystatechange=function(){u.readyState===4&&s.signal.removeEventListener("abort",y)}),u.send(typeof s._bodyInit=="undefined"?null:s._bodyInit)})}return Ve.polyfill=!0,e.fetch||(e.fetch=Ve,e.Headers=_,e.Request=ge,e.Response=Re),r.Headers=_,r.Request=ge,r.Response=Re,r.fetch=Ve,Object.defineProperty(r,"__esModule",{value:!0}),r}({})})(vo);vo.fetch.ponyfill=!0;delete vo.fetch.polyfill;var $n=vo;Vr=$n.fetch;Vr.default=$n.fetch;Vr.fetch=$n.fetch;Vr.Headers=$n.Headers;Vr.Request=$n.Request;Vr.Response=$n.Response;mc.exports=Vr});var vc=Ae((xo,wc)=>{(function(e,t){typeof xo=="object"&&typeof wc!="undefined"?t(xo):typeof define=="function"&&define.amd?define(["exports"],t):t((e=typeof globalThis!="undefined"?globalThis:e||self).LosslessJSON={})})(xo,function(e){"use strict";var t=!0;function r(T){return T&&T.circularRefs!==void 0&&T.circularRefs!==null&&(t=T.circularRefs===!0),{circularRefs:t}}function i(T){return(i=typeof Symbol=="function"&&typeof Symbol.iterator=="symbol"?function(x){return typeof x}:function(x){return x&&typeof Symbol=="function"&&x.constructor===Symbol&&x!==Symbol.prototype?"symbol":typeof x})(T)}function n(T,x){for(var c=0;c<x.length;c++){var S=x[c];S.enumerable=S.enumerable||!1,S.configurable=!0,"value"in S&&(S.writable=!0),Object.defineProperty(T,S.key,S)}}var o=function(){function T(W){(function(d,R){if(!(d instanceof R))throw new TypeError("Cannot call a class as a function")})(this,T),this.value=function d(R){{if(typeof R=="string"){if(!h(R))throw new Error('Invalid number (value: "'+R+'")');return R}if(typeof R!="number")return d(R&&R.valueOf());if(15<a(R+"").length)throw new Error("Invalid number: contains more than 15 digits (value: "+R+")");if(isNaN(R))throw new Error("Invalid number: NaN");if(!isFinite(R))throw new Error("Invalid number: Infinity");return R+""}}(W),this.type="LosslessNumber",this.isLosslessNumber=!0}var x,c,S;return x=T,(c=[{key:"valueOf",value:function(){var W=parseFloat(this.value),d=a(this.value);if(15<d.length)throw new Error("Cannot convert to number: number would be truncated (value: "+this.value+")");if(!isFinite(W))throw new Error("Cannot convert to number: number would overflow (value: "+this.value+")");if(Math.abs(W)<Number.MIN_VALUE&&!/^0*$/.test(d))throw new Error("Cannot convert to number: number would underflow (value: "+this.value+")");return W}},{key:"toString",value:function(){return this.value}}])&&n(x.prototype,c),S&&n(x,S),T}();function a(T){return(typeof T!="string"?T+"":T).replace(/^-/,"").replace(/e.*$/,"").replace(/^0\.?0*|\./,"")}function h(T){return/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(T)}function p(T,x,c,S){return Array.isArray(c)?S.call(T,x,function(W,d){for(var R=[],L=0;L<W.length;L++)R[L]=p(W,L+"",W[L],d);return R}(c,S)):c&&i(c)==="object"&&!c.isLosslessNumber?S.call(T,x,function(W,d){var R,L={};for(R in W)W.hasOwnProperty(R)&&(L[R]=p(W,R,W[R],d));return L}(c,S)):S.call(T,x,c)}function b(T){return encodeURIComponent(T.replace(/\//g,"~1").replace(/~/g,"~0"))}function _(T){return decodeURIComponent(T).replace(/~1/g,"/").replace(/~0/g,"~")}function I(T){return"#/"+T.map(b).join("/")}var P={NULL:0,DELIMITER:1,NUMBER:2,STRING:3,SYMBOL:4,UNKNOWN:5},k={"":!0,"{":!0,"}":!0,"[":!0,"]":!0,":":!0,",":!0},K={'"':'"',"\\":"\\","/":"/",b:"\b",f:"\f",n:`
-`,r:"\r",t:"	"},re="",ne=0,Y="",ie="",ee=P.NULL,ge=[],be=[];function Ee(){ne++,Y=re.charAt(ne)}function Re(){for(ee=P.NULL,ie="";Y===" "||Y==="	"||Y===`
-`||Y==="\r";)Ee();if(k[Y])return ee=P.DELIMITER,ie=Y,void Ee();if(Ve(Y)||Y==="-"){if(ee=P.NUMBER,Y==="-"){if(ie+=Y,Ee(),!Ve(Y))throw B("Invalid number, digit expected",ne)}else Y==="0"&&(ie+=Y,Ee());for(;Ve(Y);)ie+=Y,Ee();if(Y==="."){if(ie+=Y,Ee(),!Ve(Y))throw B("Invalid number, digit expected",ne);for(;Ve(Y);)ie+=Y,Ee()}if(Y==="e"||Y==="E"){if(ie+=Y,Ee(),Y!=="+"&&Y!=="-"||(ie+=Y,Ee()),!Ve(Y))throw B("Invalid number, digit expected",ne);for(;Ve(Y);)ie+=Y,Ee()}}else if(Y!=='"'){if(!ze(Y)){for(ee=P.UNKNOWN;Y!=="";)ie+=Y,Ee();throw B('Syntax error in part "'+ie+'"')}for(ee=P.SYMBOL;ze(Y);)ie+=Y,Ee()}else{for(ee=P.STRING,Ee();Y!==""&&Y!=='"';)if(Y==="\\"){Ee();var T=K[Y];if(T!==void 0)ie+=T,Ee();else{if(Y!=="u")throw B('Invalid escape character "\\'+Y+'"',ne);Ee();for(var x="",c=0;c<4;c++){if(!/^[0-9a-fA-F]/.test(Y))throw B("Invalid unicode character");x+=Y,Ee()}ie+=String.fromCharCode(parseInt(x,16))}}else ie+=Y,Ee();if(Y!=='"')throw B("End of string expected");Ee()}}function ze(T){return/^[a-zA-Z_]/.test(T)}function Ve(T){return"0"<=T&&T<="9"}function B(T,x){return x===void 0&&(x=ne-ie.length),T=new SyntaxError(T+" (char "+x+")"),T.char=x,T}function O(){if(ee!==P.DELIMITER||ie!=="{")return function(){if(ee!==P.DELIMITER||ie!=="[")return function(){if(ee!==P.STRING)return function(){if(ee!==P.NUMBER)return function(){if(ee!==P.SYMBOL)return function(){throw B(ie===""?"Unexpected end of json string":"Value expected")}();if(ie==="true")return Re(),!0;if(ie==="false")return Re(),!1;if(ie!=="null")throw B('Unknown symbol "'+ie+'"');return Re(),null}();var L=new o(ie);return Re(),L}();var R=ie;return Re(),R}();Re();var W=[];if(ee===P.DELIMITER&&ie==="]")return Re(),W;var d=be.length;for(be[d]=W;ge[d]=W.length+"",W.push(O()),ee===P.DELIMITER&&ie===",";)Re();if(ee===P.DELIMITER&&ie==="]")return Re(),be.length=d,ge.length=d,W;throw B('Comma or end of array "]" expected')}();var T,x;Re();var c={};if(ee===P.DELIMITER&&ie==="}")return Re(),c;var S=be.length;for(be[S]=c;;){if(ee!==P.STRING)throw B("Object key expected");if(x=ie,Re(),ee!==P.DELIMITER||ie!==":")throw B("Colon expected");if(Re(),c[ge[S]=x]=O(),ee!==P.DELIMITER||ie!==",")break;Re()}if(ee!==P.DELIMITER||ie!=="}")throw B('Comma or end of object "}" expected');return Re(),typeof(T=c).$ref=="string"&&Object.keys(T).length===1?function(W){if(!r().circularRefs)return W;for(var d=function(L){if((L=L.split("/").map(_)).shift()!=="#")throw SyntaxError("Cannot parse JSON Pointer: no valid URI fragment");return L[L.length-1]===""&&L.pop(),L}(W.$ref),R=0;R<d.length;R++)if(d[R]!==ge[R])throw new Error('Invalid circular reference "'+W.$ref+'"');return be[d.length]}(c):(be.length=S,ge.length=S,c)}var z=[],E=[];function s(T,x,c){E=[],z=[];var S,T=typeof x=="function"?x.call({"":T},"",T):T;return typeof c=="number"?10<c?S=C(" ",10):1<=c&&(S=C(" ",c)):typeof c=="string"&&c!==""&&(S=c),u(T,x,S,"")}function u(T,x,c,S){return typeof T=="boolean"||T instanceof Boolean||T===null||typeof T=="number"||T instanceof Number||typeof T=="string"||T instanceof String||T instanceof Date?JSON.stringify(T):T&&T.isLosslessNumber?T.value:Array.isArray(T)?function(W,d,R,L){var $=R?L+R:void 0,X=R?`[
-`:"[";if(w(W))return A(W,d,R,L);var le=E.length;E[le]=W;for(var te=0;te<W.length;te++){var oe=te+"",je=typeof d=="function"?d.call(W,oe,W[te]):W[te];R&&(X+=$),je!==void 0&&typeof je!="function"?(z[le]=oe,X+=u(je,d,R,$)):X+="null",te<W.length-1&&(X+=R?`,
-`:",")}return E.length=le,z.length=le,X+=R?`
-`+L+"]":"]"}(T,x,c,S):T&&i(T)==="object"?y(T,x,c,S):void 0}function y(T,x,c,S){var W=c?S+c:void 0,d=!0,R=c?`{
-`:"{";if(typeof T.toJSON=="function")return s(T.toJSON(),x,c);if(w(T))return A(T,x,c,S);var L,$,X,le,te,oe=E.length;for(L in E[oe]=T)T.hasOwnProperty(L)&&($=typeof x=="function"?x.call(T,L,T[L]):T[L],X=L,te=x,(le=$)===void 0||typeof le=="function"||Array.isArray(te)&&!function(je,he){for(var Ne=0;Ne<je.length;Ne++)if(je[Ne]==he)return!0;return!1}(te,X)||(d?d=!1:R+=c?`,
-`:",",X=JSON.stringify(L),R+=c?W+X+": ":X+":",z[oe]=L,R+=u($,x,c,W)));return E.length=oe,z.length=oe,R+=c?`
-`+S+"}":"}"}function w(T){return E.indexOf(T)!==-1}function A(T,x,c,S){if(!r().circularRefs)throw new Error('Circular reference at "'+I(z)+'"');return T=E.indexOf(T),y({$ref:I(z.slice(0,T))},x,c,S)}function C(T,x){for(var c="";0<x--;)c+=T;return c}e.LosslessNumber=o,e.config=r,e.parse=function(T,x){ne=0,Y=(re=T).charAt(0),ie="",ee=P.NULL,be=[],ge=[],Re();var c=O();if(ie!=="")throw B("Unexpected characters");return x?p({"":T=c},"",T,x):c},e.stringify=s,Object.defineProperty(e,"__esModule",{value:!0})})});var Eo=Ae((Ym,wi)=>{function bp(e){return e&&e.__esModule?e:{default:e}}wi.exports=bp,wi.exports.__esModule=!0,wi.exports.default=wi.exports});var _o=Ae((Jm,vi)=>{function Ac(e,t){for(var r=0;r<t.length;r++){var i=t[r];i.enumerable=i.enumerable||!1,i.configurable=!0,"value"in i&&(i.writable=!0),Object.defineProperty(e,i.key,i)}}function Ep(e,t,r){return t&&Ac(e.prototype,t),r&&Ac(e,r),Object.defineProperty(e,"prototype",{writable:!1}),e}vi.exports=Ep,vi.exports.__esModule=!0,vi.exports.default=vi.exports});var So=Ae((Xm,xi)=>{function _p(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}xi.exports=_p,xi.exports.__esModule=!0,xi.exports.default=xi.exports});var Tc=Ae((Qm,Gr)=>{function ta(e,t){return Gr.exports=ta=Object.setPrototypeOf?Object.setPrototypeOf.bind():function(i,n){return i.__proto__=n,i},Gr.exports.__esModule=!0,Gr.exports.default=Gr.exports,ta(e,t)}Gr.exports=ta,Gr.exports.__esModule=!0,Gr.exports.default=Gr.exports});var Ao=Ae((jm,bi)=>{var Sp=Tc();function Ap(e,t){if(typeof t!="function"&&t!==null)throw new TypeError("Super expression must either be null or a function");e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,writable:!0,configurable:!0}}),Object.defineProperty(e,"prototype",{writable:!1}),t&&Sp(e,t)}bi.exports=Ap,bi.exports.__esModule=!0,bi.exports.default=bi.exports});var To=Ae((e2,Zr)=>{function ra(e){return Zr.exports=ra=typeof Symbol=="function"&&typeof Symbol.iterator=="symbol"?function(t){return typeof t}:function(t){return t&&typeof Symbol=="function"&&t.constructor===Symbol&&t!==Symbol.prototype?"symbol":typeof t},Zr.exports.__esModule=!0,Zr.exports.default=Zr.exports,ra(e)}Zr.exports=ra,Zr.exports.__esModule=!0,Zr.exports.default=Zr.exports});var Cc=Ae((t2,Ei)=>{function Tp(e){if(e===void 0)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return e}Ei.exports=Tp,Ei.exports.__esModule=!0,Ei.exports.default=Ei.exports});var Co=Ae((r2,_i)=>{var Cp=To().default,Mp=Cc();function Bp(e,t){if(t&&(Cp(t)==="object"||typeof t=="function"))return t;if(t!==void 0)throw new TypeError("Derived constructors may only return object or undefined");return Mp(e)}_i.exports=Bp,_i.exports.__esModule=!0,_i.exports.default=_i.exports});var Mo=Ae((n2,Yr)=>{function na(e){return Yr.exports=na=Object.setPrototypeOf?Object.getPrototypeOf.bind():function(r){return r.__proto__||Object.getPrototypeOf(r)},Yr.exports.__esModule=!0,Yr.exports.default=Yr.exports,na(e)}Yr.exports=na,Yr.exports.__esModule=!0,Yr.exports.default=Yr.exports});var oa=Ae((i2,ia)=>{"use strict";var Ip=Object.prototype.hasOwnProperty,Xt="~";function Si(){}Object.create&&(Si.prototype=Object.create(null),new Si().__proto__||(Xt=!1));function Op(e,t,r){this.fn=e,this.context=t,this.once=r||!1}function Mc(e,t,r,i,n){if(typeof r!="function")throw new TypeError("The listener must be a function");var o=new Op(r,i||e,n),a=Xt?Xt+t:t;return e._events[a]?e._events[a].fn?e._events[a]=[e._events[a],o]:e._events[a].push(o):(e._events[a]=o,e._eventsCount++),e}function Bo(e,t){--e._eventsCount==0?e._events=new Si:delete e._events[t]}function Gt(){this._events=new Si,this._eventsCount=0}Gt.prototype.eventNames=function(){var t=[],r,i;if(this._eventsCount===0)return t;for(i in r=this._events)Ip.call(r,i)&&t.push(Xt?i.slice(1):i);return Object.getOwnPropertySymbols?t.concat(Object.getOwnPropertySymbols(r)):t};Gt.prototype.listeners=function(t){var r=Xt?Xt+t:t,i=this._events[r];if(!i)return[];if(i.fn)return[i.fn];for(var n=0,o=i.length,a=new Array(o);n<o;n++)a[n]=i[n].fn;return a};Gt.prototype.listenerCount=function(t){var r=Xt?Xt+t:t,i=this._events[r];return i?i.fn?1:i.length:0};Gt.prototype.emit=function(t,r,i,n,o,a){var h=Xt?Xt+t:t;if(!this._events[h])return!1;var p=this._events[h],b=arguments.length,_,I;if(p.fn){switch(p.once&&this.removeListener(t,p.fn,void 0,!0),b){case 1:return p.fn.call(p.context),!0;case 2:return p.fn.call(p.context,r),!0;case 3:return p.fn.call(p.context,r,i),!0;case 4:return p.fn.call(p.context,r,i,n),!0;case 5:return p.fn.call(p.context,r,i,n,o),!0;case 6:return p.fn.call(p.context,r,i,n,o,a),!0}for(I=1,_=new Array(b-1);I<b;I++)_[I-1]=arguments[I];p.fn.apply(p.context,_)}else{var P=p.length,k;for(I=0;I<P;I++)switch(p[I].once&&this.removeListener(t,p[I].fn,void 0,!0),b){case 1:p[I].fn.call(p[I].context);break;case 2:p[I].fn.call(p[I].context,r);break;case 3:p[I].fn.call(p[I].context,r,i);break;case 4:p[I].fn.call(p[I].context,r,i,n);break;default:if(!_)for(k=1,_=new Array(b-1);k<b;k++)_[k-1]=arguments[k];p[I].fn.apply(p[I].context,_)}}return!0};Gt.prototype.on=function(t,r,i){return Mc(this,t,r,i,!1)};Gt.prototype.once=function(t,r,i){return Mc(this,t,r,i,!0)};Gt.prototype.removeListener=function(t,r,i,n){var o=Xt?Xt+t:t;if(!this._events[o])return this;if(!r)return Bo(this,o),this;var a=this._events[o];if(a.fn)a.fn===r&&(!n||a.once)&&(!i||a.context===i)&&Bo(this,o);else{for(var h=0,p=[],b=a.length;h<b;h++)(a[h].fn!==r||n&&!a[h].once||i&&a[h].context!==i)&&p.push(a[h]);p.length?this._events[o]=p.length===1?p[0]:p:Bo(this,o)}return this};Gt.prototype.removeAllListeners=function(t){var r;return t?(r=Xt?Xt+t:t,this._events[r]&&Bo(this,r)):(this._events=new Si,this._eventsCount=0),this};Gt.prototype.off=Gt.prototype.removeListener;Gt.prototype.addListener=Gt.prototype.on;Gt.prefixed=Xt;Gt.EventEmitter=Gt;typeof ia!="undefined"&&(ia.exports=Gt)});var Ic=Ae(sa=>{"use strict";var Ai=Eo();Object.defineProperty(sa,"__esModule",{value:!0});sa.default=Fp;var Pp=Ai(So()),Rp=Ai(_o()),Np=Ai(Ao()),kp=Ai(Co()),Bc=Ai(Mo()),Up=oa();function Lp(e){var t=Dp();return function(){var i=(0,Bc.default)(e),n;if(t){var o=(0,Bc.default)(this).constructor;n=Reflect.construct(i,arguments,o)}else n=i.apply(this,arguments);return(0,kp.default)(this,n)}}function Dp(){if(typeof Reflect=="undefined"||!Reflect.construct||Reflect.construct.sham)return!1;if(typeof Proxy=="function")return!0;try{return Boolean.prototype.valueOf.call(Reflect.construct(Boolean,[],function(){})),!0}catch(e){return!1}}var Wp=function(e){(0,Np.default)(r,e);var t=Lp(r);function r(i,n,o){var a;return(0,Pp.default)(this,r),a=t.call(this),a.socket=new window.WebSocket(i,o),a.socket.onopen=function(){return a.emit("open")},a.socket.onmessage=function(h){return a.emit("message",h.data)},a.socket.onerror=function(h){return a.emit("error",h)},a.socket.onclose=function(h){a.emit("close",h.code,h.reason)},a}return(0,Rp.default)(r,[{key:"send",value:function(n,o,a){var h=a||o;try{this.socket.send(n),h()}catch(p){h(p)}}},{key:"close",value:function(n,o){this.socket.close(n,o)}},{key:"addEventListener",value:function(n,o,a){this.socket.addEventListener(n,o,a)}}]),r}(Up.EventEmitter);function Fp(e,t){return new Wp(e,t)}});var Pc=Ae((s2,Jr)=>{var qp=To().default;function Oc(){"use strict";Jr.exports=Oc=function(){return e},Jr.exports.__esModule=!0,Jr.exports.default=Jr.exports;var e={},t=Object.prototype,r=t.hasOwnProperty,i=typeof Symbol=="function"?Symbol:{},n=i.iterator||"@@iterator",o=i.asyncIterator||"@@asyncIterator",a=i.toStringTag||"@@toStringTag";function h(B,O,z){return Object.defineProperty(B,O,{value:z,enumerable:!0,configurable:!0,writable:!0}),B[O]}try{h({},"")}catch(B){h=function(z,E,s){return z[E]=s}}function p(B,O,z,E){var s=O&&O.prototype instanceof I?O:I,u=Object.create(s.prototype),y=new Re(E||[]);return u._invoke=function(w,A,C){var T="suspendedStart";return function(x,c){if(T==="executing")throw new Error("Generator is already running");if(T==="completed"){if(x==="throw")throw c;return Ve()}for(C.method=x,C.arg=c;;){var S=C.delegate;if(S){var W=ge(S,C);if(W){if(W===_)continue;return W}}if(C.method==="next")C.sent=C._sent=C.arg;else if(C.method==="throw"){if(T==="suspendedStart")throw T="completed",C.arg;C.dispatchException(C.arg)}else C.method==="return"&&C.abrupt("return",C.arg);T="executing";var d=b(w,A,C);if(d.type==="normal"){if(T=C.done?"completed":"suspendedYield",d.arg===_)continue;return{value:d.arg,done:C.done}}d.type==="throw"&&(T="completed",C.method="throw",C.arg=d.arg)}}}(B,z,y),u}function b(B,O,z){try{return{type:"normal",arg:B.call(O,z)}}catch(E){return{type:"throw",arg:E}}}e.wrap=p;var _={};function I(){}function P(){}function k(){}var K={};h(K,n,function(){return this});var re=Object.getPrototypeOf,ne=re&&re(re(ze([])));ne&&ne!==t&&r.call(ne,n)&&(K=ne);var Y=k.prototype=I.prototype=Object.create(K);function ie(B){["next","throw","return"].forEach(function(O){h(B,O,function(z){return this._invoke(O,z)})})}function ee(B,O){function z(s,u,y,w){var A=b(B[s],B,u);if(A.type!=="throw"){var C=A.arg,T=C.value;return T&&qp(T)=="object"&&r.call(T,"__await")?O.resolve(T.__await).then(function(x){z("next",x,y,w)},function(x){z("throw",x,y,w)}):O.resolve(T).then(function(x){C.value=x,y(C)},function(x){return z("throw",x,y,w)})}w(A.arg)}var E;this._invoke=function(s,u){function y(){return new O(function(w,A){z(s,u,w,A)})}return E=E?E.then(y,y):y()}}function ge(B,O){var z=B.iterator[O.method];if(z===void 0){if(O.delegate=null,O.method==="throw"){if(B.iterator.return&&(O.method="return",O.arg=void 0,ge(B,O),O.method==="throw"))return _;O.method="throw",O.arg=new TypeError("The iterator does not provide a 'throw' method")}return _}var E=b(z,B.iterator,O.arg);if(E.type==="throw")return O.method="throw",O.arg=E.arg,O.delegate=null,_;var s=E.arg;return s?s.done?(O[B.resultName]=s.value,O.next=B.nextLoc,O.method!=="return"&&(O.method="next",O.arg=void 0),O.delegate=null,_):s:(O.method="throw",O.arg=new TypeError("iterator result is not an object"),O.delegate=null,_)}function be(B){var O={tryLoc:B[0]};1 in B&&(O.catchLoc=B[1]),2 in B&&(O.finallyLoc=B[2],O.afterLoc=B[3]),this.tryEntries.push(O)}function Ee(B){var O=B.completion||{};O.type="normal",delete O.arg,B.completion=O}function Re(B){this.tryEntries=[{tryLoc:"root"}],B.forEach(be,this),this.reset(!0)}function ze(B){if(B){var O=B[n];if(O)return O.call(B);if(typeof B.next=="function")return B;if(!isNaN(B.length)){var z=-1,E=function s(){for(;++z<B.length;)if(r.call(B,z))return s.value=B[z],s.done=!1,s;return s.value=void 0,s.done=!0,s};return E.next=E}}return{next:Ve}}function Ve(){return{value:void 0,done:!0}}return P.prototype=k,h(Y,"constructor",k),h(k,"constructor",P),P.displayName=h(k,a,"GeneratorFunction"),e.isGeneratorFunction=function(B){var O=typeof B=="function"&&B.constructor;return!!O&&(O===P||(O.displayName||O.name)==="GeneratorFunction")},e.mark=function(B){return Object.setPrototypeOf?Object.setPrototypeOf(B,k):(B.__proto__=k,h(B,a,"GeneratorFunction")),B.prototype=Object.create(Y),B},e.awrap=function(B){return{__await:B}},ie(ee.prototype),h(ee.prototype,o,function(){return this}),e.AsyncIterator=ee,e.async=function(B,O,z,E,s){s===void 0&&(s=Promise);var u=new ee(p(B,O,z,E),s);return e.isGeneratorFunction(O)?u:u.next().then(function(y){return y.done?y.value:u.next()})},ie(Y),h(Y,a,"Generator"),h(Y,n,function(){return this}),h(Y,"toString",function(){return"[object Generator]"}),e.keys=function(B){var O=[];for(var z in B)O.push(z);return O.reverse(),function E(){for(;O.length;){var s=O.pop();if(s in B)return E.value=s,E.done=!1,E}return E.done=!0,E}},e.values=ze,Re.prototype={constructor:Re,reset:function(O){if(this.prev=0,this.next=0,this.sent=this._sent=void 0,this.done=!1,this.delegate=null,this.method="next",this.arg=void 0,this.tryEntries.forEach(Ee),!O)for(var z in this)z.charAt(0)==="t"&&r.call(this,z)&&!isNaN(+z.slice(1))&&(this[z]=void 0)},stop:function(){this.done=!0;var O=this.tryEntries[0].completion;if(O.type==="throw")throw O.arg;return this.rval},dispatchException:function(O){if(this.done)throw O;var z=this;function E(C,T){return y.type="throw",y.arg=O,z.next=C,T&&(z.method="next",z.arg=void 0),!!T}for(var s=this.tryEntries.length-1;s>=0;--s){var u=this.tryEntries[s],y=u.completion;if(u.tryLoc==="root")return E("end");if(u.tryLoc<=this.prev){var w=r.call(u,"catchLoc"),A=r.call(u,"finallyLoc");if(w&&A){if(this.prev<u.catchLoc)return E(u.catchLoc,!0);if(this.prev<u.finallyLoc)return E(u.finallyLoc)}else if(w){if(this.prev<u.catchLoc)return E(u.catchLoc,!0)}else{if(!A)throw new Error("try statement without catch or finally");if(this.prev<u.finallyLoc)return E(u.finallyLoc)}}}},abrupt:function(O,z){for(var E=this.tryEntries.length-1;E>=0;--E){var s=this.tryEntries[E];if(s.tryLoc<=this.prev&&r.call(s,"finallyLoc")&&this.prev<s.finallyLoc){var u=s;break}}u&&(O==="break"||O==="continue")&&u.tryLoc<=z&&z<=u.finallyLoc&&(u=null);var y=u?u.completion:{};return y.type=O,y.arg=z,u?(this.method="next",this.next=u.finallyLoc,_):this.complete(y)},complete:function(O,z){if(O.type==="throw")throw O.arg;return O.type==="break"||O.type==="continue"?this.next=O.arg:O.type==="return"?(this.rval=this.arg=O.arg,this.method="return",this.next="end"):O.type==="normal"&&z&&(this.next=z),_},finish:function(O){for(var z=this.tryEntries.length-1;z>=0;--z){var E=this.tryEntries[z];if(E.finallyLoc===O)return this.complete(E.completion,E.afterLoc),Ee(E),_}},catch:function(O){for(var z=this.tryEntries.length-1;z>=0;--z){var E=this.tryEntries[z];if(E.tryLoc===O){var s=E.completion;if(s.type==="throw"){var u=s.arg;Ee(E)}return u}}throw new Error("illegal catch attempt")},delegateYield:function(O,z,E){return this.delegate={iterator:ze(O),resultName:z,nextLoc:E},this.method==="next"&&(this.arg=void 0),_}},e}Jr.exports=Oc,Jr.exports.__esModule=!0,Jr.exports.default=Jr.exports});var Nc=Ae((a2,Rc)=>{var Io=Pc()();Rc.exports=Io;try{regeneratorRuntime=Io}catch(e){typeof globalThis=="object"?globalThis.regeneratorRuntime=Io:Function("r","regeneratorRuntime = r")(Io)}});var Uc=Ae((f2,Ti)=>{function kc(e,t,r,i,n,o,a){try{var h=e[o](a),p=h.value}catch(b){r(b);return}h.done?t(p):Promise.resolve(p).then(i,n)}function Hp(e){return function(){var t=this,r=arguments;return new Promise(function(i,n){var o=e.apply(t,r);function a(p){kc(o,i,n,a,h,"next",p)}function h(p){kc(o,i,n,a,h,"throw",p)}a(void 0)})}}Ti.exports=Hp,Ti.exports.__esModule=!0,Ti.exports.default=Ti.exports});var Dc=Ae(Po=>{"use strict";var an=Eo();Object.defineProperty(Po,"__esModule",{value:!0});Po.default=void 0;var fn=an(Nc()),Oo=an(Uc()),$p=an(To()),zp=an(So()),Kp=an(_o()),Vp=an(Ao()),Gp=an(Co()),Lc=an(Mo()),Zp=oa();function Yp(e){var t=Jp();return function(){var i=(0,Lc.default)(e),n;if(t){var o=(0,Lc.default)(this).constructor;n=Reflect.construct(i,arguments,o)}else n=i.apply(this,arguments);return(0,Gp.default)(this,n)}}function Jp(){if(typeof Reflect=="undefined"||!Reflect.construct||Reflect.construct.sham)return!1;if(typeof Proxy=="function")return!0;try{return Boolean.prototype.valueOf.call(Reflect.construct(Boolean,[],function(){})),!0}catch(e){return!1}}var Xp=function(e,t){var r={};for(var i in e)Object.prototype.hasOwnProperty.call(e,i)&&t.indexOf(i)<0&&(r[i]=e[i]);if(e!=null&&typeof Object.getOwnPropertySymbols=="function")for(var n=0,i=Object.getOwnPropertySymbols(e);n<i.length;n++)t.indexOf(i[n])<0&&Object.prototype.propertyIsEnumerable.call(e,i[n])&&(r[i[n]]=e[i[n]]);return r},Qp=function(e){(0,Vp.default)(r,e);var t=Yp(r);function r(i){var n,o=arguments.length>1&&arguments[1]!==void 0?arguments[1]:"ws://localhost:8080",a=arguments.length>2&&arguments[2]!==void 0?arguments[2]:{},h=arguments.length>3?arguments[3]:void 0;(0,zp.default)(this,r);var p=a.autoconnect,b=p===void 0?!0:p,_=a.reconnect,I=_===void 0?!0:_,P=a.reconnect_interval,k=P===void 0?1e3:P,K=a.max_reconnects,re=K===void 0?5:K,ne=Xp(a,["autoconnect","reconnect","reconnect_interval","max_reconnects"]);return n=t.call(this),n.webSocketFactory=i,n.queue={},n.rpc_id=0,n.address=o,n.autoconnect=b,n.ready=!1,n.reconnect=I,n.reconnect_interval=k,n.max_reconnects=re,n.rest_options=ne,n.current_reconnects=0,n.generate_request_id=h||function(){return++n.rpc_id},n.autoconnect&&n._connect(n.address,Object.assign({autoconnect:n.autoconnect,reconnect:n.reconnect,reconnect_interval:n.reconnect_interval,max_reconnects:n.max_reconnects},n.rest_options)),n}return(0,Kp.default)(r,[{key:"connect",value:function(){this.socket||this._connect(this.address,Object.assign({autoconnect:this.autoconnect,reconnect:this.reconnect,reconnect_interval:this.reconnect_interval,max_reconnects:this.max_reconnects},this.rest_options))}},{key:"call",value:function(n,o,a,h){var p=this;return!h&&(0,$p.default)(a)==="object"&&(h=a,a=null),new Promise(function(b,_){if(!p.ready)return _(new Error("socket not ready"));var I=p.generate_request_id(n,o),P={jsonrpc:"2.0",method:n,params:o||null,id:I};p.socket.send(JSON.stringify(P),h,function(k){if(k)return _(k);p.queue[I]={promise:[b,_]},a&&(p.queue[I].timeout=setTimeout(function(){delete p.queue[I],_(new Error("reply timeout"))},a))})})}},{key:"login",value:function(){var i=(0,Oo.default)(fn.default.mark(function o(a){var h;return fn.default.wrap(function(b){for(;;)switch(b.prev=b.next){case 0:return b.next=2,this.call("rpc.login",a);case 2:if(h=b.sent,h){b.next=5;break}throw new Error("authentication failed");case 5:return b.abrupt("return",h);case 6:case"end":return b.stop()}},o,this)}));function n(o){return i.apply(this,arguments)}return n}()},{key:"listMethods",value:function(){var i=(0,Oo.default)(fn.default.mark(function o(){return fn.default.wrap(function(h){for(;;)switch(h.prev=h.next){case 0:return h.next=2,this.call("__listMethods");case 2:return h.abrupt("return",h.sent);case 3:case"end":return h.stop()}},o,this)}));function n(){return i.apply(this,arguments)}return n}()},{key:"notify",value:function(n,o){var a=this;return new Promise(function(h,p){if(!a.ready)return p(new Error("socket not ready"));var b={jsonrpc:"2.0",method:n,params:o||null};a.socket.send(JSON.stringify(b),function(_){if(_)return p(_);h()})})}},{key:"subscribe",value:function(){var i=(0,Oo.default)(fn.default.mark(function o(a){var h;return fn.default.wrap(function(b){for(;;)switch(b.prev=b.next){case 0:return typeof a=="string"&&(a=[a]),b.next=3,this.call("rpc.on",a);case 3:if(h=b.sent,!(typeof a=="string"&&h[a]!=="ok")){b.next=6;break}throw new Error("Failed subscribing to an event '"+a+"' with: "+h[a]);case 6:return b.abrupt("return",h);case 7:case"end":return b.stop()}},o,this)}));function n(o){return i.apply(this,arguments)}return n}()},{key:"unsubscribe",value:function(){var i=(0,Oo.default)(fn.default.mark(function o(a){var h;return fn.default.wrap(function(b){for(;;)switch(b.prev=b.next){case 0:return typeof a=="string"&&(a=[a]),b.next=3,this.call("rpc.off",a);case 3:if(h=b.sent,!(typeof a=="string"&&h[a]!=="ok")){b.next=6;break}throw new Error("Failed unsubscribing from an event with: "+h);case 6:return b.abrupt("return",h);case 7:case"end":return b.stop()}},o,this)}));function n(o){return i.apply(this,arguments)}return n}()},{key:"close",value:function(n,o){this.socket.close(n||1e3,o)}},{key:"_connect",value:function(n,o){var a=this;this.socket=this.webSocketFactory(n,o),this.socket.addEventListener("open",function(){a.ready=!0,a.emit("open"),a.current_reconnects=0}),this.socket.addEventListener("message",function(h){var p=h.data;p instanceof ArrayBuffer&&(p=Buffer.from(p).toString());try{p=JSON.parse(p)}catch(I){return}if(p.notification&&a.listeners(p.notification).length){if(!Object.keys(p.params).length)return a.emit(p.notification);var b=[p.notification];if(p.params.constructor===Object)b.push(p.params);else for(var _=0;_<p.params.length;_++)b.push(p.params[_]);return Promise.resolve().then(function(){a.emit.apply(a,b)})}if(!a.queue[p.id])return p.method&&p.params?Promise.resolve().then(function(){a.emit(p.method,p.params)}):void 0;"error"in p=="result"in p&&a.queue[p.id].promise[1](new Error('Server response malformed. Response must include either "result" or "error", but not both.')),a.queue[p.id].timeout&&clearTimeout(a.queue[p.id].timeout),p.error?a.queue[p.id].promise[1](p.error):a.queue[p.id].promise[0](p.result),delete a.queue[p.id]}),this.socket.addEventListener("error",function(h){return a.emit("error",h)}),this.socket.addEventListener("close",function(h){var p=h.code,b=h.reason;a.ready&&setTimeout(function(){return a.emit("close",p,b)},0),a.ready=!1,a.socket=void 0,p!==1e3&&(a.current_reconnects++,a.reconnect&&(a.max_reconnects>a.current_reconnects||a.max_reconnects===0)&&setTimeout(function(){return a._connect(n,o)},a.reconnect_interval))})}}]),r}(Zp.EventEmitter);Po.default=Qp});var Fc=Ae(Ro=>{"use strict";var vn=Eo();Object.defineProperty(Ro,"__esModule",{value:!0});Ro.Client=void 0;var jp=vn(_o()),ey=vn(So()),ty=vn(Ao()),ry=vn(Co()),Wc=vn(Mo()),ny=vn(Ic()),iy=vn(Dc());function oy(e){var t=sy();return function(){var i=(0,Wc.default)(e),n;if(t){var o=(0,Wc.default)(this).constructor;n=Reflect.construct(i,arguments,o)}else n=i.apply(this,arguments);return(0,ry.default)(this,n)}}function sy(){if(typeof Reflect=="undefined"||!Reflect.construct||Reflect.construct.sham)return!1;if(typeof Proxy=="function")return!0;try{return Boolean.prototype.valueOf.call(Reflect.construct(Boolean,[],function(){})),!0}catch(e){return!1}}var ay=function(e){(0,ty.default)(r,e);var t=oy(r);function r(){var i=arguments.length>0&&arguments[0]!==void 0?arguments[0]:"ws://localhost:8080",n=arguments.length>1&&arguments[1]!==void 0?arguments[1]:{},o=n.autoconnect,a=o===void 0?!0:o,h=n.reconnect,p=h===void 0?!0:h,b=n.reconnect_interval,_=b===void 0?1e3:b,I=n.max_reconnects,P=I===void 0?5:I,k=arguments.length>2?arguments[2]:void 0;return(0,ey.default)(this,r),t.call(this,ny.default,i,{autoconnect:a,reconnect:p,reconnect_interval:_,max_reconnects:P},k)}return(0,jp.default)(r)}(iy.default);Ro.Client=ay});var Nr=Ae((ko,Uo)=>{(function(e,t){var r={version:"2.14.2",areas:{},apis:{},nsdelim:".",inherit:function(n,o){for(var a in n)o.hasOwnProperty(a)||Object.defineProperty(o,a,Object.getOwnPropertyDescriptor(n,a));return o},stringify:function(n,o){return n===void 0||typeof n=="function"?n+"":JSON.stringify(n,o||r.replace)},parse:function(n,o){try{return JSON.parse(n,o||r.revive)}catch(a){return n}},fn:function(n,o){r.storeAPI[n]=o;for(var a in r.apis)r.apis[a][n]=o},get:function(n,o){return n.getItem(o)},set:function(n,o,a){n.setItem(o,a)},remove:function(n,o){n.removeItem(o)},key:function(n,o){return n.key(o)},length:function(n){return n.length},clear:function(n){n.clear()},Store:function(n,o,a){var h=r.inherit(r.storeAPI,function(b,_,I){return arguments.length===0?h.getAll():typeof _=="function"?h.transact(b,_,I):_!==void 0?h.set(b,_,I):typeof b=="string"||typeof b=="number"?h.get(b):typeof b=="function"?h.each(b):b?h.setAll(b,_):h.clear()});h._id=n;try{var p="__store2_test";o.setItem(p,"ok"),h._area=o,o.removeItem(p)}catch(b){h._area=r.storage("fake")}return h._ns=a||"",r.areas[n]||(r.areas[n]=h._area),r.apis[h._ns+h._id]||(r.apis[h._ns+h._id]=h),h},storeAPI:{area:function(n,o){var a=this[n];return(!a||!a.area)&&(a=r.Store(n,o,this._ns),this[n]||(this[n]=a)),a},namespace:function(n,o,a){if(a=a||this._delim||r.nsdelim,!n)return this._ns?this._ns.substring(0,this._ns.length-a.length):"";var h=n,p=this[h];if((!p||!p.namespace)&&(p=r.Store(this._id,this._area,this._ns+h+a),p._delim=a,this[h]||(this[h]=p),!o))for(var b in r.areas)p.area(b,r.areas[b]);return p},isFake:function(n){return n?(this._real=this._area,this._area=r.storage("fake")):n===!1&&(this._area=this._real||this._area),this._area.name==="fake"},toString:function(){return"store"+(this._ns?"."+this.namespace():"")+"["+this._id+"]"},has:function(n){return this._area.has?this._area.has(this._in(n)):this._in(n)in this._area},size:function(){return this.keys().length},each:function(n,o){for(var a=0,h=r.length(this._area);a<h;a++){var p=this._out(r.key(this._area,a));if(p!==void 0&&n.call(this,p,this.get(p),o)===!1)break;h>r.length(this._area)&&(h--,a--)}return o||this},keys:function(n){return this.each(function(o,a,h){h.push(o)},n||[])},get:function(n,o){var a=r.get(this._area,this._in(n)),h;return typeof o=="function"&&(h=o,o=null),a!==null?r.parse(a,h):o!=null?o:a},getAll:function(n){return this.each(function(o,a,h){h[o]=a},n||{})},transact:function(n,o,a){var h=this.get(n,a),p=o(h);return this.set(n,p===void 0?h:p),this},set:function(n,o,a){var h=this.get(n),p;return h!=null&&a===!1?o:(typeof a=="function"&&(p=a,a=void 0),r.set(this._area,this._in(n),r.stringify(o,p),a)||h)},setAll:function(n,o){var a,h;for(var p in n)h=n[p],this.set(p,h,o)!==h&&(a=!0);return a},add:function(n,o,a){var h=this.get(n);if(h instanceof Array)o=h.concat(o);else if(h!==null){var p=typeof h;if(p===typeof o&&p==="object"){for(var b in o)h[b]=o[b];o=h}else o=h+o}return r.set(this._area,this._in(n),r.stringify(o,a)),o},remove:function(n,o){var a=this.get(n,o);return r.remove(this._area,this._in(n)),a},clear:function(){return this._ns?this.each(function(n){r.remove(this._area,this._in(n))},1):r.clear(this._area),this},clearAll:function(){var n=this._area;for(var o in r.areas)r.areas.hasOwnProperty(o)&&(this._area=r.areas[o],this.clear());return this._area=n,this},_in:function(n){return typeof n!="string"&&(n=r.stringify(n)),this._ns?this._ns+n:n},_out:function(n){return this._ns?n&&n.indexOf(this._ns)===0?n.substring(this._ns.length):void 0:n}},storage:function(n){return r.inherit(r.storageAPI,{items:{},name:n})},storageAPI:{length:0,has:function(n){return this.items.hasOwnProperty(n)},key:function(n){var o=0;for(var a in this.items)if(this.has(a)&&n===o++)return a},setItem:function(n,o){this.has(n)||this.length++,this.items[n]=o},removeItem:function(n){this.has(n)&&(delete this.items[n],this.length--)},getItem:function(n){return this.has(n)?this.items[n]:null},clear:function(){for(var n in this.items)this.removeItem(n)}}},i=r.Store("local",function(){try{return localStorage}catch(n){}}());i.local=i,i._=r,i.area("session",function(){try{return sessionStorage}catch(n){}}()),i.area("page",r.storage("page")),typeof t=="function"&&t.amd!==void 0?t("store2",[],function(){return i}):typeof Uo!="undefined"&&Uo.exports?Uo.exports=i:(e.store&&(r.conflict=e.store),e.store=i)})(ko,ko&&ko.define)});Ta(exports);Xl(exports,{EthosConnectProvider:()=>Il,EthosConnectStatus:()=>Dr,SignInButton:()=>Pl,ethos:()=>rm});var Ut=fe(require("react"));var fy=fe(fs()),cy=fe(Nn()),uy=fe(Ui()),ly=fe(Nn()),hy=fe(xs()),dy=fe(Rf()),py=fe(Zi()),yy=fe(si()),gy=fe(fs());var Dh=fe(Oi());var it=BigInt(0),Tt=BigInt(1),on=BigInt(2),hi=BigInt(3),Wh=BigInt(8),It=Object.freeze({a:it,b:BigInt(7),P:BigInt("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f"),n:BigInt("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"),h:Tt,Gx:BigInt("55066263022277343669578718895168534326250603453777594175500187360389116729240"),Gy:BigInt("32670510020758816978083085130507043184471273380659243275938904335757337482424"),beta:BigInt("0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee")});function Nf(e){let{a:t,b:r}=It,i=ve(e*e),n=ve(i*e);return ve(n+t*e+r)}var Xi=It.a===it,kf=class extends Error{constructor(t){super(t)}},ft=class{constructor(t,r,i){this.x=t,this.y=r,this.z=i}static fromAffine(t){if(!(t instanceof Pt))throw new TypeError("JacobianPoint#fromAffine: expected Point");return new ft(t.x,t.y,Tt)}static toAffineBatch(t){let r=zh(t.map(i=>i.z));return t.map((i,n)=>i.toAffine(r[n]))}static normalizeZ(t){return ft.toAffineBatch(t).map(ft.fromAffine)}equals(t){if(!(t instanceof ft))throw new TypeError("JacobianPoint expected");let{x:r,y:i,z:n}=this,{x:o,y:a,z:h}=t,p=ve(n*n),b=ve(h*h),_=ve(r*b),I=ve(o*p),P=ve(ve(i*h)*b),k=ve(ve(a*n)*p);return _===I&&P===k}negate(){return new ft(this.x,ve(-this.y),this.z)}double(){let{x:t,y:r,z:i}=this,n=ve(t*t),o=ve(r*r),a=ve(o*o),h=t+o,p=ve(on*(ve(h*h)-n-a)),b=ve(hi*n),_=ve(b*b),I=ve(_-on*p),P=ve(b*(p-I)-Wh*a),k=ve(on*r*i);return new ft(I,P,k)}add(t){if(!(t instanceof ft))throw new TypeError("JacobianPoint expected");let{x:r,y:i,z:n}=this,{x:o,y:a,z:h}=t;if(o===it||a===it)return this;if(r===it||i===it)return t;let p=ve(n*n),b=ve(h*h),_=ve(r*b),I=ve(o*p),P=ve(ve(i*h)*b),k=ve(ve(a*n)*p),K=ve(I-_),re=ve(k-P);if(K===it)return re===it?this.double():ft.ZERO;let ne=ve(K*K),Y=ve(K*ne),ie=ve(_*ne),ee=ve(re*re-Y-on*ie),ge=ve(re*(ie-ee)-P*Y),be=ve(n*h*K);return new ft(ee,ge,be)}subtract(t){return this.add(t.negate())}multiplyUnsafe(t){let r=ft.ZERO;if(typeof t=="bigint"&&t===it)return r;let i=Wf(t);if(i===Tt)return this;if(!Xi){let I=r,P=this;for(;i>it;)i&Tt&&(I=I.add(P)),P=P.double(),i>>=Tt;return I}let{k1neg:n,k1:o,k2neg:a,k2:h}=qf(i),p=r,b=r,_=this;for(;o>it||h>it;)o&Tt&&(p=p.add(_)),h&Tt&&(b=b.add(_)),_=_.double(),o>>=Tt,h>>=Tt;return n&&(p=p.negate()),a&&(b=b.negate()),b=new ft(ve(b.x*It.beta),b.y,b.z),p.add(b)}precomputeWindow(t){let r=Xi?128/t+1:256/t+1,i=[],n=this,o=n;for(let a=0;a<r;a++){o=n,i.push(o);for(let h=1;h<2**(t-1);h++)o=o.add(n),i.push(o);n=o.double()}return i}wNAF(t,r){!r&&this.equals(ft.BASE)&&(r=Pt.BASE);let i=r&&r._WINDOW_SIZE||1;if(256%i)throw new Error("Point#wNAF: Invalid precomputation window, must be power of 2");let n=r&&Rs.get(r);n||(n=this.precomputeWindow(i),r&&i!==1&&(n=ft.normalizeZ(n),Rs.set(r,n)));let o=ft.ZERO,a=ft.ZERO,h=1+(Xi?128/i:256/i),p=2**(i-1),b=BigInt(2**i-1),_=2**i,I=BigInt(i);for(let P=0;P<h;P++){let k=P*p,K=Number(t&b);if(t>>=I,K>p&&(K-=_,t+=Tt),K===0){let re=n[k];P%2&&(re=re.negate()),a=a.add(re)}else{let re=n[k+Math.abs(K)-1];K<0&&(re=re.negate()),o=o.add(re)}}return{p:o,f:a}}multiply(t,r){let i=Wf(t),n,o;if(Xi){let{k1neg:a,k1:h,k2neg:p,k2:b}=qf(i),{p:_,f:I}=this.wNAF(h,r),{p:P,f:k}=this.wNAF(b,r);a&&(_=_.negate()),p&&(P=P.negate()),P=new ft(ve(P.x*It.beta),P.y,P.z),n=_.add(P),o=I.add(k)}else{let{p:a,f:h}=this.wNAF(i,r);n=a,o=h}return ft.normalizeZ([n,o])[0]}toAffine(t=ji(this.z)){let{x:r,y:i,z:n}=this,o=t,a=ve(o*o),h=ve(a*o),p=ve(r*a),b=ve(i*h);if(ve(n*o)!==Tt)throw new Error("invZ was invalid");return new Pt(p,b)}};ft.BASE=new ft(It.Gx,It.Gy,Tt);ft.ZERO=new ft(it,Tt,it);var Rs=new WeakMap,Pt=class{constructor(t,r){this.x=t,this.y=r}_setWindowSize(t){this._WINDOW_SIZE=t,Rs.delete(this)}hasEvenY(){return this.y%on===it}static fromCompressedHex(t){let r=t.length===32,i=gn(r?t:t.subarray(1));if(!Us(i))throw new Error("Point is not on curve");let n=Nf(i),o=$h(n),a=(o&Tt)===Tt;r?a&&(o=ve(-o)):(t[0]&1)==1!==a&&(o=ve(-o));let h=new Pt(i,o);return h.assertValidity(),h}static fromUncompressedHex(t){let r=gn(t.subarray(1,33)),i=gn(t.subarray(33,65)),n=new Pt(r,i);return n.assertValidity(),n}static fromHex(t){let r=Ns(t),i=r.length,n=r[0];if(i===32||i===33&&(n===2||n===3))return this.fromCompressedHex(r);if(i===65&&n===4)return this.fromUncompressedHex(r);throw new Error(`Point.fromHex: received invalid point. Expected 32-33 compressed bytes or 65 uncompressed bytes, not ${i}`)}static fromPrivateKey(t){return Pt.BASE.multiply(Ls(t))}static fromSignature(t,r,i){t=Ns(t);let n=Vh(t),{r:o,s:a}=Gh(r);if(i!==0&&i!==1)throw new Error("Cannot recover signature: invalid recovery bit");let h=i&1?"03":"02",p=Pt.fromHex(h+Wn(o)),{n:b}=It,_=ji(o,b),I=ve(-n*_,b),P=ve(a*_,b),k=Pt.BASE.multiplyAndAddUnsafe(p,I,P);if(!k)throw new Error("Cannot recover signature: point at infinify");return k.assertValidity(),k}toRawBytes(t=!1){return yn(this.toHex(t))}toHex(t=!1){let r=Wn(this.x);return t?`${this.hasEvenY()?"02":"03"}${r}`:`04${r}${Wn(this.y)}`}toHexX(){return this.toHex(!0).slice(2)}toRawX(){return this.toRawBytes(!0).slice(1)}assertValidity(){let t="Point is not on elliptic curve",{x:r,y:i}=this;if(!Us(r)||!Us(i))throw new Error(t);let n=ve(i*i),o=Nf(r);if(ve(n-o)!==it)throw new Error(t)}equals(t){return this.x===t.x&&this.y===t.y}negate(){return new Pt(this.x,ve(-this.y))}double(){return ft.fromAffine(this).double().toAffine()}add(t){return ft.fromAffine(this).add(ft.fromAffine(t)).toAffine()}subtract(t){return this.add(t.negate())}multiply(t){return ft.fromAffine(this).multiply(t,this).toAffine()}multiplyAndAddUnsafe(t,r,i){let n=ft.fromAffine(this),o=r===it||r===Tt||this!==Pt.BASE?n.multiplyUnsafe(r):n.multiply(r),a=ft.fromAffine(t).multiplyUnsafe(i),h=o.add(a);return h.equals(ft.ZERO)?void 0:h.toAffine()}};Pt.BASE=new Pt(It.Gx,It.Gy);Pt.ZERO=new Pt(it,it);function Uf(e){return Number.parseInt(e[0],16)>=8?"00"+e:e}function Lf(e){if(e.length<2||e[0]!==2)throw new Error(`Invalid signature integer tag: ${Dn(e)}`);let t=e[1],r=e.subarray(2,t+2);if(!t||r.length!==t)throw new Error("Invalid signature integer: wrong length");if(r[0]===0&&r[1]<=127)throw new Error("Invalid signature integer: trailing length");return{data:gn(r),left:e.subarray(t+2)}}function Fh(e){if(e.length<2||e[0]!=48)throw new Error(`Invalid signature tag: ${Dn(e)}`);if(e[1]!==e.length-2)throw new Error("Invalid signature: incorrect length");let{data:t,left:r}=Lf(e.subarray(2)),{data:i,left:n}=Lf(r);if(n.length)throw new Error(`Invalid signature: left bytes after parsing: ${Dn(n)}`);return{r:t,s:i}}var Or=class{constructor(t,r){this.r=t,this.s=r,this.assertValidity()}static fromCompact(t){let r=t instanceof Uint8Array,i="Signature.fromCompact";if(typeof t!="string"&&!r)throw new TypeError(`${i}: Expected string or Uint8Array`);let n=r?Dn(t):t;if(n.length!==128)throw new Error(`${i}: Expected 64-byte hex`);return new Or(Qi(n.slice(0,64)),Qi(n.slice(64,128)))}static fromDER(t){let r=t instanceof Uint8Array;if(typeof t!="string"&&!r)throw new TypeError("Signature.fromDER: Expected string or Uint8Array");let{r:i,s:n}=Fh(r?t:yn(t));return new Or(i,n)}static fromHex(t){return this.fromDER(t)}assertValidity(){let{r:t,s:r}=this;if(!eo(t))throw new Error("Invalid Signature: r must be 0 < r < n");if(!eo(r))throw new Error("Invalid Signature: s must be 0 < s < n")}hasHighS(){let t=It.n>>Tt;return this.s>t}normalizeS(){return this.hasHighS()?new Or(this.r,It.n-this.s):this}toDERRawBytes(t=!1){return yn(this.toDERHex(t))}toDERHex(t=!1){let r=Uf(pi(this.s));if(t)return r;let i=Uf(pi(this.r)),n=pi(i.length/2),o=pi(r.length/2);return`30${pi(i.length/2+r.length/2+4)}02${n}${i}02${o}${r}`}toRawBytes(){return this.toDERRawBytes()}toHex(){return this.toDERHex()}toCompactRawBytes(){return yn(this.toCompactHex())}toCompactHex(){return Wn(this.r)+Wn(this.s)}};function di(...e){if(!e.every(i=>i instanceof Uint8Array))throw new Error("Uint8Array list expected");if(e.length===1)return e[0];let t=e.reduce((i,n)=>i+n.length,0),r=new Uint8Array(t);for(let i=0,n=0;i<e.length;i++){let o=e[i];r.set(o,n),n+=o.length}return r}var qh=Array.from({length:256},(e,t)=>t.toString(16).padStart(2,"0"));function Dn(e){if(!(e instanceof Uint8Array))throw new Error("Expected Uint8Array");let t="";for(let r=0;r<e.length;r++)t+=qh[e[r]];return t}var Hh=BigInt("0x10000000000000000000000000000000000000000000000000000000000000000");function Wn(e){if(typeof e!="bigint")throw new Error("Expected bigint");if(!(it<=e&&e<Hh))throw new Error("Expected number < 2^256");return e.toString(16).padStart(64,"0")}function Df(e){let t=yn(Wn(e));if(t.length!==32)throw new Error("Error: expected 32 bytes");return t}function pi(e){let t=e.toString(16);return t.length&1?`0${t}`:t}function Qi(e){if(typeof e!="string")throw new TypeError("hexToNumber: expected string, got "+typeof e);return BigInt(`0x${e}`)}function yn(e){if(typeof e!="string")throw new TypeError("hexToBytes: expected string, got "+typeof e);if(e.length%2)throw new Error("hexToBytes: received invalid unpadded hex"+e.length);let t=new Uint8Array(e.length/2);for(let r=0;r<t.length;r++){let i=r*2,n=e.slice(i,i+2),o=Number.parseInt(n,16);if(Number.isNaN(o)||o<0)throw new Error("Invalid byte sequence");t[r]=o}return t}function gn(e){return Qi(Dn(e))}function Ns(e){return e instanceof Uint8Array?Uint8Array.from(e):yn(e)}function Wf(e){if(typeof e=="number"&&Number.isSafeInteger(e)&&e>0)return BigInt(e);if(typeof e=="bigint"&&eo(e))return e;throw new TypeError("Expected valid private scalar: 0 < scalar < curve.n")}function ve(e,t=It.P){let r=e%t;return r>=it?r:t+r}function hr(e,t){let{P:r}=It,i=e;for(;t-- >it;)i*=i,i%=r;return i}function $h(e){let{P:t}=It,r=BigInt(6),i=BigInt(11),n=BigInt(22),o=BigInt(23),a=BigInt(44),h=BigInt(88),p=e*e*e%t,b=p*p*e%t,_=hr(b,hi)*b%t,I=hr(_,hi)*b%t,P=hr(I,on)*p%t,k=hr(P,i)*P%t,K=hr(k,n)*k%t,re=hr(K,a)*K%t,ne=hr(re,h)*re%t,Y=hr(ne,a)*K%t,ie=hr(Y,hi)*b%t,ee=hr(ie,o)*k%t,ge=hr(ee,r)*p%t;return hr(ge,on)}function ji(e,t=It.P){if(e===it||t<=it)throw new Error(`invert: expected positive integers, got n=${e} mod=${t}`);let r=ve(e,t),i=t,n=it,o=Tt,a=Tt,h=it;for(;r!==it;){let b=i/r,_=i%r,I=n-a*b,P=o-h*b;i=r,r=_,n=a,o=h,a=I,h=P}if(i!==Tt)throw new Error("invert: does not exist");return ve(n,t)}function zh(e,t=It.P){let r=new Array(e.length),i=e.reduce((o,a,h)=>a===it?o:(r[h]=o,ve(o*a,t)),Tt),n=ji(i,t);return e.reduceRight((o,a,h)=>a===it?o:(r[h]=ve(o*r[h],t),ve(o*a,t)),n),r}var Ff=(e,t)=>(e+t/on)/t,Kh={a1:BigInt("0x3086d221a7d46bcde86c90e49284eb15"),b1:-Tt*BigInt("0xe4437ed6010e88286f547fa90abfe4c3"),a2:BigInt("0x114ca50f7a8e2f3f657c1108d9d44cfd8"),b2:BigInt("0x3086d221a7d46bcde86c90e49284eb15"),POW_2_128:BigInt("0x100000000000000000000000000000000")};function qf(e){let{n:t}=It,{a1:r,b1:i,a2:n,b2:o,POW_2_128:a}=Kh,h=Ff(o*e,t),p=Ff(-i*e,t),b=ve(e-h*r-p*n,t),_=ve(-h*i-p*o,t),I=b>a,P=_>a;if(I&&(b=t-b),P&&(_=t-_),b>a||_>a)throw new Error("splitScalarEndo: Endomorphism failed, k="+e);return{k1neg:I,k1:b,k2neg:P,k2:_}}function Vh(e){let{n:t}=It,i=e.length*8-256,n=gn(e);return i>0&&(n=n>>BigInt(i)),n>=t&&(n-=t),n}var Fn,ks;function eo(e){return it<e&&e<It.n}function Us(e){return it<e&&e<It.P}function Ls(e){let t;if(typeof e=="bigint")t=e;else if(typeof e=="number"&&Number.isSafeInteger(e)&&e>0)t=BigInt(e);else if(typeof e=="string"){if(e.length!==64)throw new Error("Expected 32 bytes of private key");t=Qi(e)}else if(e instanceof Uint8Array){if(e.length!==32)throw new Error("Expected 32 bytes of private key");t=gn(e)}else throw new TypeError("Expected valid private key");if(!eo(t))throw new Error("Expected private key: 0 < key < n");return t}function Gh(e){if(e instanceof Or)return e.assertValidity(),e;try{return Or.fromDER(e)}catch(t){return Or.fromCompact(e)}}Pt.BASE._setWindowSize(8);var rr={node:Dh,web:typeof self=="object"&&"crypto"in self?self.crypto:void 0};var to={},Pr={bytesToHex:Dn,hexToBytes:yn,concatBytes:di,mod:ve,invert:ji,isValidPrivateKey(e){try{return Ls(e),!0}catch(t){return!1}},_bigintTo32Bytes:Df,_normalizePrivateKey:Ls,hashToPrivateKey:e=>{if(e=Ns(e),e.length<40||e.length>1024)throw new Error("Expected 40-1024 bytes of private key as per FIPS 186");let t=ve(gn(e),It.n-Tt)+Tt;return Df(t)},randomBytes:(e=32)=>{if(rr.web)return rr.web.getRandomValues(new Uint8Array(e));if(rr.node){let{randomBytes:t}=rr.node;return Uint8Array.from(t(e))}else throw new Error("The environment doesn't have randomBytes function")},randomPrivateKey:()=>Pr.hashToPrivateKey(Pr.randomBytes(40)),sha256:async(...e)=>{if(rr.web){let t=await rr.web.subtle.digest("SHA-256",di(...e));return new Uint8Array(t)}else if(rr.node){let{createHash:t}=rr.node,r=t("sha256");return e.forEach(i=>r.update(i)),Uint8Array.from(r.digest())}else throw new Error("The environment doesn't have sha256 function")},hmacSha256:async(e,...t)=>{if(rr.web){let r=await rr.web.subtle.importKey("raw",e,{name:"HMAC",hash:{name:"SHA-256"}},!1,["sign"]),i=di(...t),n=await rr.web.subtle.sign("HMAC",r,i);return new Uint8Array(n)}else if(rr.node){let{createHmac:r}=rr.node,i=r("sha256",e);return t.forEach(n=>i.update(n)),Uint8Array.from(i.digest())}else throw new Error("The environment doesn't have hmac-sha256 function")},sha256Sync:void 0,hmacSha256Sync:void 0,taggedHash:async(e,...t)=>{let r=to[e];if(r===void 0){let i=await Pr.sha256(Uint8Array.from(e,n=>n.charCodeAt(0)));r=di(i,i),to[e]=r}return Pr.sha256(r,...t)},taggedHashSync:(e,...t)=>{if(typeof Fn!="function")throw new kf("sha256Sync is undefined, you need to set it");let r=to[e];if(r===void 0){let i=Fn(Uint8Array.from(e,n=>n.charCodeAt(0)));r=di(i,i),to[e]=r}return Fn(r,...t)},precompute(e=8,t=Pt.BASE){let r=t===Pt.BASE?t:new Pt(t.x,t.y);return r._setWindowSize(e),r.multiply(hi),r}};Object.defineProperties(Pr,{sha256Sync:{configurable:!1,get(){return Fn},set(e){Fn||(Fn=e)}},hmacSha256Sync:{configurable:!1,get(){return ks},set(e){ks||(ks=e)}}});var qc=fe(si()),Hc=fe(Vi()),my=fe(Ui()),wy=fe(Nn()),vy=fe(xs());var Vf=fe(si()),od=fe(Kf()),qs=fe(Vi()),sd=fe(Zi()),ad=fe(kn()),Hn=fe($r());var Gf=fe(Os());Pr.hmacSha256Sync=(e,...t)=>(0,Vf.hmac)(qs.sha256,e,Pr.concatBytes(...t));var Mm=(0,Gf.base58check)(qs.sha256);var Bm=(0,Hn.utf8ToBytes)("Bitcoin seed");var $c=fe(yc()),zc=fe(Xs()),Kc=fe(vc());var Rr=fe(Ui());function gp(e){return e>64&&e<91?e-65:e>96&&e<123?e-71:e>47&&e<58?e+4:e===43?62:e===47?63:0}function xc(e,t){for(var r=e.replace(/[^A-Za-z0-9+/]/g,""),i=r.length,n=t?Math.ceil((i*3+1>>2)/t)*t:i*3+1>>2,o=new Uint8Array(n),a,h,p=0,b=0,_=0;_<i;_++)if(h=_&3,p|=gp(r.charCodeAt(_))<<6*(3-h),h===3||i-_==1){for(a=0;a<3&&b<n;a++,b++)o[b]=p>>>(16>>>a&24)&255;p=0}return o}function bo(e){return e<26?e+65:e<52?e+71:e<62?e-4:e===62?43:e===63?47:65}function bc(e){for(var t=2,r="",i=e.length,n=0,o=0;o<i;o++)t=o%3,o>0&&o*4/3%76==0&&(r+=""),n|=e[o]<<(16>>>t&24),(t===2||e.length-o==1)&&(r+=String.fromCodePoint(bo(n>>>18&63),bo(n>>>12&63),bo(n>>>6&63),bo(n&63)),n=0);return r.slice(0,r.length-2+t)+(t===2?"":t===1?"=":"==")}function Ec(e){let t=e.replace("0x","").match(/.{1,2}/g).map(r=>parseInt(r,16));if(t===null)throw new Error(`Unable to parse HEX: ${e}`);return Uint8Array.from(t)}function _c(e){return e.reduce((t,r)=>t+r.toString(16).padStart(2,"0"),"")}var mp=class{constructor(e){this.bytePosition=0,this.dataView=new DataView(e.buffer)}shift(e){return this.bytePosition+=e,this}read8(){let e=this.dataView.getUint8(this.bytePosition);return this.shift(1),new Rr.BN(e,10)}read16(){let e=this.dataView.getUint16(this.bytePosition,!0);return this.shift(2),new Rr.BN(e,10)}read32(){let e=this.dataView.getUint32(this.bytePosition,!0);return this.shift(4),new Rr.BN(e,10)}read64(){let e=this.read32(),r=this.read32().toString(16)+e.toString(16).padStart(8,"0");return new Rr.BN(r,16)}read128(){let e=this.read64(),r=this.read64().toString(16)+e.toString(16).padStart(8,"0");return new Rr.BN(r,16)}read256(){let e=this.read128(),r=this.read128().toString(16)+e.toString(16).padStart(16,"0");return new Rr.BN(r,16)}readBytes(e){let t=this.bytePosition+this.dataView.byteOffset,r=new Uint8Array(this.dataView.buffer,t,e);return this.shift(e),r}readULEB(){let e=this.bytePosition+this.dataView.byteOffset,t=new Uint8Array(this.dataView.buffer,e),{value:r,length:i}=vp(t);return this.shift(i),r}readVec(e){let t=this.readULEB(),r=[];for(let i=0;i<t;i++)r.push(e(this,i,t));return r}},wn=class{constructor(e=1024){this.bytePosition=0,this.dataView=new DataView(new ArrayBuffer(e))}static toBN(e){switch(typeof e){case"boolean":return e=+e,new Rr.BN(e.toString());case"bigint":return new Rr.BN(e.toString());default:return new Rr.BN(e)}}shift(e){return this.bytePosition+=e,this}write8(e){return this.dataView.setUint8(this.bytePosition,+wn.toBN(e)),this.shift(1)}write16(e){return this.dataView.setUint16(this.bytePosition,+wn.toBN(e),!0),this.shift(2)}write32(e){return this.dataView.setUint32(this.bytePosition,+wn.toBN(e),!0),this.shift(4)}write64(e){return wn.toBN(e).toArray("le",8).forEach(t=>this.write8(t)),this}write128(e){return wn.toBN(e).toArray("le",16).forEach(t=>this.write8(t)),this}write256(e){return wn.toBN(e).toArray("le",32).forEach(t=>this.write8(t)),this}writeULEB(e){return wp(e).forEach(t=>this.write8(t)),this}writeVec(e,t){return this.writeULEB(e.length),Array.from(e).forEach((r,i)=>t(this,r,i,e.length)),this}*[Symbol.iterator](){for(let e=0;e<this.bytePosition;e++)yield this.dataView.getUint8(e);return this.toBytes()}toBytes(){return new Uint8Array(this.dataView.buffer.slice(0,this.bytePosition))}toString(e){return js(this.toBytes(),e)}};function wp(e){let t=[],r=0;if(e===0)return[0];for(;e>0;)t[r]=e&127,(e>>=7)&&(t[r]|=128),r+=1;return t}function vp(e){let t=0,r=0,i=0;for(;;){let n=e[i];if(i+=1,t|=(n&127)<<r,(n&128)==0)break;r+=7}return{value:t,length:i}}var Qs=class{constructor(e){if(this.types=new Map,e instanceof Qs){this.schema=e.schema,this.types=new Map(e.types);return}if(this.schema=e,this.registerAddressType(Qs.ADDRESS,e.addressLength,e.addressEncoding),this.registerVectorType(e.vectorType),e.types&&e.types.structs)for(let t of Object.keys(e.types.structs))this.registerStructType(t,e.types.structs[t]);if(e.types&&e.types.enums)for(let t of Object.keys(e.types.enums))this.registerEnumType(t,e.types.enums[t]);e.withPrimitives!==!1&&xp(this)}ser(e,t,r=1024){let{typeName:i,typeParams:n}=this.parseTypeName(e);return this.getTypeInterface(i).encode(t,r,n)}de(e,t,r){if(typeof t=="string")if(r)t=ea(t,r);else throw new Error("To pass a string to `bcs.de`, specify encoding");let{typeName:i,typeParams:n}=this.parseTypeName(e);return this.getTypeInterface(i).decode(t,n)}hasType(e){return this.types.has(e)}registerType(e,t,r,i=()=>!0){return this.types.set(e,{encode(n,o=1024,a){return this._encodeRaw(new wn(o),n,a)},decode(n,o){return this._decodeRaw(new mp(n),o)},_encodeRaw(n,o,a){if(i(o))return t(n,o,a);throw new Error(`Validation failed for type ${e}, data: ${o}`)},_decodeRaw(n,o){return r(n,o)}}),this}registerAddressType(e,t,r="hex"){switch(r){case"base64":return this.registerType(e,(i,n)=>xc(n).reduce((o,a)=>o.write8(a),i),i=>bc(i.readBytes(t)));case"hex":return this.registerType(e,(i,n)=>Ec(n).reduce((o,a)=>o.write8(a),i),i=>_c(i.readBytes(t)));default:throw new Error("Unsupported encoding! Use either hex or base64")}}registerVectorType(e,t){let{typeName:r,typeParams:i}=this.parseTypeName(e);if(i.length>1)throw new Error("Vector can have only one type parameter; got "+e);return this.registerType(r,(n,o,a)=>n.writeVec(o,(h,p)=>{let b=t||a[0];if(b){let{typeName:_,typeParams:I}=this.parseTypeName(b);return this.getTypeInterface(t||_)._encodeRaw(h,p,I)}else throw new Error(`Incorrect number of type parameters passed to vector '${r}'`)}),(n,o)=>n.readVec(a=>{let h=t||o[0];if(h){let{typeName:p,typeParams:b}=this.parseTypeName(h);return this.getTypeInterface(t||p)._decodeRaw(a,b)}else throw new Error(`Incorrect number of type parameters passed to vector '${r}'`)}))}registerStructType(e,t){let r=Object.freeze(t),i=Object.keys(r),{typeName:n,typeParams:o}=this.parseTypeName(e);return this.registerType(n,(a,h,p)=>{if(!h||h.constructor!==Object)throw new Error(`Expected ${e} to be an Object, got: ${h}`);for(let b of i)if(b in h){let _=o.indexOf(r[b]),I=_===-1?r[b]:p[_];{let{typeName:P,typeParams:k}=this.parseTypeName(I);this.getTypeInterface(P)._encodeRaw(a,h[b],k)}}else throw new Error(`Struct ${e} requires field ${b}:${r[b]}`);return a},(a,h)=>{let p={};for(let b of i){let _=o.indexOf(r[b]),I=_===-1?r[b]:h[_];{let{typeName:P,typeParams:k}=this.parseTypeName(I);p[b]=this.getTypeInterface(P)._decodeRaw(a,k)}}return p})}registerEnumType(e,t){let r=Object.freeze(t),i=Object.keys(r),{typeName:n,typeParams:o}=this.parseTypeName(e);return this.registerType(n,(a,h,p)=>{if(h===void 0)throw new Error(`Unable to write enum ${e}, missing data`);let b=Object.keys(h)[0];if(b===void 0)throw new Error(`Unknown invariant of the enum ${e}`);let _=i.indexOf(b);if(_===-1)throw new Error(`Unknown invariant of the enum ${e}, allowed values: ${i}`);let I=i[_],P=r[I];if(a.write8(_),P===null)return a;let k=o.indexOf(P),K=k===-1?P:p[k];{let{typeName:re,typeParams:ne}=this.parseTypeName(K);return this.getTypeInterface(re)._encodeRaw(a,h[b],ne)}},(a,h)=>{let p=a.readULEB(),b=i[p],_=r[b];if(p===-1)throw new Error(`Decoding type mismatch, expected enum ${e} invariant index, received ${p}`);if(_===null)return{[b]:!0};let I=o.indexOf(_),P=I===-1?_:h[I];{let{typeName:k,typeParams:K}=this.parseTypeName(P);return{[b]:this.getTypeInterface(k)._decodeRaw(a,K)}}})}getTypeInterface(e){let t=this.types.get(e);if(t===void 0)throw new Error(`Type ${e} is not registered`);return t}parseTypeName(e){let[t,r]=this.schema.genericSeparators||["<",">"],i=e.indexOf(t),n=Array.from(e).reverse().indexOf(r);if(i===-1&&n===-1)return{typeName:e,typeParams:[]};if(i===-1||n===-1)throw new Error(`Unclosed generic in name '${e}'`);let o=e.slice(0,i),a=e.slice(i+1,e.length-n-1).split(",").map(h=>h.trim());return{typeName:o,typeParams:a}}},Rt=Qs;Rt.U8="u8";Rt.U16="u16";Rt.U32="u32";Rt.U64="u64";Rt.U128="u128";Rt.U256="u256";Rt.BOOL="bool";Rt.VECTOR="vector";Rt.ADDRESS="address";Rt.STRING="string";function js(e,t){switch(t){case"base64":return bc(e);case"hex":return _c(e);default:throw new Error("Unsupported encoding, supported values are: base64, hex")}}function ea(e,t){switch(t){case"base64":return xc(e);case"hex":return Ec(e);default:throw new Error("Unsupported encoding, supported values are: base64, hex")}}function xp(e){e.registerType(Rt.U8,(t,r)=>t.write8(r),t=>t.read8(),t=>t<256),e.registerType(Rt.U16,(t,r)=>t.write16(r),t=>t.read16(),t=>t<65536),e.registerType(Rt.U32,(t,r)=>t.write32(r),t=>t.read32(),t=>t<=4294967296),e.registerType(Rt.U64,(t,r)=>t.write64(r),t=>t.read64(),t=>!0),e.registerType(Rt.U128,(t,r)=>t.write128(r),t=>t.read128(),t=>!0),e.registerType(Rt.U256,(t,r)=>t.write256(r),t=>t.read256(),t=>!0),e.registerType(Rt.BOOL,(t,r)=>t.write8(r),t=>t.read8().toString(10)==="1",t=>!0),e.registerType(Rt.STRING,(t,r)=>t.writeVec(Array.from(r),(i,n)=>i.write8(n.charCodeAt(0))),t=>t.readVec(r=>r.read8()).map(r=>String.fromCharCode(r)).join(""),t=>!0)}function Sc(){return{genericSeparators:["<",">"],vectorType:"vector",addressLength:20,addressEncoding:"hex"}}var da=fe(Nn()),hu=fe(Fc()),yu=fe(Xs()),R1=fe(Nn());var h2=new RegExp("^m(\\/[0-9]+')+$");Pr.hmacSha256Sync=(e,...t)=>{let r=qc.hmac.create(Hc.sha256,e);return t.forEach(i=>r.update(i)),r.digest()};var xy=class{};function aa(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&e.jsonrpc==="2.0"&&typeof e.id=="string"}function by(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&e.jsonrpc==="2.0"&&typeof e.id=="string"&&(e.error!==null&&typeof e.error=="object"||typeof e.error=="function")&&typeof e.error.message=="string"}var Vc="The response returned from RPC server does not match the TypeScript definition. This is likely because the SDK version is not compatible with the RPC server. Please update your SDK version to the latest. ",Ey=class{constructor(e,t){this.rpcClient=this.createRpcClient(e,t)}createRpcClient(e,t){return new $c.default(async(i,n)=>{let o={method:"POST",body:i,headers:Object.assign({"Content-Type":"application/json"},t||{})};try{let a=await(0,zc.default)(e,o),h=await a.text(),p;try{p=JSON.stringify(Kc.parse(h,(b,_)=>{if(_==null)return _;if(b==="balance"&&typeof _=="number")return _.toString();try{if(_.isLosslessNumber)return _.valueOf()}catch{return _.toString()}return _}))}catch(b){p=h}a.ok?n(null,p):n(new Error(`${a.status} ${a.statusText}: ${h}`))}catch(a){a instanceof Error&&n(a)}},{})}async requestWithType(e,t,r,i=!1){let n=await this.request(e,t);if(by(n))throw new Error(`RPC Error: ${n.error.message}`);if(aa(n)){let o=r(n.result),a=Vc+`Result received was: ${JSON.stringify(n.result)}`;if(i&&!o)return console.warn(a),n.result;if(!o)throw new Error(`RPC Error: ${a}`);return n.result}throw new Error(`Unexpected RPC Response: ${n}`)}async request(e,t){return new Promise((r,i)=>{this.rpcClient.request(e,t,(n,o)=>{if(n){i(n);return}r(o)})})}async batchRequestWithType(e,t,r=!1){let i=await this.batchRequest(e),n=i.filter(o=>aa(o)&&(r||t(o.result)));if(i.length>n.length){console.warn(`Batch request contains invalid responses. ${i.length-n.length} of the ${i.length} requests has invalid schema.`);let o=i.find(h=>!t(h.result)),a=i.findIndex(h=>!aa(h));o&&console.warn(Vc+`One example mismatch is: ${JSON.stringify(o.result)}`),a!==-1&&console.warn(`The request ${JSON.stringify(e[a])} within a batch request returns an invalid response ${JSON.stringify(i[a])}`)}return n.map(o=>o.result)}async batchRequest(e){return new Promise((t,r)=>{e.length===0&&t([]);let i=e.map(n=>this.rpcClient.request(n.method,n.args));this.rpcClient.request(i,(n,o)=>{if(n){r(n);return}t(o)})})}};function se(e,t){return typeof e=="string"}function zn(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.AddressOwner)||(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.ObjectOwner)||(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.SingleOwner)||(e!==null&&typeof e=="object"||typeof e=="function")&&(e.Shared!==null&&typeof e.Shared=="object"||typeof e.Shared=="function")&&St(e.Shared.initial_shared_version)||e==="Shared"||e==="Immutable"}function nr(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.digest)&&se(e.objectId)&&St(e.version)}function _y(e,t){return nr(e)&&(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.type)&&zn(e.owner)&&se(e.previousTransaction)}function Sy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Object.entries(e).every(([r,i])=>se(r))}function Ay(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Object.entries(e).every(([r,i])=>se(i)&&se(r))}function Ty(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Qc(e.dataType)&&Gc(e)||(e!==null&&typeof e=="object"||typeof e=="function")&&Qc(e.dataType)&&Zc(e)}function Gc(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.type)&&Sy(e.fields)&&(typeof e.has_public_transfer=="undefined"||e.has_public_transfer===!1||e.has_public_transfer===!0)}function Zc(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Ay(e.disassembled)}function Cy(e,t){return se(e)||(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.Object)}function My(e,t){return Array.isArray(e)&&e.every(r=>Cy(r))}function By(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Object.entries(e).every(([r,i])=>Yc(i)&&se(r))}function Yc(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&St(e.file_format_version)&&se(e.address)&&se(e.name)&&Array.isArray(e.friends)&&e.friends.every(r=>Iy(r))&&(e.structs!==null&&typeof e.structs=="object"||typeof e.structs=="function")&&Object.entries(e.structs).every(([r,i])=>Jc(i)&&se(r))&&(e.exposed_functions!==null&&typeof e.exposed_functions=="object"||typeof e.exposed_functions=="function")&&Object.entries(e.exposed_functions).every(([r,i])=>Xc(i)&&se(r))}function Iy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.address)&&se(e.name)}function Jc(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&fa(e.abilities)&&Array.isArray(e.type_parameters)&&e.type_parameters.every(r=>Oy(r))&&Array.isArray(e.fields)&&e.fields.every(r=>Py(r))}function Oy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&fa(e.constraints)&&typeof e.is_phantom=="boolean"}function Py(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.name)&&xn(e.type_)}function Xc(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Ry(e.visibility)&&typeof e.is_entry=="boolean"&&Array.isArray(e.type_parameters)&&e.type_parameters.every(r=>fa(r))&&Array.isArray(e.parameters)&&e.parameters.every(r=>xn(r))&&Array.isArray(e.return_)&&e.return_.every(r=>xn(r))}function Ry(e,t){return e==="Private"||e==="Public"||e==="Friend"}function St(e,t){return typeof e=="number"}function fa(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Array.isArray(e.abilities)&&e.abilities.every(r=>se(r))}function xn(e,t){return se(e)||Ny(e)||(e!==null&&typeof e=="object"||typeof e=="function")&&xn(e.Reference)||(e!==null&&typeof e=="object"||typeof e=="function")&&xn(e.MutableReference)||(e!==null&&typeof e=="object"||typeof e=="function")&&xn(e.Vector)||ky(e)}function Ny(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&St(e.TypeParameter)}function ky(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&(e.Struct!==null&&typeof e.Struct=="object"||typeof e.Struct=="function")&&se(e.Struct.address)&&se(e.Struct.module)&&se(e.Struct.name)&&Array.isArray(e.Struct.type_arguments)&&e.Struct.type_arguments.every(r=>xn(r))}function cn(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Ty(e.data)&&zn(e.owner)&&se(e.previousTransaction)&&St(e.storageRebate)&&nr(e.reference)}function Uy(e,t){return e==="Exists"||e==="NotExists"||e==="Deleted"}function Qc(e,t){return e==="moveObject"||e==="package"}function jc(e,t){return Array.isArray(e)&&e.every(r=>_y(r))}function eu(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Uy(e.status)&&(se(e.details)||nr(e.details)||cn(e.details))}function Ly(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.packageId)&&se(e.transactionModule)&&se(e.sender)&&se(e.type)&&(typeof e.fields=="undefined"||e.fields!==null&&typeof e.fields=="object"||typeof e.fields=="function")&&se(e.bcs)}function Dy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.sender)&&se(e.packageId)}function Wy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.packageId)&&se(e.transactionModule)&&se(e.sender)&&zn(e.owner)&&Ky(e.changeType)&&se(e.coinType)&&se(e.coinObjectId)&&St(e.version)&&St(e.amount)}function Fy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.packageId)&&se(e.transactionModule)&&se(e.sender)&&zn(e.recipient)&&se(e.objectType)&&se(e.objectId)&&St(e.version)}function qy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.packageId)&&se(e.transactionModule)&&se(e.sender)&&se(e.objectType)&&se(e.objectId)&&St(e.version)}function Hy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.packageId)&&se(e.transactionModule)&&se(e.sender)&&se(e.objectId)&&St(e.version)}function $y(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.packageId)&&se(e.transactionModule)&&se(e.sender)&&zn(e.recipient)&&se(e.objectType)&&se(e.objectId)&&St(e.version)}function zy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Ly(e.moveEvent)||(e!==null&&typeof e=="object"||typeof e=="function")&&Dy(e.publish)||(e!==null&&typeof e=="object"||typeof e=="function")&&Wy(e.coinBalanceChange)||(e!==null&&typeof e=="object"||typeof e=="function")&&Fy(e.transferObject)||(e!==null&&typeof e=="object"||typeof e=="function")&&qy(e.mutateObject)||(e!==null&&typeof e=="object"||typeof e=="function")&&Hy(e.deleteObject)||(e!==null&&typeof e=="object"||typeof e=="function")&&$y(e.newObject)||(e!==null&&typeof e=="object"||typeof e=="function")&&typeof e.epochChange=="bigint"||(e!==null&&typeof e=="object"||typeof e=="function")&&typeof e.checkpoint=="bigint"}function Ky(e,t){return e==="Gas"||e==="Pay"||e==="Receive"}function tu(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&St(e.timestamp)&&se(e.txDigest)&&zy(e.event)}function bn(e,t){return Array.isArray(e)&&e.every(r=>tu(r))}function Vy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&St(e.subscription)&&tu(e.result)}function Gy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.recipient)&&nr(e.objectRef)}function Zy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.recipient)&&(e.amount===null||St(e.amount))}function Yy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&St(e.epoch)&&St(e.storage_charge)&&St(e.computation_charge)}function Jy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Array.isArray(e.coins)&&e.coins.every(r=>nr(r))&&Array.isArray(e.recipients)&&e.recipients.every(r=>se(r))&&Array.isArray(e.amounts)&&e.amounts.every(r=>St(r))}function Xy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Array.isArray(e.coins)&&e.coins.every(r=>nr(r))&&Array.isArray(e.recipients)&&e.recipients.every(r=>se(r))&&Array.isArray(e.amounts)&&e.amounts.every(r=>St(r))}function Qy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Array.isArray(e.coins)&&e.coins.every(r=>nr(r))&&se(e.recipient)}function jy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Gy(e.TransferObject)||(e!==null&&typeof e=="object"||typeof e=="function")&&Zc(e.Publish)||(e!==null&&typeof e=="object"||typeof e=="function")&&c1(e.Call)||(e!==null&&typeof e=="object"||typeof e=="function")&&Zy(e.TransferSui)||(e!==null&&typeof e=="object"||typeof e=="function")&&Yy(e.ChangeEpoch)||(e!==null&&typeof e=="object"||typeof e=="function")&&Jy(e.Pay)||(e!==null&&typeof e=="object"||typeof e=="function")&&Xy(e.PaySui)||(e!==null&&typeof e=="object"||typeof e=="function")&&Qy(e.PayAllSui)}function e1(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Array.isArray(e.transactions)&&e.transactions.every(r=>jy(r))&&se(e.sender)&&nr(e.gasPayment)&&St(e.gasBudget)}function t1(e,t){return se(e)||Array.isArray(e)&&e.every(r=>se(r))}function r1(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&St(e.epoch)&&t1(e.signature)}function ca(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.transactionDigest)&&e1(e.data)&&se(e.txSignature)&&r1(e.authSignInfo)}function n1(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&St(e.computationCost)&&St(e.storageCost)&&St(e.storageRebate)}function i1(e,t){return e==="success"||e==="failure"}function o1(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&i1(e.status)&&(typeof e.error=="undefined"||se(e.error))}function No(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&zn(e.owner)&&nr(e.reference)}function ru(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&o1(e.status)&&n1(e.gasUsed)&&(typeof e.sharedObjects=="undefined"||Array.isArray(e.sharedObjects)&&e.sharedObjects.every(r=>nr(r)))&&se(e.transactionDigest)&&(typeof e.created=="undefined"||Array.isArray(e.created)&&e.created.every(r=>No(r)))&&(typeof e.mutated=="undefined"||Array.isArray(e.mutated)&&e.mutated.every(r=>No(r)))&&(typeof e.unwrapped=="undefined"||Array.isArray(e.unwrapped)&&e.unwrapped.every(r=>No(r)))&&(typeof e.deleted=="undefined"||Array.isArray(e.deleted)&&e.deleted.every(r=>nr(r)))&&(typeof e.wrapped=="undefined"||Array.isArray(e.wrapped)&&e.wrapped.every(r=>nr(r)))&&No(e.gasObject)&&(typeof e.events=="undefined"||Array.isArray(e.events))&&(typeof e.dependencies=="undefined"||Array.isArray(e.dependencies)&&e.dependencies.every(r=>se(r)))}function nu(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ca(e.certificate)&&ru(e.effects)&&(e.timestamp_ms===null||St(e.timestamp_ms))&&(e.parsed_data===null||(e.parsed_data!==null&&typeof e.parsed_data=="object"||typeof e.parsed_data=="function")&&l1(e.parsed_data.SplitCoin)||(e.parsed_data!==null&&typeof e.parsed_data=="object"||typeof e.parsed_data=="function")&&u1(e.parsed_data.MergeCoin)||(e.parsed_data!==null&&typeof e.parsed_data=="object"||typeof e.parsed_data=="function")&&h1(e.parsed_data.Publish))}function s1(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ru(e.effects)}function a1(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&(e.ImmediateReturn!==null&&typeof e.ImmediateReturn=="object"||typeof e.ImmediateReturn=="function")&&se(e.ImmediateReturn.tx_digest)||(e!==null&&typeof e=="object"||typeof e=="function")&&(e.TxCert!==null&&typeof e.TxCert=="object"||typeof e.TxCert=="function")&&ca(e.TxCert.certificate)||(e!==null&&typeof e=="object"||typeof e=="function")&&(e.EffectsCert!==null&&typeof e.EffectsCert=="object"||typeof e.EffectsCert=="function")&&ca(e.EffectsCert.certificate)&&s1(e.EffectsCert.effects)}function f1(e,t){return Array.isArray(e)&&e.every(r=>se(r))}function ua(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Array.isArray(e.data)&&e.data.every(r=>se(r))&&(e.nextCursor===null||se(e.nextCursor))}function c1(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&nr(e.package)&&se(e.module)&&se(e.function)&&(typeof e.typeArguments=="undefined"||Array.isArray(e.typeArguments)&&e.typeArguments.every(r=>se(r)))&&(typeof e.arguments=="undefined"||Array.isArray(e.arguments)&&e.arguments.every(r=>iu(r)))}function iu(e,t){return se(e)||St(e)||e===!1||e===!0||Array.isArray(e)&&e.every(r=>iu(r))}function u1(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&cn(e.updatedCoin)&&cn(e.updatedGas)}function l1(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&cn(e.updatedCoin)&&Array.isArray(e.newCoins)&&e.newCoins.every(r=>cn(r))&&cn(e.updatedGas)}function h1(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Array.isArray(e.createdObjects)&&e.createdObjects.every(r=>cn(r))&&d1(e.package)&&cn(e.updatedGas)}function d1(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&se(e.digest)&&se(e.objectId)&&St(e.version)}var p1=20;function la(e,t=!1){let r=e.toLowerCase();return!t&&r.startsWith("0x")&&(r=r.slice(2)),`0x${r.padStart(p1*2,"0")}`}function y1(e,t=!1){return la(e,t)}var g2=BigInt(1e9);function ou(e){return e.status!=="Exists"?void 0:e.details}function g1(e){return e.status!=="Deleted"?void 0:e.details}function m1(e){return e.status!=="NotExists"?void 0:e.details}function ha(e){var t;return((t=ou(e))==null?void 0:t.reference)||g1(e)}function w1(e){var r;var t;return"objectId"in e?e.objectId:(r=(t=ha(e))==null?void 0:t.objectId)!=null?r:m1(e)}function su(e){var t;return"version"in e?e.version:(t=ha(e))==null?void 0:t.version}function v1(e){var t;return(t=au(e))==null?void 0:t.type}function x1(e){var t;return"fields"in e?e.fields:(t=au(e))==null?void 0:t.fields}function au(e){let t="data"in e?e:ou(e);if((t==null?void 0:t.data.dataType)==="moveObject")return t.data}var En=100,Kn=0,Vn=Number.MAX_SAFE_INTEGER;function fu(e){if(!(typeof e=="object"&&e!==null&&"type"in e&&e.type.startsWith("0x1::option::Option<")))return e}var cu="0x2";var uu=`${cu}::sui::SUI`,b1=`${cu}::coin::Coin`;var E1=/^0x2::coin::Coin<(.+)>$/,At=class{static isCoin(e){var r;var t;return(r=(t=At.getType(e))==null?void 0:t.startsWith(b1))!=null?r:!1}static getCoinTypeArg(e){var t;let r=(t=At.getType(e))==null?void 0:t.match(E1);return r?r[1]:null}static isSUI(e){let t=At.getCoinTypeArg(e);return t?At.getCoinSymbol(t)==="SUI":!1}static getCoinSymbol(e){return e.substring(e.lastIndexOf(":")+1)}static getCoinStructTag(e){return{address:y1(e.split("::")[0]),module:e.split("::")[1],name:e.split("::")[2],typeParams:[]}}static getID(e){return Gc(e)?e.fields.id.id:w1(e)}static selectCoinsWithBalanceGreaterThanOrEqual(e,t,r=[]){return At.sortByBalance(e.filter(i=>!r.includes(At.getID(i))&&At.getBalance(i)>=t))}static selectCoinWithBalanceGreaterThanOrEqual(e,t,r=[]){return e.find(i=>!r.includes(At.getID(i))&&At.getBalance(i)>=t)}static selectCoinSetWithCombinedBalanceGreaterThanOrEqual(e,t,r=[]){let i=At.sortByBalance(e.filter(h=>!r.includes(At.getID(h)))),n=At.totalBalance(i);if(n<t)return[];if(n===t)return i;let o=BigInt(0),a=[];for(;o<n;){let h=t-o,p=i.find(_=>At.getBalance(_)>=h);if(p){a.push(p);break}let b=i.pop();a.push(b),o+=At.getBalance(b)}return At.sortByBalance(a)}static totalBalance(e){return e.reduce((t,r)=>t+At.getBalance(r),BigInt(0))}static sortByBalance(e){return e.sort((t,r)=>At.getBalance(t)<At.getBalance(r)?-1:At.getBalance(t)>At.getBalance(r)?1:0)}static getBalance(e){var t;if(!At.isCoin(e))return;let r=(t=x1(e))==null?void 0:t.balance;return BigInt(r)}static getZero(){return BigInt(0)}static getType(e){return"status"in e?v1(e):e.type}},lu=class{static isDelegationSuiObject(e){return"type"in e.data&&e.data.type===lu.SUI_OBJECT_TYPE}constructor(e){this.suiObject=e}nextRewardUnclaimedEpoch(){return this.suiObject.data.fields.next_reward_unclaimed_epoch}activeDelegation(){return BigInt(fu(this.suiObject.data.fields.active_delegation)||0)}delegateAmount(){return this.suiObject.data.fields.delegate_amount}endingEpoch(){return fu(this.suiObject.data.fields.ending_epoch)}validatorAddress(){return this.suiObject.data.fields.validator_address}isActive(){return this.activeDelegation()>0&&!this.endingEpoch()}hasUnclaimedRewards(e){return this.nextRewardUnclaimedEpoch()<=e&&(this.isActive()||(this.endingEpoch()||0)>e)}},_1=lu;_1.SUI_OBJECT_TYPE="0x2::delegation::Delegation";var Zt=new Rt(Sc());Zt.registerType("utf8string",(e,t)=>{let r=Array.from(da.Buffer.from(t));return e.writeVec(r,(i,n)=>i.write8(n))},e=>{let t=e.readVec(r=>r.read8());return da.Buffer.from(t).toString("utf-8")}).registerType("ObjectDigest",(e,t)=>{let r=Array.from(ea(t,"base64"));return e.writeVec(r,(i,n)=>i.write8(n))},e=>{let t=e.readVec(r=>r.read8());return js(new Uint8Array(t),"base64")});Zt.registerStructType("SuiObjectRef",{objectId:"address",version:"u64",digest:"ObjectDigest"});Zt.registerStructType("TransferObjectTx",{recipient:"address",object_ref:"SuiObjectRef"});Zt.registerStructType("PayTx",{coins:"vector<SuiObjectRef>",recipients:"vector<address>",amounts:"vector<u64>"});Zt.registerStructType("PaySuiTx",{coins:"vector<SuiObjectRef>",recipients:"vector<address>",amounts:"vector<u64>"});Zt.registerStructType("PayAllSuiTx",{coins:"vector<SuiObjectRef>",recipient:"address"});Zt.registerEnumType("Option<T>",{None:null,Some:"T"});Zt.registerStructType("TransferSuiTx",{recipient:"address",amount:"Option<u64>"});Zt.registerStructType("PublishTx",{modules:"vector<vector<u8>>"});Zt.registerStructType("SharedObjectRef",{objectId:"address",initialSharedVersion:"u64"}).registerEnumType("ObjectArg",{ImmOrOwned:"SuiObjectRef",Shared:"SharedObjectRef"}).registerEnumType("CallArg",{Pure:"vector<u8>",Object:"ObjectArg",ObjVec:"vector<ObjectArg>"});Zt.registerEnumType("TypeTag",{bool:null,u8:null,u64:null,u128:null,address:null,signer:null,vector:"TypeTag",struct:"StructTag",u16:null,u32:null,u256:null}).registerStructType("StructTag",{address:"address",module:"string",name:"string",typeParams:"vector<TypeTag>"});Zt.registerStructType("MoveCallTx",{package:"SuiObjectRef",module:"string",function:"string",typeArguments:"vector<TypeTag>",arguments:"vector<CallArg>"});Zt.registerEnumType("Transaction",{TransferObject:"TransferObjectTx",Publish:"PublishTx",Call:"MoveCallTx",TransferSui:"TransferSuiTx",Pay:"PayTx",PaySui:"PaySuiTx",PayAllSui:"PayAllSuiTx"});Zt.registerEnumType("TransactionKind",{Single:"Transaction",Batch:"vector<Transaction>"});Zt.registerStructType("TransactionData",{kind:"TransactionKind",sender:"address",gasPayment:"SuiObjectRef",gasPrice:"u64",gasBudget:"u64"});Zt.registerEnumType("ObjectArg_Deprecated",{ImmOrOwned:"SuiObjectRef",Shared_Deprecated:"address"}).registerEnumType("CallArg_Deprecated",{Pure:"vector<u8>",Object:"ObjectArg_Deprecated",ObjVec:"vector<ObjectArg_Deprecated>"}).registerStructType("MoveCallTx_Deprecated",{package:"SuiObjectRef",module:"string",function:"string",typeArguments:"vector<TypeTag>",arguments:"vector<CallArg_Deprecated>"}).registerEnumType("Transaction_Deprecated",{TransferObject:"TransferObjectTx",Publish:"PublishTx",Call:"MoveCallTx_Deprecated",TransferSui:"TransferSuiTx",Pay:"PayTx",PaySui:"PaySuiTx",PayAllSui:"PayAllSuiTx"}).registerEnumType("TransactionKind_Deprecated",{Single:"Transaction_Deprecated",Batch:"vector<Transaction_Deprecated>"}).registerStructType("TransactionData_Deprecated",{kind:"TransactionKind_Deprecated",sender:"address",gasPayment:"SuiObjectRef",gasPrice:"u64",gasBudget:"u64"});function S1(e){let t=e.split(".");return{major:parseInt(t[0],10),minor:parseInt(t[1],10),patch:parseInt(t[2],10)}}var A1=(e,t)=>{let r=new URL(e);return r.protocol=r.protocol.replace("http","ws"),r.port=(t!=null?t:9001).toString(),r.toString()},T1=e=>e&&"subscription"in e&&typeof e.subscription=="number"&&"result"in e&&typeof e.result=="object",du={connectTimeout:15e3,callTimeout:3e4,reconnectInterval:3e3,maxReconnects:5},pu="sui_subscribeEvent",C1="sui_unsubscribeEvent",M1=class{constructor(e,t,r=du){this.endpoint=e,this.skipValidation=t,this.options=r,this.connectionState=0,this.connectionTimeout=null,this.isSetup=!1,this.connectionPromise=null,this.eventSubscriptions=new Map,this.endpoint.startsWith("http")&&(this.endpoint=A1(this.endpoint)),this.rpcClient=new hu.Client(this.endpoint,{reconnect_interval:this.options.reconnectInterval,max_reconnects:this.options.maxReconnects,autoconnect:!1})}setupSocket(){this.isSetup||(this.rpcClient.on("open",()=>{this.connectionTimeout&&(clearTimeout(this.connectionTimeout),this.connectionTimeout=null),this.connectionState=2,this.rpcClient.socket.on("message",this.onSocketMessage.bind(this))}),this.rpcClient.on("close",()=>{this.connectionState=0}),this.rpcClient.on("error",console.error),this.isSetup=!0)}onSocketMessage(e){let t=JSON.parse(e),r=t.params;if(t.method===pu){if(this.skipValidation&&T1(r)){let i=this.eventSubscriptions.get(r.subscription);i&&i.onMessage(r.result)}else if(Vy(r)){let i=this.eventSubscriptions.get(r.subscription);i&&i.onMessage(r.result)}}}async connect(){return this.connectionPromise?this.connectionPromise:this.connectionState===2?Promise.resolve():(this.setupSocket(),this.rpcClient.connect(),this.connectionState=1,this.connectionPromise=new Promise((e,t)=>{this.connectionTimeout=setTimeout(()=>t(new Error("timeout")),this.options.connectTimeout),this.rpcClient.once("open",()=>{this.refreshSubscriptions(),this.connectionPromise=null,e()}),this.rpcClient.once("error",r=>{this.connectionPromise=null,t(r)})}),this.connectionPromise)}async refreshSubscriptions(){if(this.eventSubscriptions.size!==0)try{let e=new Map;(await Promise.all(Array.from(this.eventSubscriptions.values()).map(async r=>{let i=r.onMessage,n=r.filter;return!n||!i?Promise.resolve(null):{id:await this.subscribeEvent(n,i),onMessage:i,filter:n}}))).forEach(r=>{if(r===null)return;let i=r.filter,n=r.onMessage;e.set(r.id,{filter:i,onMessage:n})}),this.eventSubscriptions=e}catch(e){throw new Error(`error refreshing event subscriptions: ${e}`)}}async subscribeEvent(e,t){try{this.connectionState!=2&&await this.connect();let r=await this.rpcClient.call(pu,[e],this.options.callTimeout);return this.eventSubscriptions.set(r,{filter:e,onMessage:t}),r}catch(r){throw new Error(`Error subscribing to event: ${r}, filter: ${JSON.stringify(e)}`)}}async unsubscribeEvent(e){try{this.connectionState!=2&&await this.connect();let t=await this.rpcClient.call(C1,[e],this.options.callTimeout);return this.eventSubscriptions.delete(e)||t}catch(t){throw new Error(`Error unsubscribing from event: ${t}, subscription: ${e}}`)}}},br=(e=>(e.LOCAL="LOCAL",e.DEVNET="DEVNET",e))(br||{}),B1={LOCAL:{fullNode:"http://127.0.0.1:9000",faucet:"http://127.0.0.1:9123/gas"},DEVNET:{fullNode:"https://fullnode.devnet.sui.io/",faucet:"https://faucet.devnet.sui.io/gas"}};async function I1(e,t,r){let n=await(await(0,yu.default)(e,{method:"POST",body:JSON.stringify({FixedAmountRequest:{recipient:t}}),headers:{"Content-Type":"application/json",...r||{}}})).json();if(n.error)throw new Error(`Faucet returns error: ${n.error}`);return n}var O1=e=>typeof e=="number",P1=e=>!0,gu={skipDataValidation:!0,socketOptions:du,versionCacheTimoutInSeconds:600},Xr=class extends xy{constructor(e="DEVNET",t=gu){super();this.options=t,Object.values(br).includes(e)?this.endpoints=B1[e]:this.endpoints={fullNode:e,faucet:t.faucetURL};let r={...gu,...t};this.client=new Ey(this.endpoints.fullNode),this.wsClient=new M1(this.endpoints.fullNode,r.skipDataValidation,r.socketOptions)}async getRpcApiVersion(){var e;if(this.rpcApiVersion&&this.cacheExpiry&&this.cacheExpiry<=Date.now())return this.rpcApiVersion;try{let t=await this.client.requestWithType("rpc.discover",[],P1,this.options.skipDataValidation);return this.rpcApiVersion=S1(t.info.version),this.cacheExpiry=Date.now()+((e=this.options.versionCacheTimoutInSeconds)!=null?e:0),this.rpcApiVersion}catch(t){console.warn("Error fetching version number of the RPC API",t)}}async requestSuiFromFaucet(e,t){if(!this.endpoints.faucet)throw new Error("Faucet URL is not specified");return I1(this.endpoints.faucet,e,t)}async getMoveFunctionArgTypes(e,t,r){try{return await this.client.requestWithType("sui_getMoveFunctionArgTypes",[e,t,r],My,this.options.skipDataValidation)}catch(i){throw new Error(`Error fetching Move function arg types with package object ID: ${e}, module name: ${t}, function name: ${r}`)}}async getNormalizedMoveModulesByPackage(e){try{return await this.client.requestWithType("sui_getNormalizedMoveModulesByPackage",[e],By,this.options.skipDataValidation)}catch(t){throw new Error(`Error fetching package: ${t} for package ${e}`)}}async getNormalizedMoveModule(e,t){try{return await this.client.requestWithType("sui_getNormalizedMoveModule",[e,t],Yc,this.options.skipDataValidation)}catch(r){throw new Error(`Error fetching module: ${r} for package ${e}, module ${t}}`)}}async getNormalizedMoveFunction(e,t,r){try{return await this.client.requestWithType("sui_getNormalizedMoveFunction",[e,t,r],Xc,this.options.skipDataValidation)}catch(i){throw new Error(`Error fetching function: ${i} for package ${e}, module ${t} and function ${r}}`)}}async getNormalizedMoveStruct(e,t,r){try{return await this.client.requestWithType("sui_getNormalizedMoveStruct",[e,t,r],Jc,this.options.skipDataValidation)}catch(i){throw new Error(`Error fetching struct: ${i} for package ${e}, module ${t} and struct ${r}}`)}}async getObjectsOwnedByAddress(e){try{return await this.client.requestWithType("sui_getObjectsOwnedByAddress",[e],jc,this.options.skipDataValidation)}catch(t){throw new Error(`Error fetching owned object: ${t} for address ${e}`)}}async getGasObjectsOwnedByAddress(e){return(await this.getObjectsOwnedByAddress(e)).filter(r=>At.isSUI(r))}getCoinDenominationInfo(e){let[t,r,i]=e.split("::");if(la(t)!==la("0x2")||r!="sui"||i!=="SUI")throw new Error("only SUI coin is supported in getCoinDenominationInfo for now.");return{coinType:e,basicUnit:"MIST",decimalNumber:9}}async getCoinBalancesOwnedByAddress(e,t){let i=(await this.getObjectsOwnedByAddress(e)).filter(n=>At.isCoin(n)&&(t===void 0||t===At.getCoinTypeArg(n))).map(n=>n.objectId);return await this.getObjectBatch(i)}async selectCoinsWithBalanceGreaterThanOrEqual(e,t,r=uu,i=[]){let n=await this.getCoinBalancesOwnedByAddress(e,r);return await At.selectCoinsWithBalanceGreaterThanOrEqual(n,t,i)}async selectCoinSetWithCombinedBalanceGreaterThanOrEqual(e,t,r=uu,i=[]){let n=await this.getCoinBalancesOwnedByAddress(e,r);return await At.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(n,t,i)}async getObjectsOwnedByObject(e){try{return await this.client.requestWithType("sui_getObjectsOwnedByObject",[e],jc,this.options.skipDataValidation)}catch(t){throw new Error(`Error fetching owned object: ${t} for objectId ${e}`)}}async getObject(e){try{return await this.client.requestWithType("sui_getObject",[e],eu,this.options.skipDataValidation)}catch(t){throw new Error(`Error fetching object info: ${t} for id ${e}`)}}async getObjectRef(e){let t=await this.getObject(e);return ha(t)}async getObjectBatch(e){let t=e.map(r=>({method:"sui_getObject",args:[r]}));try{return await this.client.batchRequestWithType(t,eu,this.options.skipDataValidation)}catch(r){throw new Error(`Error fetching object info: ${r} for id ${e}`)}}async getTransactions(e,t=null,r=null,i="Descending"){try{return await this.client.requestWithType("sui_getTransactions",[e,t,r,i],ua,this.options.skipDataValidation)}catch(n){throw new Error(`Error getting transactions for query: ${n} for query ${e}`)}}async getTransactionsForObject(e,t="Descending"){let r=[{method:"sui_getTransactions",args:[{InputObject:e},null,null,t]},{method:"sui_getTransactions",args:[{MutatedObject:e},null,null,t]}];try{let i=await this.client.batchRequestWithType(r,ua,this.options.skipDataValidation);return[...i[0].data,...i[1].data]}catch(i){throw new Error(`Error getting transactions for object: ${i} for id ${e}`)}}async getTransactionsForAddress(e,t="Descending"){let r=[{method:"sui_getTransactions",args:[{ToAddress:e},null,null,t]},{method:"sui_getTransactions",args:[{FromAddress:e},null,null,t]}];try{let i=await this.client.batchRequestWithType(r,ua,this.options.skipDataValidation);return[...i[0].data,...i[1].data]}catch(i){throw new Error(`Error getting transactions for address: ${i} for id ${e}`)}}async getTransactionWithEffects(e){try{return await this.client.requestWithType("sui_getTransaction",[e],nu,this.options.skipDataValidation)}catch(t){throw new Error(`Error getting transaction with effects: ${t} for digest ${e}`)}}async getTransactionWithEffectsBatch(e){let t=e.map(r=>({method:"sui_getTransaction",args:[r]}));try{return await this.client.batchRequestWithType(t,nu,this.options.skipDataValidation)}catch(r){let i=e.join(", ").substring(0,-2);throw new Error(`Error getting transaction effects: ${r} for digests [${i}]`)}}async executeTransactionWithRequestType(e,t,r,i,n="WaitForEffectsCert"){try{return await this.client.requestWithType("sui_executeTransaction",[e,t,r,i,n],a1,this.options.skipDataValidation)}catch(o){throw new Error(`Error executing transaction with request type: ${o}}`)}}async getTotalTransactionNumber(){try{return await this.client.requestWithType("sui_getTotalTransactionNumber",[],O1,this.options.skipDataValidation)}catch(e){throw new Error(`Error fetching total transaction number: ${e}`)}}async getTransactionDigestsInRange(e,t){try{return await this.client.requestWithType("sui_getTransactionsInRange",[e,t],f1,this.options.skipDataValidation)}catch(r){throw new Error(`Error fetching transaction digests in range: ${r} for range ${e}-${t}`)}}async getEventsByTransaction(e,t=En){try{return await this.client.requestWithType("sui_getEventsByTransaction",[e,t],bn,this.options.skipDataValidation)}catch(r){throw new Error(`Error getting events by transaction: ${e}, with error: ${r}`)}}async getEventsByModule(e,t,r=En,i=Kn,n=Vn){try{return await this.client.requestWithType("sui_getEventsByModule",[e,t,r,i,n],bn,this.options.skipDataValidation)}catch(o){throw new Error(`Error getting events by transaction module: ${e}::${t}, with error: ${o}`)}}async getEventsByMoveEventStructName(e,t=En,r=Kn,i=Vn){try{return await this.client.requestWithType("sui_getEventsByMoveEventStructName",[e,t,r,i],bn,this.options.skipDataValidation)}catch(n){throw new Error(`Error getting events by move event struct name: ${e}, with error: ${n}`)}}async getEventsBySender(e,t=En,r=Kn,i=Vn){try{return await this.client.requestWithType("sui_getEventsBySender",[e,t,r,i],bn,this.options.skipDataValidation)}catch(n){throw new Error(`Error getting events by sender: ${e}, with error: ${n}`)}}async getEventsByRecipient(e,t=En,r=Kn,i=Vn){try{return await this.client.requestWithType("sui_getEventsByRecipient",[e,t,r,i],bn,this.options.skipDataValidation)}catch(n){throw new Error(`Error getting events by receipient: ${e}, with error: ${n}`)}}async getEventsByObject(e,t=En,r=Kn,i=Vn){try{return await this.client.requestWithType("sui_getEventsByObject",[e,t,r,i],bn,this.options.skipDataValidation)}catch(n){throw new Error(`Error getting events by object: ${e}, with error: ${n}`)}}async getEventsByTimeRange(e=En,t=Kn,r=Vn){try{return await this.client.requestWithType("sui_getEventsByTimeRange",[e,t,r],bn,this.options.skipDataValidation)}catch(i){throw new Error(`Error getting events by time range: ${t} thru ${r}, with error: ${i}`)}}async subscribeEvent(e,t){return this.wsClient.subscribeEvent(e,t)}async unsubscribeEvent(e){return this.wsClient.unsubscribeEvent(e)}};var w2=Array.from("TransactionData::").map(e=>e.charCodeAt(0));var mu=e=>e?(e.indexOf("ipfs")===0&&(e=`https://ipfs.io/ipfs/${e.substring(5)}`),e):"",N1=async e=>{let t=new Xr(br.DEVNET);if(!e)return{suiBalance:0,nfts:[],tokens:[]};let r=await t.getObjectsOwnedByAddress(e);if(r.length===0)return{suiBalance:0,tokens:[],nfts:[]};let i=r.map(p=>p.objectId),n=await t.getObjectBatch(i),o=0,a=[],h={};for(let p of n)try{let{data:b,reference:_}=p.details||{};if(!b)continue;let I=((b==null?void 0:b.type)||"").split("<"),P=(I[1]||"").replace(/>/,""),k=I[0].split("::"),K=k[k.length-1];if(K==="DevNetNFT"){let{url:re}=b.fields,ne=mu(re);a.push({chain:"Sui",address:_==null?void 0:_.objectId,name:b.fields.name,description:b.fields.description,imageUri:ne,previewUri:ne,thumbnailUri:ne,collection:{name:"DevNetNFT",type:b==null?void 0:b.type},links:{"DevNet Explorer":`https://explorer.devnet.sui.io/objects/${_==null?void 0:_.objectId}`}})}else if(K==="Coin")P==="0x2::sui::SUI"&&(o+=b.fields.balance),h[P]||(h[P]={balance:0,coins:[]}),h[P].balance+=b.fields.balance,h[P].coins.push({objectId:_==null?void 0:_.objectId,type:b.type,balance:b.fields.balance});else{let{name:re,description:ne,url:Y,image_url:ie,image:ee,...ge}=b.fields||{},be=mu(Y||ie||ee);a.push({type:b==null?void 0:b.type,package:k[0],chain:"Sui",address:_==null?void 0:_.objectId,name:re,description:ne,imageUri:be,previewUri:be,thumbnailUri:be,extraFields:ge,module:k[1],links:{"DevNet Explorer":`https://explorer.devnet.sui.io/objects/${_==null?void 0:_.objectId}`}})}}catch(b){console.log("Error retrieving object",p,b)}return{suiBalance:o,tokens:h,nfts:a}},Gn=N1;var wu=fe(Nr()),k1=()=>wu.default.namespace("ethos")("configuration")||{},dr=k1;var bu=fe(Nr());var Zn;(function(t){t.Sui="sui"})(Zn||(Zn={}));var kr;(function(r){r.Extension="extension",r.Hosted="hosted"})(kr||(kr={}));var Do=fe(Nr());var Lo=fe(Nr()),U1=e=>{let t=Lo.default.namespace("log"),r=t("allowed")||[];if(!r.includes(e))return t("allowed",[...r,e]),`Logging enabled for ${e}. Call ethos.clearAllowLog() to turn off this logging.`},L1=()=>{Lo.default.namespace("log")("allowed",[])},D1=(e,...t)=>{let i=Lo.default.namespace("log")("allowed");!i||!(i.includes(e)||i.includes("all"))||console.log(e,...t)};typeof window!="undefined"&&(window.ethos={allowLog:U1,clearAllowLog:L1});var Ke=D1;var vu=fe(Nr());var W1=e=>{var r;let t=Lr();if(!(t==null?void 0:t.getAttribute("readyToReceiveMessages"))){let i=vu.default.namespace("iframeMessages"),n=i("messages")||[],o=i("messages",[...n,e]);Ke("iframe","Storing iframe message",o);return}(r=t==null?void 0:t.contentWindow)==null||r.postMessage(e,"*")},Ur=W1;var F1=e=>{let{apiKey:t,walletAppUrl:r}=dr();if(Ke("getIframe","getIframe",t,r),!t||!r)return;let i="ethos-wallet-iframe",n=0,o=document.getElementById(i),a=()=>{!o||(o.style.width="1px",o.style.height="1px")};if(!o){let h=new URLSearchParams(window.location.search),p=h.get("auth"),b=r+`/wallet?apiKey=${t}`;if(p){b+=`&auth=${p}`,h.delete("auth");let _=location.protocol+"//"+location.host+location.pathname;h.toString().length>0&&(_+="?"+h.toString()),Do.default.namespace("auth")("access_token",p),window.history.pushState({},"",_)}else{let _=Do.default.namespace("auth")("access_token");_&&(b+=`&auth=${_}`)}Ke("getIframe","Load Iframe",b),o=document.createElement("IFRAME"),o.src=b,o.id=i,o.style.border="none",o.style.position="absolute",o.style.top=n-1+"px",o.style.right="60px",o.style.width="1px",o.style.height="1px",o.style.zIndex="99",o.setAttribute("allow","payment; clipboard-read; clipboard-write"),document.body.appendChild(o),window.addEventListener("message",_=>{if(_.origin===r){let{action:I}=_.data;switch(I){case"close":a();break;case"ready":o.setAttribute("readyToReceiveMessages","true");let P=Do.default.namespace("iframeMessages"),k=P("messages")||[];for(let K of k)Ur(K);P("messages",null);break}}}),window.addEventListener("scroll",()=>{n=window.scrollY,o.style.top=n+"px"})}return e?(o.style.width="360px",o.style.height="600px"):e!==void 0&&a(),o},Lr=F1;var q1=()=>{Ke("activeUser","Calling Active User");let{walletAppUrl:e,apiKey:t}=dr(),r=i=>{let n=a=>{if(Ke("activeUser","Message Origin: ",a.origin,e,a),a.origin===e){let{action:h,data:p}=a.data;Ke("MESSAGE2: ",h,p),h==="user"&&p.apiKey===t&&(window.removeEventListener("message",n),i(p==null?void 0:p.user))}};window.addEventListener("message",n);let o={action:"activeUser"};Lr(),Ke('activeUser", "Post message to the iframe',o),Ur(o)};return new Promise(r)},xu=q1;var H1=({id:e,action:t,data:r,onResponse:i,showWallet:n=!1})=>{let{walletAppUrl:o}=dr(),a=h=>{if(Ke("hostedInteraction","response: ",h),h.origin===o){let{approved:p,action:b,data:_}=h.data;if(b!==t)return;i({approved:p,data:_}),window.removeEventListener("message",a)}};window.addEventListener("message",a),Ke("hostedInteraction","Posting interaction",e,t,r),Ur({id:e,action:t,data:r}),Lr(n)},Wo=H1;var $1=async()=>{let e=await xu(),t=async()=>e?e.accounts.filter(p=>p.chain===Zn.Sui):[],r=async()=>{var b;return(b=(await t())[0])==null?void 0:b.address},i=p=>new Promise((b,_)=>{Wo({action:"transaction",data:{details:p},onResponse:({approved:P,data:k})=>{var K;P?b(k.response):_({error:((K=k==null?void 0:k.response)==null?void 0:K.error)||"User rejected transaction."})},showWallet:!0})}),n=()=>Promise.resolve(!0),o=p=>new Promise((b,_)=>{Wo({action:"sign",data:{signData:p},onResponse:({approved:P,data:k})=>{var K;P?b(k.response):_({error:((K=k==null?void 0:k.response)==null?void 0:K.error)||"User rejected signing."})},showWallet:!0})}),a=(p=!1)=>new Promise(b=>{Wo({action:"logout",data:{fromWallet:p},onResponse:()=>{b(!0)}}),bu.default.namespace("auth")("access_token",null)}),h=()=>a(!0);return e?{type:kr.Hosted,email:e.email,getAccounts:t,getAddress:r,signAndExecuteTransaction:i,requestPreapproval:n,sign:o,disconnect:a,logout:h}:null},Eu=$1;var _u=fe(Nr());var z1=e=>{let t=_u.default.namespace("ethos");Ke("initialize","Ethos Configuration",e),t("configuration",e)},Su=z1;var K1=async e=>{let{walletAppUrl:t}=dr(),r=i=>{if(i.origin===t){let{action:n,data:o}=i.data;if(n!=="connect")return;if(!o.address){e({provider:{},signer:null});return}window.removeEventListener("message",r);let a={getAddress:()=>o.address},h={getSigner:a};Ke("mobile","Mobile connection established",h,a),e({provider:h,signer:a})}};window.removeEventListener("message",r),window.addEventListener("message",r)},Fo=K1;var V1={getWalletContents:Gn,postIFrameMessage:Ur,getEthosSigner:Eu,getConfiguration:dr,initializeEthos:Su,listenForMobileConnection:Fo},_n=V1;var Au=fe(require("react")),G1={provider:null,signer:null},Z1=(0,Au.createContext)(G1),qo=Z1;var Tu=fe(require("react")),Y1={},J1=(0,Tu.createContext)(Y1),Ho=J1;var Cu=fe(require("react"));var Dr;(function(i){i.Loading="loading",i.NoConnection="no_connection",i.Connected="connected"})(Dr||(Dr={}));var X1={status:Dr.Loading},Q1=(0,Cu.createContext)(X1),$o=Q1;var zo=fe(require("react")),j1=e=>{let[t,r]=(0,zo.useState)({});return(0,zo.useEffect)(()=>{if(!e)return;let i=async()=>{let o=await(e==null?void 0:e.getAddress());if(!o)return;let a=await Gn(o);r({address:o,contents:a})};i();let n=setInterval(i,3e3);return()=>clearInterval(n)},[e]),t},Mu=j1;var sr=fe(require("react")),Wu=fe(Nr());var jn=fe(require("react"));var Yt=fe(require("react"));function eg(e){return"connect"in e}function pa(e){return!eg(e)}function ya(e){return e.flatMap(t=>pa(t)?t.get():t)}var tg,rg,ng;tg=new WeakMap;rg=new WeakMap;ng=new WeakMap;var ig=function(e,t,r,i,n){if(i==="m")throw new TypeError("Private method is not writable");if(i==="a"&&!n)throw new TypeError("Private accessor was defined without a setter");if(typeof t=="function"?e!==t||!n:!t.has(e))throw new TypeError("Cannot write private member to an object whose class did not declare it");return i==="a"?n.call(e,r):n?n.value=r:t.set(e,r),r},og=function(e,t,r,i){if(r==="a"&&!i)throw new TypeError("Private accessor was defined without a getter");if(typeof t=="function"?e!==t||!i:!t.has(e))throw new TypeError("Cannot read private member from an object whose class did not declare it");return r==="m"?i:r==="a"?i.call(e):i?i.value:t.get(e)},Ko,ir,Vo=new Set,Yn={};function sg(){if(ir||(ir=Object.freeze({register:Bu,get:ag,on:fg}),typeof window=="undefined"))return ir;let e=Object.freeze({register:Bu});try{window.addEventListener("wallet-standard:register-wallet",({detail:t})=>t(e))}catch(t){console.error(`wallet-standard:register-wallet event listener could not be added
-`,t)}try{window.dispatchEvent(new Iu(e))}catch(t){console.error(`wallet-standard:app-ready event could not be dispatched
-`,t)}return ir}function Bu(...e){var t;return e=e.filter(r=>!Vo.has(r)),e.length?(e.forEach(r=>Vo.add(r)),(t=Yn.register)==null||t.forEach(r=>ga(()=>r(...e))),function(){var i;e.forEach(n=>Vo.delete(n)),(i=Yn.unregister)==null||i.forEach(n=>ga(()=>n(...e)))}):()=>{}}function ag(){return[...Vo]}function fg(e,t){var r;return((r=Yn[e])==null?void 0:r.push(t))||(Yn[e]=[t]),function(){var n;Yn[e]=(n=Yn[e])==null?void 0:n.filter(o=>t!==o)}}function ga(e){try{e()}catch(t){console.error(t)}}var Iu=class extends Event{constructor(t){super("wallet-standard:app-ready",{bubbles:!1,cancelable:!1,composed:!1});Ko.set(this,void 0),ig(this,Ko,t,"f")}get detail(){return og(this,Ko,"f")}get type(){return"wallet-standard:app-ready"}preventDefault(){throw new Error("preventDefault cannot be called")}stopImmediatePropagation(){throw new Error("stopImmediatePropagation cannot be called")}stopPropagation(){throw new Error("stopPropagation cannot be called")}};Ko=new WeakMap;function Ou(){if(ir||(ir=sg(),typeof window=="undefined"))return ir;let e=window.navigator.wallets||[];if(!Array.isArray(e))return console.error("window.navigator.wallets is not an array"),ir;let{register:t}=ir,r=(...i)=>i.forEach(n=>ga(()=>n({register:t})));try{Object.defineProperty(window.navigator,"wallets",{value:Object.freeze({push:r})})}catch(i){return console.error("window.navigator.wallets could not be set"),ir}return r(...e),ir}function Pu(e){return"standard:connect"in e.features&&"standard:events"in e.features&&"sui:signAndExecuteTransaction"in e.features}function Ru(e){return{all:e=e||new Map,on:function(t,r){var i=e.get(t);i?i.push(r):e.set(t,[r])},off:function(t,r){var i=e.get(t);i&&(r?i.splice(i.indexOf(r)>>>0,1):e.set(t,[]))},emit:function(t,r){var i=e.get(t);i&&i.slice().map(function(n){n(r)}),(i=e.get("*"))&&i.slice().map(function(n){n(t,r)})}}}var Nu=(e,t,r)=>{if(!t.has(e))throw TypeError("Cannot "+r)},Nt=(e,t,r)=>(Nu(e,t,"read from private field"),r?r.call(e):t.get(e)),Go=(e,t,r)=>{if(t.has(e))throw TypeError("Cannot add the same private member more than once");t instanceof WeakSet?t.add(e):t.set(e,r)},Zo=(e,t,r,i)=>(Nu(e,t,"write to private field"),i?i.call(e,r):t.set(e,r),r),or,cg=class{constructor({wallet:e}){this.connected=!1,this.connecting=!1,Go(this,or,void 0),Zo(this,or,e)}get name(){return Nt(this,or).name}get icon(){return Nt(this,or).icon}get wallet(){return Nt(this,or)}async getAccounts(){return Nt(this,or).accounts.map(e=>e.address)}async connect(){try{if(this.connected||this.connecting)return;if(this.connecting=!0,Nt(this,or).accounts.length||await Nt(this,or).features["standard:connect"].connect(),!Nt(this,or).accounts.length)throw new Error("No wallet accounts found");this.connected=!0}finally{this.connecting=!1}}async disconnect(){this.connected=!1,this.connecting=!1,Nt(this,or).features["standard:disconnect"]&&await Nt(this,or).features["standard:disconnect"].disconnect()}async signAndExecuteTransaction(e){return Nt(this,or).features["sui:signAndExecuteTransaction"].signAndExecuteTransaction({transaction:e})}};or=new WeakMap;var Jn,Xn,Sn,ku=class{constructor(){Go(this,Jn,void 0),Go(this,Xn,void 0),Go(this,Sn,void 0),Zo(this,Xn,new Map),Zo(this,Jn,Ou()),Zo(this,Sn,Ru()),Nt(this,Jn).on("register",()=>{Nt(this,Sn).emit("changed")}),Nt(this,Jn).on("unregister",()=>{Nt(this,Sn).emit("changed")})}get(){return Nt(this,Jn).get().filter(Pu).forEach(t=>{Nt(this,Xn).has(t)||Nt(this,Xn).set(t,new cg({wallet:t}))}),[...Nt(this,Xn).values()]}on(e,t){return Nt(this,Sn).on(e,t),()=>{Nt(this,Sn).off(e,t)}}};Jn=new WeakMap;Xn=new WeakMap;Sn=new WeakMap;var Qn=fe(require("react")),ug=()=>{let e=(0,Qn.useMemo)(()=>[new ku],[]),[t,r]=(0,Qn.useState)(()=>ya(e));return(0,Qn.useEffect)(()=>{let i=e.filter(pa);if(!i.length)return;let n=a=>{let h=ya(a);if(h.length!==t.length)r(h);else for(let p=0;p<t.length;++p)if(t[p]!==h[p]){r(h);break}};n(e);let o=i.map(a=>a.on("changed",()=>{n(e)}));return()=>{o.forEach(a=>a())}},[e,t]),t},Uu=ug;var Yo="preferredSuiWallet",lg=()=>{let e=Uu(),[t,r]=(0,Yt.useState)(null),[i,n]=(0,Yt.useState)(!1),[o,a]=(0,Yt.useState)(!1),[h,p]=(0,Yt.useState)(!1);(0,Yt.useEffect)(()=>{i&&t&&localStorage.setItem(Yo,t.name)},[t,i]);let b=(0,Yt.useCallback)(async ne=>{var ee;let Y=(ee=e.find(ge=>ge.name===ne))!=null?ee:null;r(Y);let ie=!1;if(Y&&!Y.connecting)try{a(!0),await Y.connect(),n(!0),ie=!0}catch(ge){n(!1)}finally{a(!1)}return ie},[e,n,a]);(0,Yt.useEffect)(()=>{(async()=>{if(!t&&!i&&!o){let Y=localStorage.getItem(Yo);if(typeof Y!="string"&&location.origin==="https://ethoswallet.xyz"){Ke("suiWalletConnect","Wallet explorer",(e||[]).map(ee=>ee.name));let ie=(e||[]).find(ee=>ee.name==="Ethos Wallet");ie&&(Ke("suiWalletConnect","Ethos wallet connected",ie.connected),Y=ie.name)}if(typeof Y=="string"){if(!e||e.length===0)return;await b(Y)||(Ke("suiWalletConnect","setNoConnection0"),p(!0),localStorage.removeItem(Yo));return}Ke("suiWalletConnect","setNoConnection1"),p(!0)}(!e||e.length===0)&&(Ke("suiWalletConnect","setNoConnection2"),p(!0))})()},[e,t,i,o,b]);let _=(0,Yt.useCallback)(async()=>{if(t==null)throw Error("Wallet Not Connected");return t.getAccounts()},[t]),I=(0,Yt.useCallback)(async()=>{if(t==null)throw Error("Wallet Not Connected");return(await _())[0]},[_]),P=(0,Yt.useCallback)(()=>{if(n(!1),localStorage.removeItem(Yo),t==null)throw Error("Wallet Not Connected");if(!t.disconnect)throw new Error('Wallet does not support "disconnect" method');t.disconnect(),r(null)},[t]),k=(0,Yt.useCallback)(async ne=>{if(t==null)throw new Error("Wallet Not Connected");if(!t.signAndExecuteTransaction)throw new Error('Wallet does not support "signAndExecuteTransaction" method');return t.signAndExecuteTransaction(ne)},[t]),K=(0,Yt.useCallback)(async ne=>{if(t==null)throw new Error("Wallet Not Connected");let Y=window.ethosWallet;return!Y||t.name!=="Ethos Wallet"?(console.log("Wallet does not support preapproval"),!1):Y.requestPreapproval(ne)},[i]),re=(0,Yt.useCallback)(async()=>!1,[t]);return{wallets:e,wallet:t,connecting:o,noConnection:h,connected:i,select:b,getAccounts:_,getAddress:I,signAndExecuteTransaction:k,requestPreapproval:K,sign:re,disconnect:P}},Lu=lg;var hg=()=>{let{wallet:e,wallets:t,select:r,connecting:i,noConnection:n,connected:o,getAccounts:a,getAddress:h,signAndExecuteTransaction:p,requestPreapproval:b,sign:_,disconnect:I}=Lu(),P=(0,jn.useMemo)(()=>({type:kr.Extension,getAccounts:a,getAddress:h,signAndExecuteTransaction:p,requestPreapproval:b,sign:_,disconnect:I}),[e,o,a,h,p,b,_]),[k,K]=(0,jn.useState)(o?P:null);return(0,jn.useEffect)(()=>{K(o?P:null)},[o,P]),{connecting:i,noConnection:n,connected:o,wallets:t,selectWallet:r,signer:k,setSigner:K}},Du=hg;var dg=()=>{let e=(0,sr.useRef)(!1),t=(0,sr.useRef)({ethos:!1,extension:!1}),[r,i]=(0,sr.useState)({provider:null,signer:null}),{wallets:n,selectWallet:o,noConnection:a,signer:h,setSigner:p}=Du(),[b,_]=(0,sr.useState)(0),I=(0,sr.useCallback)(()=>{Wu.default.namespace("sui")("disconnected",!0),e.current=!1,i(K=>({...K,signer:null})),p(null);for(let K of Object.keys(t.current))t.current[K]=!1;_(K=>K+1)},[]),P=(0,sr.useCallback)((k,K)=>{if(Ke("useConnect","trying to set providerAndSigner",K,e.current,t.current),e.current)return;K&&(t.current[K]=!0);let re=!Object.values(t.current).includes(!1);if(!k&&!re)return;e.current=!!k;let ne=new Xr(br.DEVNET);i({provider:ne,signer:k})},[b]);return(0,sr.useEffect)(()=>{Ke("mobile","listening to mobile connection from EthosConnectProvider"),Fo(k=>{Ke("useConnect","Setting providerAndSigner mobile",k),Ke("mobile","Setting provider and signer",k),P(k,"mobile")})},[P]),(0,sr.useEffect)(()=>{Ke("useConnect","Setting providerAndSigner extension",h,a),!(!a&&!h)&&P(h,"extension")},[a,h,P]),(0,sr.useEffect)(()=>{(async()=>{let K=await _n.getEthosSigner();Ke("useConnect","Setting providerAndSigner ethos",K),P(K,"ethos")})()},[P]),{wallets:n,selectWallet:o,providerAndSigner:r,logout:I}},Fu=dg;var Be=fe(require("react"));var un=fe(require("react")),pg=({width:e=100,color:t="#333"})=>un.default.createElement("svg",{version:"1.1",id:"L4",xmlns:"http://www.w3.org/2000/svg",x:"0px",y:"0px",viewBox:"0 0 54 20",width:e,height:e*(20/54),enableBackground:"new 0 0 0 0"},un.default.createElement("circle",{fill:t,stroke:"none",cx:"6",cy:"10",r:"6"},un.default.createElement("animate",{attributeName:"opacity",dur:"1.5s",values:"0;1;0",repeatCount:"indefinite",begin:"0.1"})),un.default.createElement("circle",{fill:t,stroke:"none",cx:"26",cy:"10",r:"6"},un.default.createElement("animate",{attributeName:"opacity",dur:"1.5s",values:"0;1;0",repeatCount:"indefinite",begin:"0.5"})),un.default.createElement("circle",{fill:t,stroke:"none",cx:"46",cy:"10",r:"6"},un.default.createElement("animate",{attributeName:"opacity",dur:"1.5s",values:"0;1;0",repeatCount:"indefinite",begin:"1.0"}))),Jo=pg;var qu=fe(require("react")),yg=({width:e=32})=>qu.default.createElement("img",{src:gg,width:e,height:e}),ma=yg,gg="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAeGVYSWZNTQAqAAAACAAFARIAAwAAAAEAAQAAARoABQAAAAEAAABKARsABQAAAAEAAABSASgAAwAAAAEAAgAAh2kABAAAAAEAAABaAAAAAAAAAEgAAAABAAAASAAAAAEAAqACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAAAQdIdCAAAACXBIWXMAAAsTAAALEwEAmpwYAAACZmlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNS40LjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyIKICAgICAgICAgICAgeG1sbnM6ZXhpZj0iaHR0cDovL25zLmFkb2JlLmNvbS9leGlmLzEuMC8iPgogICAgICAgICA8dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPgogICAgICAgICA8dGlmZjpSZXNvbHV0aW9uVW5pdD4yPC90aWZmOlJlc29sdXRpb25Vbml0PgogICAgICAgICA8ZXhpZjpDb2xvclNwYWNlPjE8L2V4aWY6Q29sb3JTcGFjZT4KICAgICAgICAgPGV4aWY6UGl4ZWxYRGltZW5zaW9uPjU2PC9leGlmOlBpeGVsWERpbWVuc2lvbj4KICAgICAgICAgPGV4aWY6UGl4ZWxZRGltZW5zaW9uPjU2PC9leGlmOlBpeGVsWURpbWVuc2lvbj4KICAgICAgPC9yZGY6RGVzY3JpcHRpb24+CiAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+CiB3yYcAAAgwSURBVFgJrZddiJ1HGcefmXfe9z3n7G42yTYamy9sklZT0XilAeuFdwXxQrD4gVKwF6IXohdS8CYXJWJFwQvprXhTaOhVFakFjbGWioqItKYXprVda0OaNNnd8/F+jr//nN1k16RCwLM778w8M2f+//k/zzzzHme3+Zw+/Zuw+94TK7mvDucxHCws3h2ie19u9p68d3vy3kaFuYG3diH4We/9dJaF2SzLKG58xWfTyz4b/zvPJqsun6zW9eS1j2785ap76Gz333Buu+H0M2+OwrQ5Wzj/YBbNhWiWR2eAG+CxiJ6+WeijK5KNMWssy6YGCdWR4pwbWwgTbGNsam9QxtH5jSfqS6vfuv+hs/UW7g0C33l69WARu38GMx/Mxaw3l5uAXQypPScjQihgxSY51cE3mwQmAApY9Rx8Xs8JZNm6y/z6uCjHRw5+7GdXRMLr8bmnYtZZe6Hx0TdQalUYaVy02qKTjfpGUb/xLjbeotpdn1uMZey60vp+sFlKm/dxYJRddR77mC+0bfZyjKcTNhs221e89khjbhTZTc+DDbrAwmgWIx0sUMGgj6MbkQE3yOY8hTnWFy74HlB1OnOuTaXvW8BZ3eUOEtE5EQn73njxwleY+FMRcJ23M1BL6wQWjJDQ4n3sXX+TiAMSQoBDTNj84SAm43XYQqSkyZS+x9IB1lJvEaghUtOvWB8Sff6DRODrT720UFm717uMfTrWnxPp5VuBg8KSLnrUoEMcYmQO+8eDPMRHIokWoduVLkge1yXwmwTkkgqCBTVh7sPKhec/sxTqpeye2MKSBWPEsS5jB2wGcJFgYzBXu8MGCW1Wam0S2VJLdqbyBUK4G9CUC+SKDkAFacPUGn2IpjgDo3QL+cL7Q9O3xwnF6NmlAc6IdgtgFg/sLu3LJ1fcgeVCS+uTMObN2z53jM/GtV144YJV641IMFZBpKZdooACM9wXWl8fz5JgWfSA9z7AFAlQ5Esn73YXrkztr29xtFAjFThkYCM2tUs29jzvy0ZRX8d3tOjcoRNH7JUX1llPKtSclArwASoUwJTHyTHN0R4JCDnAgQDcm1c02PdffD1WtUAUIT7mSB9UEwvzXOBSPiixFXBWTijx2QAxKW5A0AyH5Jx+gd12gDeAb5EYupDNjobeNUcURYouoOZuYEGcZSujwj1y6qAd2lVK7y15t+rtPridzaYbnf3t3FWbrin4dCIatK6oZxAiX8TyMATa/TEpAAGCjJ0TTiLU2Vc/csxevrJmf740D3+FmcY0C0QiZu4WuUJp+0ZNWxlz12Kwwx9espfP1wQmIU1K0zH0viJTzmLXTvZLgZUEmBbPmCAAojLL4mN//LubNQJnaSnU4wg8zHFjVsAluAIg+bsg4AesgQtSe8isAbbdRWBmsEG3IAWso2RZzcGb4o7RXaHz7aLETwBKe0CwbgJZGZX2tQ/da0eWRtvltrcnjT3661f5SmYd5Fpi49EHD9reUUqsW+5wG+PWfnv+HZtWMCFdu3YXB4yk39aAJwUW2G49FKuOC2WzxN63Ue1vn/zALeBictcot6JouTMq7oTaFtnCJvgOoosLwT5+atnGxPaEUsXSte0ujuEuFFgiNS+XvnUtV3zDGaAA2rua01CTnmvbNxzsWHB75wv3v9f2LMRE5NP3LW8f2tFe2V0kAmOO9QTPVt3QmmY5EWm7xSKwW6U7PImL0pNZ8rfy/c3I37GoOg8cWEnlloHbGDa0lBJLRzzpr1s03yovVBbKjszEaJ/h+5TUcS2HheeWL2+z5J2Z1nRLEictSyrLKF35djdx0MQwaGrdXSRBT4Q6FXI+9wH1ncG8++w13VESgA2S7ri5kKHjZNV72jDqmoqoJxB1oyYCUoIY+N8ueHe4W0fGWU3A5rzgoIRncyDo7vTdoAnDtpr20Q+VfuZF11Jq/98UaMIYF5Sx4RqucUUdUJvXUw79LAyb9hqS7NXZl9vlfmKCE+Hj6vXL7uDyvlu3dAeWy7OpVdm6Zb7idJXWdgOrRQYNeO275kdVdWnU1kaJo7oylYWmjov1zD39p1/atcnaHcDtnHpx4x0789IfrM7XrQprbPe6zYprcZJfd1fyqb0Z2kth2NcX0fyUAkMxoIPCoZASce3tVffjZ35CctTdKGWQDWWSSvhQth7VFFyKGQq+9lw7ngSVWRMCL668H2WB3Sqd58R/4ZqsjDnvBE278I8wqGbnvPdf1GKQSGBC2GzLTyI1J5cIklXlrnRSAYXuZuyk+gYZEfEqEMnmZQaZJuSxznJXe37a+Py5EKb1s2WZ6fbV4dAjPclJMuEphkDTmKaIkKZIKeWt+Ty1PQTS24RebrFLFdRhXg8JyEglq7MM8GD8lLK1xp8XsHvyiW+us+ZIgHMeetObExGHBK7BTRLCTqQSmTkx2cQwqYUdYonknKyIY9h0JW7D6378jYfP7ArazJM/XPvgMC9f1wJbsFpbfX2SCKigQyLkZEqDEkZC6V/jtJMkvGGk9uZyvNUq/2HizYpET32tqk5gSotRm/388YcfKDN/PnW0fxoq+iCiFhbXTTt1wo2WycjZVl9trjjJqJd8ARF0OANb1ne8pDCgV+wufvKe7/3id/O1E8T88exjnz+0lGWvADwUqAIg1VKG72q3XFWprcX17qzzke4aEjpgAqSvObKnLwlUDX1/YzKLJ4796FdvbMFubXKrr9r9/rufPTwo4icG0T5F/yjy7WeHe1iIG94VLM7VlX6qCEgy8g9i1M9FXvzMJkhyFa5vMXiRS/D5qqueO/b4uX9p4naw/wDv1ZplvOGRpgAAAABJRU5ErkJggg==";var An;(function(n){n[n.sm=640]="sm",n[n.md=768]="md",n[n.lg=1024]="lg",n[n.xl=1280]="xl",n[n["2xl"]=1536]="2xl"})(An||(An={}));var wa="#74777C",Hu=()=>({fontSize:"18px",lineHeight:"24px",fontWeight:"600",marginLeft:"10px"});var $u=()=>({color:"#6B7280",fontSize:"0.875rem",lineHeight:"1.25rem",padding:"24px",display:"flex",flexDirection:"column",gap:"12px"});var zu=e=>({visibility:e?"":"hidden",position:"relative",zIndex:"100"}),Ku=e=>({position:"fixed",top:"0px",right:"0px",bottom:"0px",left:"0px",backgroundColor:"rgb(107 114 128)",opacity:e?".75":"0",transition:"all 300ms ease-in-out"}),Vu=()=>({color:"#6D28D9"});var Gu=e=>({position:"fixed",zIndex:"99",top:"0px",right:"0px",bottom:"0px",left:"0px",overflowY:"auto",opacity:e?"1":"0",scale:e?"1":".95",transition:"all 300ms ease-in-out"}),Zu=e=>{let t={display:"flex",alignItems:"flex-end",justifyContent:"center",minHeight:"100%",padding:"1rem",textAlign:"center"},r={padding:"0",alignItems:"center"};return e<An.sm?t:{...t,...r}},Yu=e=>{let t={overflow:"hidden",position:"relative",backgroundColor:"#ffffff",transitionProperty:"all",borderRadius:"0.5rem",boxShadow:"0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"},r={width:"360px"};return e<An.sm?t:{...t,...r}},Ju=()=>({padding:"24px 24px 0px",display:"flex",flexDirection:"row",justifyContent:"space-between",alignItems:"center"}),Xu=()=>({width:"24px",height:"24px",color:"#A0AEBA",cursor:"pointer"}),Qu=()=>({color:wa,cursor:"pointer",display:"flex",gap:"6px",alignItems:"center"}),ju=()=>({fontSize:"16px",lineHeight:"24px"}),el=(e=!1)=>({padding:e?"24px 24px 32px":"0 24px 32px",display:"flex",flexDirection:"column",justifyContent:"center",gap:"12px"}),tl=()=>({display:"flex",justifyContent:"center",gap:"-6px"}),rl=()=>({fontSize:"24px",fontWeight:"600",lineHeight:"32px",margin:"0"}),nl=()=>({fontSize:"16px",fontWeight:"400",lineHeight:"24px",margin:"0",color:wa});var il=()=>({padding:"0px 24px 24px",display:"flex",flexDirection:"row",gap:"12px",justifyContent:"space-between",alignItems:"center",color:wa}),va=()=>({height:"1px",width:"100%",background:"rgba(0, 0, 0, 0.12)",borderRadius:"16px"}),ol=()=>({boxSizing:"border-box",border:"1px solid rgba(0, 0, 0, 0.08)",borderRadius:"16px",background:"#F2F2F2",padding:"20px",width:"100%"});var ei=e=>{let t={padding:"0px 24px 24px",display:"flex",flexDirection:"column",alignItems:"center",gap:"12px"},r={};return e<An.sm?t:{...t,...r}},Xo=(e,t=!1,r=!1,i=!1)=>{let n={textDecoration:"none",fontWeight:r?"500":"400",boxSizing:"border-box",display:"flex",flexDirection:"row",justifyContent:i?"center":"space-between",alignItems:"center",padding:r?"20px 20px":"16px 16px 16px 20px",width:"100%",background:r?"#6D28D9":"#F2F2F2",color:r?"white":"black",opacity:t?.5:1,cursor:t?"not-allowed":"pointer",borderRadius:"16px",flex:"none",order:"0",flexGrow:"0",boxShadow:"0px 1px 2px rgba(0, 0, 0, 0.05)"},o={};return e<An.sm?n:{...n,...o}},xa=()=>({padding:"0px 24px 24px"});var sl=()=>({display:"flex",justifyContent:"center",padding:"45px 0"});var al=()=>({padding:"6px 0",color:"#666",width:"100%",fontSize:"smaller",marginBottom:"12px"});var fl=fe(require("react"));function ba(e,t){(0,fl.useEffect)(()=>{function r(i){i.target.id===e&&t()}return document.addEventListener("mousedown",r),()=>{document.removeEventListener("mousedown",r)}},[])}var Cn=fe(require("react"));var Wr=fe(require("react")),mg=({width:e=24,color:t="#6D28D9"})=>Wr.default.createElement("svg",{width:e,height:e,viewBox:"0 0 56 56",fill:"none",xmlns:"http://www.w3.org/2000/svg"},Wr.default.createElement("rect",{width:"56",height:"56",rx:"16",fill:t}),Wr.default.createElement("path",{opacity:"0.8",d:"M17.9631 13H36.9268C37.7997 13 38.5073 13.7076 38.5073 14.5805V35.9802C38.5073 36.8531 37.7997 37.5607 36.9268 37.5607H17.9631C17.0902 37.5607 16.3826 36.8531 16.3826 35.9802V14.5805C16.3826 13.7076 17.0902 13 17.9631 13Z",stroke:"url(#paint0_linear_514_2169)",strokeOpacity:"0.9",strokeWidth:"0.790251"}),Wr.default.createElement("path",{d:"M17.2471 14.0457L30.1651 20.0566C30.7225 20.316 31.0789 20.8749 31.0789 21.4896V42.6676C31.0789 43.8113 29.9018 44.5763 28.8566 44.112L15.9386 38.3725C15.3677 38.1189 14.9998 37.5528 14.9998 36.9281V15.4787C14.9998 14.3231 16.1994 13.5582 17.2471 14.0457Z",fill:"white",fillOpacity:"0.9"}),Wr.default.createElement("path",{d:"M42.9117 27.9093C43.0029 27.4813 43.219 27.0901 43.5329 26.7851C43.8467 26.4801 44.2441 26.2753 44.6746 26.1965L45.8205 25.9872L44.6745 25.7779H44.6746C44.2441 25.6991 43.8467 25.4943 43.5329 25.1893C43.219 24.8843 43.0029 24.4931 42.9117 24.0651L42.6596 22.8774L42.4074 24.0651C42.3162 24.4931 42.1001 24.8843 41.7862 25.1893C41.4724 25.4943 41.075 25.6992 40.6445 25.7779L39.4985 25.9872L40.6446 26.1965H40.6445C41.075 26.2753 41.4724 26.4801 41.7861 26.7851C42.1 27.0901 42.3162 27.4813 42.4073 27.9093L42.6595 29.097L42.9117 27.9093Z",fill:"white",fillOpacity:"0.9"}),Wr.default.createElement("defs",null,Wr.default.createElement("linearGradient",{id:"paint0_linear_514_2169",x1:"38.5073",y1:"19.5371",x2:"27.4445",y2:"25.0685",gradientUnits:"userSpaceOnUse"},Wr.default.createElement("stop",{stopColor:"white"}),Wr.default.createElement("stop",{offset:"1",stopColor:"white",stopOpacity:"0"})))),cl=mg;var Qo=fe(require("react")),wg=({width:e=24,color:t="#1e293b"})=>Qo.default.createElement("svg",{width:e,height:e*65/47,viewBox:"0 0 47 65",fill:"none",xmlns:"http://www.w3.org/2000/svg"},Qo.default.createElement("path",{d:"M6.00471 1H40.0029C42.7644 1 45.0029 3.23858 45.0029 6V44.8425C45.0029 47.604 42.7643 49.8425 40.0029 49.8425H6.0047C3.24328 49.8425 1.0047 47.604 1.0047 44.8425V6C1.0047 3.23858 3.24329 1 6.00471 1Z",stroke:t,strokeWidth:"2"}),Qo.default.createElement("path",{d:"M6.68764 3.64648L30.6631 14.8026C32.0736 15.4589 32.9756 16.8735 32.9756 18.4292V58.6799C32.9756 61.5743 29.9966 63.5105 27.3515 62.3353L3.37601 51.683C1.93126 51.0411 1.00013 49.6085 1.00013 48.0276V7.27309C1.00013 4.34854 4.03609 2.41268 6.68764 3.64648Z",fill:t})),ul=wg;var ln=fe(require("react"));var vg=({title:e,subTitle:t,dappIcon:r,showEthos:i=!1,children:n})=>ln.default.createElement("div",null,ln.default.createElement("div",{style:el(!!r)},ln.default.createElement("div",{style:tl()},r&&(typeof r=="string"?ln.default.createElement("img",{src:r}):r),i&&ln.default.createElement(ul,null)),e&&ln.default.createElement("div",{style:rl()},e),t&&ln.default.createElement("div",{style:nl()},t)),n),Tn=vg;var xg=()=>Cn.default.createElement(Tn,{title:"Ethos sent you an email",dappIcon:Cn.default.createElement(cl,{width:60})},Cn.default.createElement("div",{style:$u()},Cn.default.createElement("p",null,"An email has been sent to you with a link to login."),Cn.default.createElement("p",null,"If you don't receive it, please check your spam folder or contact us at:"),Cn.default.createElement("p",null,"support@ethoswallet.xyz"))),ll=xg;var Mn=fe(require("react"));var Ea=fe(require("react"));var bg=e=>{let{text:t,icon:r,width:i,disabled:n,primary:o,type:a,...h}=e;return Ea.default.createElement("button",{style:Xo(i,n,o,!r),...h,type:a},Ea.default.createElement("div",null,t),r)},hn=bg;var Eg=({wallets:e,selectWallet:t,width:r})=>{let i=(0,Mn.useCallback)(o=>{if(!t)return;let a=o.target,h;for(;!h&&a.parentNode;)h=a.dataset.name,a=a.parentNode;t(h)},[]),n=o=>{let a=o.name==="Sui Wallet"?"https://sui.io/favicon.png":o.icon;return Mn.default.createElement("img",{src:a,height:32,width:32})};return Mn.default.createElement("div",{role:"wallet-sign-in"},Mn.default.createElement("div",{style:ei(r)},e==null?void 0:e.map((o,a)=>Mn.default.createElement(hn,{key:`wallet-${a}`,icon:n(o),"data-name":o.name,text:o.name,onClick:i,width:r}))))},hl=Eg;var ar=fe(require("react"));var _g=async e=>{Ur({action:"event",data:e})},dl=_g;var pl=fe(Nr());var Sg=async({email:e,provider:t,apiKey:r})=>{let{walletAppUrl:i}=_n.getConfiguration(),n=pl.default.namespace("users");if(t){let o=location.href,a=`${i}/auth?apiKey=${r}&returnTo=${encodeURIComponent(o)}`;location.href=`${i}/socialauth?provider=${t}&redirectTo=${encodeURIComponent(a)}`;return}return new Promise((o,a)=>{let h=p=>{if(p.origin===i){let{action:b,data:_}=p.data;if(b!=="login")return;window.removeEventListener("message",h),n("current",_),o(_)}};window.addEventListener("message",h),_n.postIFrameMessage({action:"login",data:{email:e,provider:t,returnTo:window.location.href,apiKey:r}})})},Ci=Sg;var Ag=({setSigningIn:e,setEmailSent:t,width:r})=>{let{apiKey:i}=dr(),[n,o]=(0,ar.useState)(""),a=(0,ar.useMemo)(()=>!n||n.length===0?!1:!!n.match(/(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])/),[n]),h=(0,ar.useCallback)(async()=>{!a||(await Ci({email:n,apiKey:i}),o(""),e(!1),t(!0),dl({action:"send_email",category:"sign_in",label:n,value:1}))},[a,Ci,n,i]),p=(0,ar.useCallback)(_=>{o(_.target.value)},[]),b=(0,ar.useCallback)(async _=>{if(!a){_.preventDefault();return}e(!0),h()},[h]);return ar.default.createElement("div",{role:"email-sign-in"},ar.default.createElement("form",{onSubmit:b,style:ei(r)},ar.default.createElement("input",{style:ol(),type:"email",placeholder:"Enter your email address...",value:n,onChange:p}),ar.default.createElement(hn,{text:"Sign In With Email",type:"submit",width:r,disabled:!a,primary:!0})))},_a=Ag;var jo=fe(require("react"));var ti=fe(require("react")),Tg=({children:e})=>ti.createElement(ti.Fragment,null,ti.createElement("link",{href:"https://rsms.me/inter/inter.css",rel:"stylesheet"}),ti.createElement("div",{style:(()=>({fontFamily:"'Inter', sans-serif",color:"black",lineHeight:"1.5",fontSize:"16px"}))()},e)),yl=Tg;var Cg=({isOpenAll:e,children:t})=>jo.default.createElement(yl,null,jo.default.createElement("div",{style:zu(e),role:"dialog"},jo.default.createElement("div",{style:Ku(e)}),t)),gl=Cg;var Er=fe(require("react"));var Mg=({closeOnClickId:e,onClose:t,isOpenAll:r,width:i,back:n,children:o})=>Er.default.createElement("div",{style:Gu(r)},Er.default.createElement("div",{id:e,style:Zu(i)},Er.default.createElement("div",{style:Yu(i)},Er.default.createElement("div",{style:Ju()},Er.default.createElement("span",null,n&&Er.default.createElement("span",{style:Qu(),onClick:n},"\u2190",Er.default.createElement("span",{style:ju()},"Back"))),Er.default.createElement("span",{style:Xu(),onClick:t},Er.default.createElement("svg",{xmlns:"http://www.w3.org/2000/svg",fill:"none",viewBox:"0 0 24 24",strokeWidth:1.5,stroke:"currentColor"},Er.default.createElement("path",{strokeLinecap:"round",strokeLinejoin:"round",d:"M6 18L18 6M6 6l12 12"})))),o))),ml=Mg;var Mi=fe(require("react")),Bg=({width:e=60})=>Mi.default.createElement("svg",{width:e,height:e,viewBox:"0 0 60 60",fill:"none",xmlns:"http://www.w3.org/2000/svg"},Mi.default.createElement("rect",{x:"1",y:"1",width:"58",height:"58",rx:"17",fill:"#1A1C26"}),Mi.default.createElement("path",{d:"M17.0307 21.5C18.1258 20.5314 19.538 19.9977 21 20H39C40.5213 20 41.9107 20.5667 42.9693 21.5C42.8475 20.5332 42.377 19.6442 41.6462 18.9998C40.9153 18.3553 39.9744 17.9998 39 18H21C20.0256 17.9998 19.0847 18.3553 18.3538 18.9998C17.623 19.6442 17.1525 20.5332 17.0307 21.5ZM17.0307 25.5C18.1258 24.5314 19.538 23.9977 21 24H39C40.5213 24 41.9107 24.5667 42.9693 25.5C42.8475 24.5332 42.377 23.6442 41.6462 22.9998C40.9153 22.3553 39.9744 21.9998 39 22H21C20.0256 21.9998 19.0847 22.3553 18.3538 22.9998C17.623 23.6442 17.1525 24.5332 17.0307 25.5ZM21 26C19.9391 26 18.9217 26.4214 18.1716 27.1716C17.4214 27.9217 17 28.9391 17 30V38C17 39.0609 17.4214 40.0783 18.1716 40.8284C18.9217 41.5786 19.9391 42 21 42H39C40.0609 42 41.0783 41.5786 41.8284 40.8284C42.5786 40.0783 43 39.0609 43 38V30C43 28.9391 42.5786 27.9217 41.8284 27.1716C41.0783 26.4214 40.0609 26 39 26H34C33.7348 26 33.4804 26.1054 33.2929 26.2929C33.1054 26.4804 33 26.7348 33 27C33 27.7956 32.6839 28.5587 32.1213 29.1213C31.5587 29.6839 30.7956 30 30 30C29.2044 30 28.4413 29.6839 27.8787 29.1213C27.3161 28.5587 27 27.7956 27 27C27 26.7348 26.8946 26.4804 26.7071 26.2929C26.5196 26.1054 26.2652 26 26 26H21Z",fill:"white"}),Mi.default.createElement("rect",{x:"1",y:"1",width:"58",height:"58",rx:"17",stroke:"#060914",strokeWidth:"2"})),wl=Bg;var pr=fe(require("react"));var dn=fe(require("react")),Ig=({width:e=32})=>dn.default.createElement("svg",{width:e,height:e,viewBox:"0 0 32 32",fill:"none",xmlns:"http://www.w3.org/2000/svg"},dn.default.createElement("rect",{width:"32",height:"32",rx:"8",fill:"#81BAEB"}),dn.default.createElement("g",{clipPath:"url(#clip0_315_6756)"},dn.default.createElement("path",{fillRule:"evenodd",clipRule:"evenodd",d:"M10.4932 22.2659C11.0635 23.2776 11.8925 24.1195 12.8953 24.7053C13.898 25.2912 15.0385 25.5999 16.1999 25.5999C17.3613 25.5999 18.5017 25.2912 19.5045 24.7053C20.5073 24.1195 21.3363 23.2776 21.9066 22.2659C22.4918 21.2523 22.7999 20.1025 22.7999 18.932C22.7999 17.7616 22.4918 16.6118 21.9066 15.5982L16.8874 6.80155C16.8187 6.67967 16.7188 6.57825 16.598 6.50767C16.4772 6.4371 16.3398 6.3999 16.1999 6.3999C16.06 6.3999 15.9226 6.4371 15.8018 6.50767C15.6809 6.57825 15.5811 6.67967 15.5123 6.80155L10.4932 15.5982C9.90796 16.6118 9.59985 17.7616 9.59985 18.932C9.59985 20.1025 9.90796 21.2523 10.4932 22.2659ZM14.786 10.9865L15.8561 9.11092C15.8905 9.04998 15.9404 8.99927 16.0008 8.96399C16.0612 8.9287 16.1299 8.9101 16.1999 8.9101C16.2698 8.9101 16.3385 8.9287 16.399 8.96399C16.4594 8.99927 16.5093 9.04998 16.5437 9.11092L20.6605 16.3263C21.0301 16.966 21.2592 17.6771 21.3326 18.4123C21.4061 19.1475 21.3221 19.8898 21.0864 20.59C21.0352 20.3514 20.9648 20.1172 20.8758 19.8899C20.3072 18.4377 19.0214 17.3171 17.0534 16.559C15.7004 16.0397 14.8368 15.276 14.4859 14.2886C14.0339 13.0166 14.506 11.6291 14.786 10.9865ZM12.9612 14.1847L11.7392 16.3263C11.2817 17.1186 11.0409 18.0174 11.0409 18.9323C11.0409 19.8472 11.2817 20.7459 11.7392 21.5382C12.1091 22.1934 12.6186 22.7591 13.2316 23.1952C13.8447 23.6312 14.5462 23.927 15.2864 24.0615C16.0266 24.1959 16.7874 24.1658 17.5146 23.9732C18.2419 23.7806 18.9178 23.4302 19.4944 22.947C19.8131 22.1324 19.8244 21.2296 19.5264 20.4072C19.1088 19.358 18.1034 18.5204 16.5383 17.9172C14.7692 17.2381 13.6199 16.178 13.1228 14.7672C13.0558 14.5769 13.0019 14.3823 12.9612 14.1847Z",fill:"white"})),dn.default.createElement("defs",null,dn.default.createElement("clipPath",{id:"clip0_315_6756"},dn.default.createElement("rect",{width:"19.2",height:"19.2",fill:"white",transform:"translate(6.3999 6.3999)"})))),vl=Ig;var Fr=fe(require("react")),Og=()=>Fr.default.createElement("svg",{width:"32",height:"32",viewBox:"0 0 32 32",fill:"none",xmlns:"http://www.w3.org/2000/svg"},Fr.default.createElement("rect",{width:"32",height:"32",rx:"8",fill:"#6D28D9"}),Fr.default.createElement("path",{opacity:"0.8",d:"M9.12187 6.85706H19.9583C20.4571 6.85706 20.8614 7.26141 20.8614 7.7602V19.9886C20.8614 20.4874 20.4571 20.8918 19.9583 20.8918H9.12187C8.62308 20.8918 8.21872 20.4874 8.21872 19.9886V7.7602C8.21872 7.26141 8.62308 6.85706 9.12187 6.85706Z",stroke:"url(#paint0_linear_699_2698)","stroke-width":"0.451572"}),Fr.default.createElement("path",{d:"M8.71274 7.45459L16.0945 10.8894C16.4129 11.0376 16.6166 11.357 16.6166 11.7083V23.81C16.6166 24.4635 15.944 24.9007 15.3468 24.6353L7.96502 21.3556C7.63882 21.2107 7.42858 20.8872 7.42858 20.5303V8.27343C7.42858 7.61311 8.11406 7.17602 8.71274 7.45459Z",fill:"white"}),Fr.default.createElement("path",{d:"M23.3782 15.3767C23.4303 15.1321 23.5538 14.9086 23.7332 14.7343C23.9125 14.56 24.1396 14.443 24.3856 14.3979L25.0404 14.2784L24.3855 14.1588H24.3856C24.1396 14.1137 23.9125 13.9967 23.7332 13.8224C23.5538 13.6481 23.4303 13.4246 23.3782 13.18L23.2341 12.5013L23.09 13.18C23.0379 13.4246 22.9144 13.6481 22.7351 13.8224C22.5558 13.9967 22.3287 14.1138 22.0827 14.1588L21.4278 14.2784L22.0827 14.3979H22.0827C22.3287 14.443 22.5557 14.56 22.735 14.7343C22.9144 14.9086 23.0379 15.1321 23.09 15.3767L23.2341 16.0554L23.3782 15.3767Z",fill:"white"}),Fr.default.createElement("defs",null,Fr.default.createElement("linearGradient",{id:"paint0_linear_699_2698",x1:"20.8614",y1:"10.5926",x2:"14.5398",y2:"13.7534",gradientUnits:"userSpaceOnUse"},Fr.default.createElement("stop",{"stop-color":"white"}),Fr.default.createElement("stop",{offset:"1",stopColor:"white",stopOpacity:"0"})))),xl=Og;var Pg=({walletInfos:e,width:t})=>{let r=n=>n?typeof n=="string"?pr.default.createElement("img",{src:n,height:32,width:32}):n:pr.default.createElement(pr.default.Fragment,null),i=[{name:"Ethos Wallet",icon:pr.default.createElement(xl,null),link:"https://chrome.google.com/webstore/detail/ethos-wallet/mcbigmjiafegjnnogedioegffbooigli"},{name:"Sui Wallet",icon:pr.default.createElement(vl,null),link:"https://chrome.google.com/webstore/detail/sui-wallet/opcgpfmipidbgpenhmajoajpbobppdil"},...e||[]];return pr.default.createElement(Tn,{dappIcon:pr.default.createElement(wl,null),title:"Install A Wallet",subTitle:"Wallets allow you to interact with, store, send, and receive digital assets."},pr.default.createElement("div",{role:"wallet-sign-in"},pr.default.createElement("div",{style:ei(t)},i==null?void 0:i.map((n,o)=>pr.default.createElement("a",{key:`wallet-${o}`,style:Xo(t),href:n.link,target:"_blank"},n.name,pr.default.createElement("div",null,r(n.icon)))))))},bl=Pg;var _l=fe(require("react"));var El=fe(require("react")),Rg=null,Ng=(0,El.createContext)(Rg),es=Ng;var kg=()=>{let{isModalOpen:e,setIsModalOpen:t}=(0,_l.useContext)(es);return{openModal:()=>{t(!0)},closeModal:()=>{t(!1)},isModalOpen:e}},ts=kg;var Sl=fe(require("react"));var Ug=()=>(0,Sl.useContext)($o),rs=Ug;var ns=fe(require("react"));function Al(){if(typeof window=="undefined")return{width:0,height:0};let{innerWidth:e,innerHeight:t}=window;return{width:e,height:t}}function Sa(){let[e,t]=(0,ns.useState)(Al());return(0,ns.useEffect)(()=>{function r(){t(Al())}return window.addEventListener("resize",r),()=>window.removeEventListener("resize",r)},[]),e}var Lg={useModal:ts,useWallet:rs,useWindowDimensions:Sa},is=Lg;var Bi=fe(require("react"));var Dg=()=>Bi.default.createElement("div",{role:"wallet-sign-in"},Bi.default.createElement("span",{style:Hu()},"Connect A Mobile Wallet"),Bi.default.createElement("div",{style:al()},Bi.default.createElement("p",null,"There are no mobile wallets yet on Sui."))),Tl=Dg;var os=fe(require("react"));var Wg=()=>os.default.createElement("div",{style:il()},os.default.createElement("div",{style:va()}),"or",os.default.createElement("div",{style:va()})),Aa=Wg;function Cl(){window.ethosInternal.showSignInModal()}function Ml(){window.ethosInternal.hideSignInModal()}var Fg=({connectMessage:e,dappName:t,dappIcon:r,hideEmailSignIn:i,hideWalletSignIn:n})=>{let{wallets:o,selectWallet:a}=is.useWallet(),{isModalOpen:h,openModal:p,closeModal:b}=is.useModal(),[_,I]=(0,Be.useState)(h),[P,k]=(0,Be.useState)(!1),[K,re]=(0,Be.useState)(!1),{width:ne}=is.useWindowDimensions(),Y="ethos-close-on-click",[ie,ee]=(0,Be.useState)(!1),[ge,be]=(0,Be.useState)(!1),[Ee,Re]=(0,Be.useState)(!1),[ze,Ve]=(0,Be.useState)(t);ba(Y,b),(0,Be.useEffect)(()=>{window.ethosInternal||(window.ethosInternal={}),window.ethosInternal.showSignInModal=()=>{p()},window.ethosInternal.hideSignInModal=()=>{b()},I(h)},[h,I,p,b]),(0,Be.useEffect)(()=>{if(i&&n)throw new Error("hideEmailSignIn and hideWalletSignIn cannot both be true")},[]),(0,Be.useEffect)(()=>{ze||Ve(document.title)},[ze]);let B=(0,Be.useCallback)(()=>{Re(w=>!w)},[]),O=(0,Be.useCallback)(()=>{ee(w=>!w)},[]),z=(0,Be.useCallback)(()=>{Re(!1),be(!1),ee(!1)},[]),E=(0,Be.useMemo)(()=>e||(ze?Be.default.createElement(Be.default.Fragment,null,"Connect to ",Be.default.createElement("span",{style:Vu()},ze)):Be.default.createElement(Be.default.Fragment,null)),[ze,e]),s=(0,Be.useMemo)(()=>{let w=o||[];return ge?Be.default.createElement(Tl,null):Ee||i&&w.length===0?Be.default.createElement(bl,{width:ne}):n?Be.default.createElement(_a,{setSigningIn:k,setEmailSent:re,width:ne}):!ie&&w.length>0?Be.default.createElement(Tn,{title:E,dappIcon:r,subTitle:"Choose from your connected wallets"},Be.default.createElement(hl,{wallets:w,selectWallet:a,width:ne}),!i&&Be.default.createElement(Be.default.Fragment,null,Be.default.createElement(Aa,null),Be.default.createElement("div",{style:xa()},Be.default.createElement(hn,{text:"Sign In With Email",onClick:O,width:ne,primary:!0})))):Be.default.createElement(Tn,{title:E,dappIcon:r,subTitle:`Log in to ${ze}`},Be.default.createElement(_a,{setSigningIn:k,setEmailSent:re,width:ne}),!n&&Be.default.createElement(Be.default.Fragment,null,Be.default.createElement(Aa,null),Be.default.createElement("div",{style:xa()},w.length>0?Be.default.createElement(hn,{icon:Be.default.createElement(ma,null),text:"Select One Of Your Wallets",onClick:O,width:ne}):Be.default.createElement(hn,{icon:Be.default.createElement(ma,null),text:"Install A Wallet",onClick:B,width:ne}))))},[E,ze,i,n,o,ie,ge,Ee]),u=(0,Be.useMemo)(()=>ge||Ee,[ge,Ee]),y=(0,Be.useMemo)(()=>Be.default.createElement("div",{style:sl()},Be.default.createElement(Jo,{width:50})),[]);return Be.default.createElement(gl,{isOpenAll:_},Be.default.createElement(ml,{closeOnClickId:Y,onClose:b,isOpenAll:_,width:ne,back:u?z:null},K?Be.default.createElement(ll,null):P?y:s))},Bl=Fg;var qg=({ethosConfiguration:e,onWalletConnected:t,connectMessage:r,dappName:i,dappIcon:n,children:o})=>{e||(e={}),(e==null?void 0:e.chain)||(e.chain=Zn.Sui),(e==null?void 0:e.network)||(e.network="sui"),(e==null?void 0:e.walletAppUrl)||(e.walletAppUrl="https://ethoswallet.xyz"),Ke("EthosConnectProvider","EthosConnectProvider Configuration:",e),(0,Ut.useEffect)(()=>{_n.initializeEthos(e||{})},[]);let{wallets:a,selectWallet:h,providerAndSigner:p,logout:b}=Fu(),{address:_,contents:I}=Mu(p.signer),[P,k]=(0,Ut.useState)(!1),[K,re]=(0,Ut.useState)(!0),ne=(0,Ut.useMemo)(()=>({isModalOpen:P,setIsModalOpen:k}),[P,k]),Y=(0,Ut.useMemo)(()=>{let{provider:ie,signer:ee}=p,ge;ie?ee?ge=Dr.Connected:ge=Dr.NoConnection:ge=Dr.Loading;let be={status:ge,wallets:a,selectWallet:h,provider:ie};return ee&&(be.wallet={...ee,address:_,contents:I}),be},[a,h,_,p,I,b]);return(0,Ut.useEffect)(()=>{if(!!(p==null?void 0:p.provider)){if(Ke("EthosConnectProvider","calling onWalletConnected",p),p.signer){k(!1);let ie=p.signer.disconnect;p.signer.disconnect=async()=>{await ie(),b()}}t&&t(p)}},[p]),(0,Ut.useEffect)(()=>{var ie,ee;P?(ie=document.getElementsByTagName("html").item(0))==null||ie.setAttribute("style","overflow: hidden;"):(ee=document.getElementsByTagName("html").item(0))==null||ee.setAttribute("style","")},[P]),(0,Ut.useEffect)(()=>{re(!1)},[]),K?Ut.default.createElement(Ut.default.Fragment,null):Ut.default.createElement($o.Provider,{value:Y},Ut.default.createElement(qo.Provider,{value:p},Ut.default.createElement(Ho.Provider,{value:I},Ut.default.createElement(es.Provider,{value:ne},o,Ut.default.createElement(Bl,{isOpen:P,hideEmailSignIn:e.hideEmailSignIn,hideWalletSignIn:e.hideWalletSignIn,connectMessage:r,dappName:i,dappIcon:n})))))},Il=qg;var ni=fe(require("react"));var ri=fe(require("react")),Hg=e=>{let{children:t,onClick:r,isWorking:i,workingComponent:n,...o}=e;return ri.default.createElement("button",{onClick:r,...o},i?n||ri.default.createElement("span",{className:"block p-2"},ri.default.createElement(Jo,{width:32})):ri.default.createElement(ri.default.Fragment,null,t))},Ol=Hg;var $g=e=>{let{children:t,onClick:r,...i}=e,{openModal:n}=ts();return ni.default.createElement(ni.default.Fragment,null,ni.default.createElement(Ol,{onClick:a=>{n(),r&&r(a)},...i},t||ni.default.createElement(ni.default.Fragment,null,"Sign In")))},Pl=$g;var zg=async(e,t=!1)=>{Ke("logout",`-- Wallet ${t} --`,`-- Is Extension: ${e==null?void 0:e.type} --`,`-- Disconnect: ${!!(e==null?void 0:e.disconnect)} --`,"signer",e),e.type==="extension"||!t?await e.disconnect():await e.logout()},Rl=zg;var Kg=async({signer:e,message:t})=>e.sign(t),Nl=Kg;var Vg=async({signer:e,signableTransaction:t})=>(Ke("transact","Starting transaction",e,t),e.signAndExecuteTransaction(t)),kl=Vg;var Gg=async({signer:e,preapproval:t})=>e.requestPreapproval(t),Ul=Gg;var Zg=e=>{e.type!==kr.Extension&&Lr(!0)},Ll=Zg;var Yg=e=>{e.type!==kr.Extension&&Lr(!1)},Dl=Yg;var Jg=async({address:e})=>new Xr(br.DEVNET).requestSuiFromFaucet(e),Wl=Jg;var Fl=fe(Nr()),Xg=1e3*30,Qg=async e=>{let t=new Xr(br.DEVNET),r="0x8fa9d9f306d82a49240139dc6750cbc28be03dbc",i=Fl.default.namespace("lookup"),n=await i(r),{version:o,timestamp:a}=n||{},{suiNSRecords:h}=n||{};if(h&&Date.now()-a>Xg){let p=await t.getObjectRef(r);p&&o!==su(p)&&(h=null),n.timestamp=Date.now(),i(r,n)}if(!h){let p=await t.getObject(r);if(p.status==="Exists"){let b=p.details,I=b.data.fields.records.fields.contents;h={};for(let K of I){let{key:re,value:ne}=K.fields,{owner:Y}=ne.fields;h[re]=Y,re.indexOf("addr.reverse")===-1&&(h[Y]=re)}let{version:P}=b.reference,k=Date.now();i(r,{version:P,timestamp:k,suiNSRecords:h})}}return h&&h[e]||e},ql=Qg;var Hl=fe(require("react"));var jg=()=>(0,Hl.useContext)(qo),ss=jg;var as=fe(require("react"));var em=()=>{let{signer:e}=ss(),[t,r]=(0,as.useState)(null);return(0,as.useEffect)(()=>{!e||e.getAddress().then(i=>r(i))},[e]),t},$l=em;var zl=fe(require("react"));var tm=()=>(0,zl.useContext)(Ho),Kl=tm;var rm={login:Ci,logout:Rl,sign:Nl,transact:kl,preapprove:Ul,getWalletContents:Gn,showWallet:Ll,hideWallet:Dl,dripSui:Wl,useProviderAndSigner:ss,useAddress:$l,useContents:Kl,useWallet:rs,showSignInModal:Cl,hideSignInModal:Ml,lookup:ql};
+var p0=Object.create,Wi=Object.defineProperty;var y0=Object.getOwnPropertyDescriptor;var g0=Object.getOwnPropertyNames;var m0=Object.getPrototypeOf,w0=Object.prototype.hasOwnProperty;var $a=e=>Wi(e,"__esModule",{value:!0});var De=(e,t)=>()=>(t||e((t={exports:{}}).exports,t),t.exports),x0=(e,t)=>{for(var r in t)Wi(e,r,{get:t[r],enumerable:!0})},v0=(e,t,r)=>{if(t&&typeof t=="object"||typeof t=="function")for(let i of g0(t))!w0.call(e,i)&&i!=="default"&&Wi(e,i,{get:()=>t[i],enumerable:!(r=y0(t,i))||r.enumerable});return e},xe=e=>v0($a(Wi(e!=null?p0(m0(e)):{},"default",e&&e.__esModule&&"default"in e?{get:()=>e.default,enumerable:!0}:{value:e,enumerable:!0})),e);var Cr=De((zi,$i)=>{(function(e,t){var r={version:"2.14.2",areas:{},apis:{},nsdelim:".",inherit:function(n,o){for(var a in n)o.hasOwnProperty(a)||Object.defineProperty(o,a,Object.getOwnPropertyDescriptor(n,a));return o},stringify:function(n,o){return n===void 0||typeof n=="function"?n+"":JSON.stringify(n,o||r.replace)},parse:function(n,o){try{return JSON.parse(n,o||r.revive)}catch(a){return n}},fn:function(n,o){r.storeAPI[n]=o;for(var a in r.apis)r.apis[a][n]=o},get:function(n,o){return n.getItem(o)},set:function(n,o,a){n.setItem(o,a)},remove:function(n,o){n.removeItem(o)},key:function(n,o){return n.key(o)},length:function(n){return n.length},clear:function(n){n.clear()},Store:function(n,o,a){var l=r.inherit(r.storeAPI,function(A,M,P){return arguments.length===0?l.getAll():typeof M=="function"?l.transact(A,M,P):M!==void 0?l.set(A,M,P):typeof A=="string"||typeof A=="number"?l.get(A):typeof A=="function"?l.each(A):A?l.setAll(A,M):l.clear()});l._id=n;try{var d="__store2_test";o.setItem(d,"ok"),l._area=o,o.removeItem(d)}catch(A){l._area=r.storage("fake")}return l._ns=a||"",r.areas[n]||(r.areas[n]=l._area),r.apis[l._ns+l._id]||(r.apis[l._ns+l._id]=l),l},storeAPI:{area:function(n,o){var a=this[n];return(!a||!a.area)&&(a=r.Store(n,o,this._ns),this[n]||(this[n]=a)),a},namespace:function(n,o,a){if(a=a||this._delim||r.nsdelim,!n)return this._ns?this._ns.substring(0,this._ns.length-a.length):"";var l=n,d=this[l];if((!d||!d.namespace)&&(d=r.Store(this._id,this._area,this._ns+l+a),d._delim=a,this[l]||(this[l]=d),!o))for(var A in r.areas)d.area(A,r.areas[A]);return d},isFake:function(n){return n?(this._real=this._area,this._area=r.storage("fake")):n===!1&&(this._area=this._real||this._area),this._area.name==="fake"},toString:function(){return"store"+(this._ns?"."+this.namespace():"")+"["+this._id+"]"},has:function(n){return this._area.has?this._area.has(this._in(n)):this._in(n)in this._area},size:function(){return this.keys().length},each:function(n,o){for(var a=0,l=r.length(this._area);a<l;a++){var d=this._out(r.key(this._area,a));if(d!==void 0&&n.call(this,d,this.get(d),o)===!1)break;l>r.length(this._area)&&(l--,a--)}return o||this},keys:function(n){return this.each(function(o,a,l){l.push(o)},n||[])},get:function(n,o){var a=r.get(this._area,this._in(n)),l;return typeof o=="function"&&(l=o,o=null),a!==null?r.parse(a,l):o!=null?o:a},getAll:function(n){return this.each(function(o,a,l){l[o]=a},n||{})},transact:function(n,o,a){var l=this.get(n,a),d=o(l);return this.set(n,d===void 0?l:d),this},set:function(n,o,a){var l=this.get(n),d;return l!=null&&a===!1?o:(typeof a=="function"&&(d=a,a=void 0),r.set(this._area,this._in(n),r.stringify(o,d),a)||l)},setAll:function(n,o){var a,l;for(var d in n)l=n[d],this.set(d,l,o)!==l&&(a=!0);return a},add:function(n,o,a){var l=this.get(n);if(l instanceof Array)o=l.concat(o);else if(l!==null){var d=typeof l;if(d===typeof o&&d==="object"){for(var A in o)l[A]=o[A];o=l}else o=l+o}return r.set(this._area,this._in(n),r.stringify(o,a)),o},remove:function(n,o){var a=this.get(n,o);return r.remove(this._area,this._in(n)),a},clear:function(){return this._ns?this.each(function(n){r.remove(this._area,this._in(n))},1):r.clear(this._area),this},clearAll:function(){var n=this._area;for(var o in r.areas)r.areas.hasOwnProperty(o)&&(this._area=r.areas[o],this.clear());return this._area=n,this},_in:function(n){return typeof n!="string"&&(n=r.stringify(n)),this._ns?this._ns+n:n},_out:function(n){return this._ns?n&&n.indexOf(this._ns)===0?n.substring(this._ns.length):void 0:n}},storage:function(n){return r.inherit(r.storageAPI,{items:{},name:n})},storageAPI:{length:0,has:function(n){return this.items.hasOwnProperty(n)},key:function(n){var o=0;for(var a in this.items)if(this.has(a)&&n===o++)return a},setItem:function(n,o){this.has(n)||this.length++,this.items[n]=o},removeItem:function(n){this.has(n)&&(delete this.items[n],this.length--)},getItem:function(n){return this.has(n)?this.items[n]:null},clear:function(){for(var n in this.items)this.removeItem(n)}}},i=r.Store("local",function(){try{return localStorage}catch(n){}}());i.local=i,i._=r,i.area("session",function(){try{return sessionStorage}catch(n){}}()),i.area("page",r.storage("page")),typeof t=="function"&&t.amd!==void 0?t("store2",[],function(){return i}):typeof $i!="undefined"&&$i.exports?$i.exports=i:(e.store&&(r.conflict=e.store),e.store=i)})(zi,zi&&zi.define)});var Gi=De(()=>{});var Is=De((A2,Zi)=>{(function(e){"use strict";var t=function(h){var x,w=new Float64Array(16);if(h)for(x=0;x<h.length;x++)w[x]=h[x];return w},r=function(){throw new Error("no PRNG")},i=new Uint8Array(16),n=new Uint8Array(32);n[0]=9;var o=t(),a=t([1]),l=t([56129,1]),d=t([30883,4953,19914,30187,55467,16705,2637,112,59544,30585,16505,36039,65139,11119,27886,20995]),A=t([61785,9906,39828,60374,45398,33411,5274,224,53552,61171,33010,6542,64743,22239,55772,9222]),M=t([54554,36645,11616,51542,42930,38181,51040,26924,56412,64982,57905,49316,21502,52590,14035,8553]),P=t([26200,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214]),D=t([41136,18958,6951,50414,58488,44335,6150,12099,55207,15867,153,11085,57099,20417,9344,11139]);function H(h,x,w,f){h[x]=w>>24&255,h[x+1]=w>>16&255,h[x+2]=w>>8&255,h[x+3]=w&255,h[x+4]=f>>24&255,h[x+5]=f>>16&255,h[x+6]=f>>8&255,h[x+7]=f&255}function Y(h,x,w,f,E){var F,G=0;for(F=0;F<E;F++)G|=h[x+F]^w[f+F];return(1&G-1>>>8)-1}function oe(h,x,w,f){return Y(h,x,w,f,16)}function me(h,x,w,f){return Y(h,x,w,f,32)}function te(h,x,w,f){for(var E=f[0]&255|(f[1]&255)<<8|(f[2]&255)<<16|(f[3]&255)<<24,F=w[0]&255|(w[1]&255)<<8|(w[2]&255)<<16|(w[3]&255)<<24,G=w[4]&255|(w[5]&255)<<8|(w[6]&255)<<16|(w[7]&255)<<24,ee=w[8]&255|(w[9]&255)<<8|(w[10]&255)<<16|(w[11]&255)<<24,fe=w[12]&255|(w[13]&255)<<8|(w[14]&255)<<16|(w[15]&255)<<24,Me=f[4]&255|(f[5]&255)<<8|(f[6]&255)<<16|(f[7]&255)<<24,pe=x[0]&255|(x[1]&255)<<8|(x[2]&255)<<16|(x[3]&255)<<24,ke=x[4]&255|(x[5]&255)<<8|(x[6]&255)<<16|(x[7]&255)<<24,Ae=x[8]&255|(x[9]&255)<<8|(x[10]&255)<<16|(x[11]&255)<<24,Fe=x[12]&255|(x[13]&255)<<8|(x[14]&255)<<16|(x[15]&255)<<24,He=f[8]&255|(f[9]&255)<<8|(f[10]&255)<<16|(f[11]&255)<<24,Ge=w[16]&255|(w[17]&255)<<8|(w[18]&255)<<16|(w[19]&255)<<24,$e=w[20]&255|(w[21]&255)<<8|(w[22]&255)<<16|(w[23]&255)<<24,Ze=w[24]&255|(w[25]&255)<<8|(w[26]&255)<<16|(w[27]&255)<<24,Je=w[28]&255|(w[29]&255)<<8|(w[30]&255)<<16|(w[31]&255)<<24,Ye=f[12]&255|(f[13]&255)<<8|(f[14]&255)<<16|(f[15]&255)<<24,Ce=E,Ne=F,_e=G,Te=ee,Ie=fe,Ee=Me,X=pe,Q=ke,le=Ae,ae=Fe,ce=He,ye=Ge,Ve=$e,Qe=Ze,tt=Je,je=Ye,R,ot=0;ot<20;ot+=2)R=Ce+Ve|0,Ie^=R<<7|R>>>32-7,R=Ie+Ce|0,le^=R<<9|R>>>32-9,R=le+Ie|0,Ve^=R<<13|R>>>32-13,R=Ve+le|0,Ce^=R<<18|R>>>32-18,R=Ee+Ne|0,ae^=R<<7|R>>>32-7,R=ae+Ee|0,Qe^=R<<9|R>>>32-9,R=Qe+ae|0,Ne^=R<<13|R>>>32-13,R=Ne+Qe|0,Ee^=R<<18|R>>>32-18,R=ce+X|0,tt^=R<<7|R>>>32-7,R=tt+ce|0,_e^=R<<9|R>>>32-9,R=_e+tt|0,X^=R<<13|R>>>32-13,R=X+_e|0,ce^=R<<18|R>>>32-18,R=je+ye|0,Te^=R<<7|R>>>32-7,R=Te+je|0,Q^=R<<9|R>>>32-9,R=Q+Te|0,ye^=R<<13|R>>>32-13,R=ye+Q|0,je^=R<<18|R>>>32-18,R=Ce+Te|0,Ne^=R<<7|R>>>32-7,R=Ne+Ce|0,_e^=R<<9|R>>>32-9,R=_e+Ne|0,Te^=R<<13|R>>>32-13,R=Te+_e|0,Ce^=R<<18|R>>>32-18,R=Ee+Ie|0,X^=R<<7|R>>>32-7,R=X+Ee|0,Q^=R<<9|R>>>32-9,R=Q+X|0,Ie^=R<<13|R>>>32-13,R=Ie+Q|0,Ee^=R<<18|R>>>32-18,R=ce+ae|0,ye^=R<<7|R>>>32-7,R=ye+ce|0,le^=R<<9|R>>>32-9,R=le+ye|0,ae^=R<<13|R>>>32-13,R=ae+le|0,ce^=R<<18|R>>>32-18,R=je+tt|0,Ve^=R<<7|R>>>32-7,R=Ve+je|0,Qe^=R<<9|R>>>32-9,R=Qe+Ve|0,tt^=R<<13|R>>>32-13,R=tt+Qe|0,je^=R<<18|R>>>32-18;Ce=Ce+E|0,Ne=Ne+F|0,_e=_e+G|0,Te=Te+ee|0,Ie=Ie+fe|0,Ee=Ee+Me|0,X=X+pe|0,Q=Q+ke|0,le=le+Ae|0,ae=ae+Fe|0,ce=ce+He|0,ye=ye+Ge|0,Ve=Ve+$e|0,Qe=Qe+Ze|0,tt=tt+Je|0,je=je+Ye|0,h[0]=Ce>>>0&255,h[1]=Ce>>>8&255,h[2]=Ce>>>16&255,h[3]=Ce>>>24&255,h[4]=Ne>>>0&255,h[5]=Ne>>>8&255,h[6]=Ne>>>16&255,h[7]=Ne>>>24&255,h[8]=_e>>>0&255,h[9]=_e>>>8&255,h[10]=_e>>>16&255,h[11]=_e>>>24&255,h[12]=Te>>>0&255,h[13]=Te>>>8&255,h[14]=Te>>>16&255,h[15]=Te>>>24&255,h[16]=Ie>>>0&255,h[17]=Ie>>>8&255,h[18]=Ie>>>16&255,h[19]=Ie>>>24&255,h[20]=Ee>>>0&255,h[21]=Ee>>>8&255,h[22]=Ee>>>16&255,h[23]=Ee>>>24&255,h[24]=X>>>0&255,h[25]=X>>>8&255,h[26]=X>>>16&255,h[27]=X>>>24&255,h[28]=Q>>>0&255,h[29]=Q>>>8&255,h[30]=Q>>>16&255,h[31]=Q>>>24&255,h[32]=le>>>0&255,h[33]=le>>>8&255,h[34]=le>>>16&255,h[35]=le>>>24&255,h[36]=ae>>>0&255,h[37]=ae>>>8&255,h[38]=ae>>>16&255,h[39]=ae>>>24&255,h[40]=ce>>>0&255,h[41]=ce>>>8&255,h[42]=ce>>>16&255,h[43]=ce>>>24&255,h[44]=ye>>>0&255,h[45]=ye>>>8&255,h[46]=ye>>>16&255,h[47]=ye>>>24&255,h[48]=Ve>>>0&255,h[49]=Ve>>>8&255,h[50]=Ve>>>16&255,h[51]=Ve>>>24&255,h[52]=Qe>>>0&255,h[53]=Qe>>>8&255,h[54]=Qe>>>16&255,h[55]=Qe>>>24&255,h[56]=tt>>>0&255,h[57]=tt>>>8&255,h[58]=tt>>>16&255,h[59]=tt>>>24&255,h[60]=je>>>0&255,h[61]=je>>>8&255,h[62]=je>>>16&255,h[63]=je>>>24&255}function ge(h,x,w,f){for(var E=f[0]&255|(f[1]&255)<<8|(f[2]&255)<<16|(f[3]&255)<<24,F=w[0]&255|(w[1]&255)<<8|(w[2]&255)<<16|(w[3]&255)<<24,G=w[4]&255|(w[5]&255)<<8|(w[6]&255)<<16|(w[7]&255)<<24,ee=w[8]&255|(w[9]&255)<<8|(w[10]&255)<<16|(w[11]&255)<<24,fe=w[12]&255|(w[13]&255)<<8|(w[14]&255)<<16|(w[15]&255)<<24,Me=f[4]&255|(f[5]&255)<<8|(f[6]&255)<<16|(f[7]&255)<<24,pe=x[0]&255|(x[1]&255)<<8|(x[2]&255)<<16|(x[3]&255)<<24,ke=x[4]&255|(x[5]&255)<<8|(x[6]&255)<<16|(x[7]&255)<<24,Ae=x[8]&255|(x[9]&255)<<8|(x[10]&255)<<16|(x[11]&255)<<24,Fe=x[12]&255|(x[13]&255)<<8|(x[14]&255)<<16|(x[15]&255)<<24,He=f[8]&255|(f[9]&255)<<8|(f[10]&255)<<16|(f[11]&255)<<24,Ge=w[16]&255|(w[17]&255)<<8|(w[18]&255)<<16|(w[19]&255)<<24,$e=w[20]&255|(w[21]&255)<<8|(w[22]&255)<<16|(w[23]&255)<<24,Ze=w[24]&255|(w[25]&255)<<8|(w[26]&255)<<16|(w[27]&255)<<24,Je=w[28]&255|(w[29]&255)<<8|(w[30]&255)<<16|(w[31]&255)<<24,Ye=f[12]&255|(f[13]&255)<<8|(f[14]&255)<<16|(f[15]&255)<<24,Ce=E,Ne=F,_e=G,Te=ee,Ie=fe,Ee=Me,X=pe,Q=ke,le=Ae,ae=Fe,ce=He,ye=Ge,Ve=$e,Qe=Ze,tt=Je,je=Ye,R,ot=0;ot<20;ot+=2)R=Ce+Ve|0,Ie^=R<<7|R>>>32-7,R=Ie+Ce|0,le^=R<<9|R>>>32-9,R=le+Ie|0,Ve^=R<<13|R>>>32-13,R=Ve+le|0,Ce^=R<<18|R>>>32-18,R=Ee+Ne|0,ae^=R<<7|R>>>32-7,R=ae+Ee|0,Qe^=R<<9|R>>>32-9,R=Qe+ae|0,Ne^=R<<13|R>>>32-13,R=Ne+Qe|0,Ee^=R<<18|R>>>32-18,R=ce+X|0,tt^=R<<7|R>>>32-7,R=tt+ce|0,_e^=R<<9|R>>>32-9,R=_e+tt|0,X^=R<<13|R>>>32-13,R=X+_e|0,ce^=R<<18|R>>>32-18,R=je+ye|0,Te^=R<<7|R>>>32-7,R=Te+je|0,Q^=R<<9|R>>>32-9,R=Q+Te|0,ye^=R<<13|R>>>32-13,R=ye+Q|0,je^=R<<18|R>>>32-18,R=Ce+Te|0,Ne^=R<<7|R>>>32-7,R=Ne+Ce|0,_e^=R<<9|R>>>32-9,R=_e+Ne|0,Te^=R<<13|R>>>32-13,R=Te+_e|0,Ce^=R<<18|R>>>32-18,R=Ee+Ie|0,X^=R<<7|R>>>32-7,R=X+Ee|0,Q^=R<<9|R>>>32-9,R=Q+X|0,Ie^=R<<13|R>>>32-13,R=Ie+Q|0,Ee^=R<<18|R>>>32-18,R=ce+ae|0,ye^=R<<7|R>>>32-7,R=ye+ce|0,le^=R<<9|R>>>32-9,R=le+ye|0,ae^=R<<13|R>>>32-13,R=ae+le|0,ce^=R<<18|R>>>32-18,R=je+tt|0,Ve^=R<<7|R>>>32-7,R=Ve+je|0,Qe^=R<<9|R>>>32-9,R=Qe+Ve|0,tt^=R<<13|R>>>32-13,R=tt+Qe|0,je^=R<<18|R>>>32-18;h[0]=Ce>>>0&255,h[1]=Ce>>>8&255,h[2]=Ce>>>16&255,h[3]=Ce>>>24&255,h[4]=Ee>>>0&255,h[5]=Ee>>>8&255,h[6]=Ee>>>16&255,h[7]=Ee>>>24&255,h[8]=ce>>>0&255,h[9]=ce>>>8&255,h[10]=ce>>>16&255,h[11]=ce>>>24&255,h[12]=je>>>0&255,h[13]=je>>>8&255,h[14]=je>>>16&255,h[15]=je>>>24&255,h[16]=X>>>0&255,h[17]=X>>>8&255,h[18]=X>>>16&255,h[19]=X>>>24&255,h[20]=Q>>>0&255,h[21]=Q>>>8&255,h[22]=Q>>>16&255,h[23]=Q>>>24&255,h[24]=le>>>0&255,h[25]=le>>>8&255,h[26]=le>>>16&255,h[27]=le>>>24&255,h[28]=ae>>>0&255,h[29]=ae>>>8&255,h[30]=ae>>>16&255,h[31]=ae>>>24&255}function de(h,x,w,f){te(h,x,w,f)}function Se(h,x,w,f){ge(h,x,w,f)}var ue=new Uint8Array([101,120,112,97,110,100,32,51,50,45,98,121,116,101,32,107]);function he(h,x,w,f,E,F,G){var ee=new Uint8Array(16),fe=new Uint8Array(64),Me,pe;for(pe=0;pe<16;pe++)ee[pe]=0;for(pe=0;pe<8;pe++)ee[pe]=F[pe];for(;E>=64;){for(de(fe,ee,G,ue),pe=0;pe<64;pe++)h[x+pe]=w[f+pe]^fe[pe];for(Me=1,pe=8;pe<16;pe++)Me=Me+(ee[pe]&255)|0,ee[pe]=Me&255,Me>>>=8;E-=64,x+=64,f+=64}if(E>0)for(de(fe,ee,G,ue),pe=0;pe<E;pe++)h[x+pe]=w[f+pe]^fe[pe];return 0}function be(h,x,w,f,E){var F=new Uint8Array(16),G=new Uint8Array(64),ee,fe;for(fe=0;fe<16;fe++)F[fe]=0;for(fe=0;fe<8;fe++)F[fe]=f[fe];for(;w>=64;){for(de(G,F,E,ue),fe=0;fe<64;fe++)h[x+fe]=G[fe];for(ee=1,fe=8;fe<16;fe++)ee=ee+(F[fe]&255)|0,F[fe]=ee&255,ee>>>=8;w-=64,x+=64}if(w>0)for(de(G,F,E,ue),fe=0;fe<w;fe++)h[x+fe]=G[fe];return 0}function We(h,x,w,f,E){var F=new Uint8Array(32);Se(F,f,E,ue);for(var G=new Uint8Array(8),ee=0;ee<8;ee++)G[ee]=f[ee+16];return be(h,x,w,G,F)}function se(h,x,w,f,E,F,G){var ee=new Uint8Array(32);Se(ee,F,G,ue);for(var fe=new Uint8Array(8),Me=0;Me<8;Me++)fe[Me]=F[Me+16];return he(h,x,w,f,E,fe,ee)}var B=function(h){this.buffer=new Uint8Array(16),this.r=new Uint16Array(10),this.h=new Uint16Array(10),this.pad=new Uint16Array(8),this.leftover=0,this.fin=0;var x,w,f,E,F,G,ee,fe;x=h[0]&255|(h[1]&255)<<8,this.r[0]=x&8191,w=h[2]&255|(h[3]&255)<<8,this.r[1]=(x>>>13|w<<3)&8191,f=h[4]&255|(h[5]&255)<<8,this.r[2]=(w>>>10|f<<6)&7939,E=h[6]&255|(h[7]&255)<<8,this.r[3]=(f>>>7|E<<9)&8191,F=h[8]&255|(h[9]&255)<<8,this.r[4]=(E>>>4|F<<12)&255,this.r[5]=F>>>1&8190,G=h[10]&255|(h[11]&255)<<8,this.r[6]=(F>>>14|G<<2)&8191,ee=h[12]&255|(h[13]&255)<<8,this.r[7]=(G>>>11|ee<<5)&8065,fe=h[14]&255|(h[15]&255)<<8,this.r[8]=(ee>>>8|fe<<8)&8191,this.r[9]=fe>>>5&127,this.pad[0]=h[16]&255|(h[17]&255)<<8,this.pad[1]=h[18]&255|(h[19]&255)<<8,this.pad[2]=h[20]&255|(h[21]&255)<<8,this.pad[3]=h[22]&255|(h[23]&255)<<8,this.pad[4]=h[24]&255|(h[25]&255)<<8,this.pad[5]=h[26]&255|(h[27]&255)<<8,this.pad[6]=h[28]&255|(h[29]&255)<<8,this.pad[7]=h[30]&255|(h[31]&255)<<8};B.prototype.blocks=function(h,x,w){for(var f=this.fin?0:1<<11,E,F,G,ee,fe,Me,pe,ke,Ae,Fe,He,Ge,$e,Ze,Je,Ye,Ce,Ne,_e,Te=this.h[0],Ie=this.h[1],Ee=this.h[2],X=this.h[3],Q=this.h[4],le=this.h[5],ae=this.h[6],ce=this.h[7],ye=this.h[8],Ve=this.h[9],Qe=this.r[0],tt=this.r[1],je=this.r[2],R=this.r[3],ot=this.r[4],dt=this.r[5],pt=this.r[6],rt=this.r[7],ct=this.r[8],ut=this.r[9];w>=16;)E=h[x+0]&255|(h[x+1]&255)<<8,Te+=E&8191,F=h[x+2]&255|(h[x+3]&255)<<8,Ie+=(E>>>13|F<<3)&8191,G=h[x+4]&255|(h[x+5]&255)<<8,Ee+=(F>>>10|G<<6)&8191,ee=h[x+6]&255|(h[x+7]&255)<<8,X+=(G>>>7|ee<<9)&8191,fe=h[x+8]&255|(h[x+9]&255)<<8,Q+=(ee>>>4|fe<<12)&8191,le+=fe>>>1&8191,Me=h[x+10]&255|(h[x+11]&255)<<8,ae+=(fe>>>14|Me<<2)&8191,pe=h[x+12]&255|(h[x+13]&255)<<8,ce+=(Me>>>11|pe<<5)&8191,ke=h[x+14]&255|(h[x+15]&255)<<8,ye+=(pe>>>8|ke<<8)&8191,Ve+=ke>>>5|f,Ae=0,Fe=Ae,Fe+=Te*Qe,Fe+=Ie*(5*ut),Fe+=Ee*(5*ct),Fe+=X*(5*rt),Fe+=Q*(5*pt),Ae=Fe>>>13,Fe&=8191,Fe+=le*(5*dt),Fe+=ae*(5*ot),Fe+=ce*(5*R),Fe+=ye*(5*je),Fe+=Ve*(5*tt),Ae+=Fe>>>13,Fe&=8191,He=Ae,He+=Te*tt,He+=Ie*Qe,He+=Ee*(5*ut),He+=X*(5*ct),He+=Q*(5*rt),Ae=He>>>13,He&=8191,He+=le*(5*pt),He+=ae*(5*dt),He+=ce*(5*ot),He+=ye*(5*R),He+=Ve*(5*je),Ae+=He>>>13,He&=8191,Ge=Ae,Ge+=Te*je,Ge+=Ie*tt,Ge+=Ee*Qe,Ge+=X*(5*ut),Ge+=Q*(5*ct),Ae=Ge>>>13,Ge&=8191,Ge+=le*(5*rt),Ge+=ae*(5*pt),Ge+=ce*(5*dt),Ge+=ye*(5*ot),Ge+=Ve*(5*R),Ae+=Ge>>>13,Ge&=8191,$e=Ae,$e+=Te*R,$e+=Ie*je,$e+=Ee*tt,$e+=X*Qe,$e+=Q*(5*ut),Ae=$e>>>13,$e&=8191,$e+=le*(5*ct),$e+=ae*(5*rt),$e+=ce*(5*pt),$e+=ye*(5*dt),$e+=Ve*(5*ot),Ae+=$e>>>13,$e&=8191,Ze=Ae,Ze+=Te*ot,Ze+=Ie*R,Ze+=Ee*je,Ze+=X*tt,Ze+=Q*Qe,Ae=Ze>>>13,Ze&=8191,Ze+=le*(5*ut),Ze+=ae*(5*ct),Ze+=ce*(5*rt),Ze+=ye*(5*pt),Ze+=Ve*(5*dt),Ae+=Ze>>>13,Ze&=8191,Je=Ae,Je+=Te*dt,Je+=Ie*ot,Je+=Ee*R,Je+=X*je,Je+=Q*tt,Ae=Je>>>13,Je&=8191,Je+=le*Qe,Je+=ae*(5*ut),Je+=ce*(5*ct),Je+=ye*(5*rt),Je+=Ve*(5*pt),Ae+=Je>>>13,Je&=8191,Ye=Ae,Ye+=Te*pt,Ye+=Ie*dt,Ye+=Ee*ot,Ye+=X*R,Ye+=Q*je,Ae=Ye>>>13,Ye&=8191,Ye+=le*tt,Ye+=ae*Qe,Ye+=ce*(5*ut),Ye+=ye*(5*ct),Ye+=Ve*(5*rt),Ae+=Ye>>>13,Ye&=8191,Ce=Ae,Ce+=Te*rt,Ce+=Ie*pt,Ce+=Ee*dt,Ce+=X*ot,Ce+=Q*R,Ae=Ce>>>13,Ce&=8191,Ce+=le*je,Ce+=ae*tt,Ce+=ce*Qe,Ce+=ye*(5*ut),Ce+=Ve*(5*ct),Ae+=Ce>>>13,Ce&=8191,Ne=Ae,Ne+=Te*ct,Ne+=Ie*rt,Ne+=Ee*pt,Ne+=X*dt,Ne+=Q*ot,Ae=Ne>>>13,Ne&=8191,Ne+=le*R,Ne+=ae*je,Ne+=ce*tt,Ne+=ye*Qe,Ne+=Ve*(5*ut),Ae+=Ne>>>13,Ne&=8191,_e=Ae,_e+=Te*ut,_e+=Ie*ct,_e+=Ee*rt,_e+=X*pt,_e+=Q*dt,Ae=_e>>>13,_e&=8191,_e+=le*ot,_e+=ae*R,_e+=ce*je,_e+=ye*tt,_e+=Ve*Qe,Ae+=_e>>>13,_e&=8191,Ae=(Ae<<2)+Ae|0,Ae=Ae+Fe|0,Fe=Ae&8191,Ae=Ae>>>13,He+=Ae,Te=Fe,Ie=He,Ee=Ge,X=$e,Q=Ze,le=Je,ae=Ye,ce=Ce,ye=Ne,Ve=_e,x+=16,w-=16;this.h[0]=Te,this.h[1]=Ie,this.h[2]=Ee,this.h[3]=X,this.h[4]=Q,this.h[5]=le,this.h[6]=ae,this.h[7]=ce,this.h[8]=ye,this.h[9]=Ve},B.prototype.finish=function(h,x){var w=new Uint16Array(10),f,E,F,G;if(this.leftover){for(G=this.leftover,this.buffer[G++]=1;G<16;G++)this.buffer[G]=0;this.fin=1,this.blocks(this.buffer,0,16)}for(f=this.h[1]>>>13,this.h[1]&=8191,G=2;G<10;G++)this.h[G]+=f,f=this.h[G]>>>13,this.h[G]&=8191;for(this.h[0]+=f*5,f=this.h[0]>>>13,this.h[0]&=8191,this.h[1]+=f,f=this.h[1]>>>13,this.h[1]&=8191,this.h[2]+=f,w[0]=this.h[0]+5,f=w[0]>>>13,w[0]&=8191,G=1;G<10;G++)w[G]=this.h[G]+f,f=w[G]>>>13,w[G]&=8191;for(w[9]-=1<<13,E=(f^1)-1,G=0;G<10;G++)w[G]&=E;for(E=~E,G=0;G<10;G++)this.h[G]=this.h[G]&E|w[G];for(this.h[0]=(this.h[0]|this.h[1]<<13)&65535,this.h[1]=(this.h[1]>>>3|this.h[2]<<10)&65535,this.h[2]=(this.h[2]>>>6|this.h[3]<<7)&65535,this.h[3]=(this.h[3]>>>9|this.h[4]<<4)&65535,this.h[4]=(this.h[4]>>>12|this.h[5]<<1|this.h[6]<<14)&65535,this.h[5]=(this.h[6]>>>2|this.h[7]<<11)&65535,this.h[6]=(this.h[7]>>>5|this.h[8]<<8)&65535,this.h[7]=(this.h[8]>>>8|this.h[9]<<5)&65535,F=this.h[0]+this.pad[0],this.h[0]=F&65535,G=1;G<8;G++)F=(this.h[G]+this.pad[G]|0)+(F>>>16)|0,this.h[G]=F&65535;h[x+0]=this.h[0]>>>0&255,h[x+1]=this.h[0]>>>8&255,h[x+2]=this.h[1]>>>0&255,h[x+3]=this.h[1]>>>8&255,h[x+4]=this.h[2]>>>0&255,h[x+5]=this.h[2]>>>8&255,h[x+6]=this.h[3]>>>0&255,h[x+7]=this.h[3]>>>8&255,h[x+8]=this.h[4]>>>0&255,h[x+9]=this.h[4]>>>8&255,h[x+10]=this.h[5]>>>0&255,h[x+11]=this.h[5]>>>8&255,h[x+12]=this.h[6]>>>0&255,h[x+13]=this.h[6]>>>8&255,h[x+14]=this.h[7]>>>0&255,h[x+15]=this.h[7]>>>8&255},B.prototype.update=function(h,x,w){var f,E;if(this.leftover){for(E=16-this.leftover,E>w&&(E=w),f=0;f<E;f++)this.buffer[this.leftover+f]=h[x+f];if(w-=E,x+=E,this.leftover+=E,this.leftover<16)return;this.blocks(this.buffer,0,16),this.leftover=0}if(w>=16&&(E=w-w%16,this.blocks(h,x,E),x+=E,w-=E),w){for(f=0;f<w;f++)this.buffer[this.leftover+f]=h[x+f];this.leftover+=w}};function k(h,x,w,f,E,F){var G=new B(F);return G.update(w,f,E),G.finish(h,x),0}function j(h,x,w,f,E,F){var G=new Uint8Array(16);return k(G,0,w,f,E,F),oe(h,x,G,0)}function S(h,x,w,f,E){var F;if(w<32)return-1;for(se(h,0,x,0,w,f,E),k(h,16,h,32,w-32,h),F=0;F<16;F++)h[F]=0;return 0}function s(h,x,w,f,E){var F,G=new Uint8Array(32);if(w<32||(We(G,0,32,f,E),j(x,16,x,32,w-32,G)!==0))return-1;for(se(h,0,x,0,w,f,E),F=0;F<32;F++)h[F]=0;return 0}function u(h,x){var w;for(w=0;w<16;w++)h[w]=x[w]|0}function y(h){var x,w,f=1;for(x=0;x<16;x++)w=h[x]+f+65535,f=Math.floor(w/65536),h[x]=w-f*65536;h[0]+=f-1+37*(f-1)}function v(h,x,w){for(var f,E=~(w-1),F=0;F<16;F++)f=E&(h[F]^x[F]),h[F]^=f,x[F]^=f}function C(h,x){var w,f,E,F=t(),G=t();for(w=0;w<16;w++)G[w]=x[w];for(y(G),y(G),y(G),f=0;f<2;f++){for(F[0]=G[0]-65517,w=1;w<15;w++)F[w]=G[w]-65535-(F[w-1]>>16&1),F[w-1]&=65535;F[15]=G[15]-32767-(F[14]>>16&1),E=F[15]>>16&1,F[14]&=65535,v(G,F,1-E)}for(w=0;w<16;w++)h[2*w]=G[w]&255,h[2*w+1]=G[w]>>8}function O(h,x){var w=new Uint8Array(32),f=new Uint8Array(32);return C(w,h),C(f,x),me(w,0,f,0)}function I(h){var x=new Uint8Array(32);return C(x,h),x[0]&1}function b(h,x){var w;for(w=0;w<16;w++)h[w]=x[2*w]+(x[2*w+1]<<8);h[15]&=32767}function c(h,x,w){for(var f=0;f<16;f++)h[f]=x[f]+w[f]}function m(h,x,w){for(var f=0;f<16;f++)h[f]=x[f]-w[f]}function J(h,x,w){var f,E,F=0,G=0,ee=0,fe=0,Me=0,pe=0,ke=0,Ae=0,Fe=0,He=0,Ge=0,$e=0,Ze=0,Je=0,Ye=0,Ce=0,Ne=0,_e=0,Te=0,Ie=0,Ee=0,X=0,Q=0,le=0,ae=0,ce=0,ye=0,Ve=0,Qe=0,tt=0,je=0,R=w[0],ot=w[1],dt=w[2],pt=w[3],rt=w[4],ct=w[5],ut=w[6],Dt=w[7],St=w[8],Nt=w[9],Rt=w[10],kt=w[11],qt=w[12],Gt=w[13],Zt=w[14],Yt=w[15];f=x[0],F+=f*R,G+=f*ot,ee+=f*dt,fe+=f*pt,Me+=f*rt,pe+=f*ct,ke+=f*ut,Ae+=f*Dt,Fe+=f*St,He+=f*Nt,Ge+=f*Rt,$e+=f*kt,Ze+=f*qt,Je+=f*Gt,Ye+=f*Zt,Ce+=f*Yt,f=x[1],G+=f*R,ee+=f*ot,fe+=f*dt,Me+=f*pt,pe+=f*rt,ke+=f*ct,Ae+=f*ut,Fe+=f*Dt,He+=f*St,Ge+=f*Nt,$e+=f*Rt,Ze+=f*kt,Je+=f*qt,Ye+=f*Gt,Ce+=f*Zt,Ne+=f*Yt,f=x[2],ee+=f*R,fe+=f*ot,Me+=f*dt,pe+=f*pt,ke+=f*rt,Ae+=f*ct,Fe+=f*ut,He+=f*Dt,Ge+=f*St,$e+=f*Nt,Ze+=f*Rt,Je+=f*kt,Ye+=f*qt,Ce+=f*Gt,Ne+=f*Zt,_e+=f*Yt,f=x[3],fe+=f*R,Me+=f*ot,pe+=f*dt,ke+=f*pt,Ae+=f*rt,Fe+=f*ct,He+=f*ut,Ge+=f*Dt,$e+=f*St,Ze+=f*Nt,Je+=f*Rt,Ye+=f*kt,Ce+=f*qt,Ne+=f*Gt,_e+=f*Zt,Te+=f*Yt,f=x[4],Me+=f*R,pe+=f*ot,ke+=f*dt,Ae+=f*pt,Fe+=f*rt,He+=f*ct,Ge+=f*ut,$e+=f*Dt,Ze+=f*St,Je+=f*Nt,Ye+=f*Rt,Ce+=f*kt,Ne+=f*qt,_e+=f*Gt,Te+=f*Zt,Ie+=f*Yt,f=x[5],pe+=f*R,ke+=f*ot,Ae+=f*dt,Fe+=f*pt,He+=f*rt,Ge+=f*ct,$e+=f*ut,Ze+=f*Dt,Je+=f*St,Ye+=f*Nt,Ce+=f*Rt,Ne+=f*kt,_e+=f*qt,Te+=f*Gt,Ie+=f*Zt,Ee+=f*Yt,f=x[6],ke+=f*R,Ae+=f*ot,Fe+=f*dt,He+=f*pt,Ge+=f*rt,$e+=f*ct,Ze+=f*ut,Je+=f*Dt,Ye+=f*St,Ce+=f*Nt,Ne+=f*Rt,_e+=f*kt,Te+=f*qt,Ie+=f*Gt,Ee+=f*Zt,X+=f*Yt,f=x[7],Ae+=f*R,Fe+=f*ot,He+=f*dt,Ge+=f*pt,$e+=f*rt,Ze+=f*ct,Je+=f*ut,Ye+=f*Dt,Ce+=f*St,Ne+=f*Nt,_e+=f*Rt,Te+=f*kt,Ie+=f*qt,Ee+=f*Gt,X+=f*Zt,Q+=f*Yt,f=x[8],Fe+=f*R,He+=f*ot,Ge+=f*dt,$e+=f*pt,Ze+=f*rt,Je+=f*ct,Ye+=f*ut,Ce+=f*Dt,Ne+=f*St,_e+=f*Nt,Te+=f*Rt,Ie+=f*kt,Ee+=f*qt,X+=f*Gt,Q+=f*Zt,le+=f*Yt,f=x[9],He+=f*R,Ge+=f*ot,$e+=f*dt,Ze+=f*pt,Je+=f*rt,Ye+=f*ct,Ce+=f*ut,Ne+=f*Dt,_e+=f*St,Te+=f*Nt,Ie+=f*Rt,Ee+=f*kt,X+=f*qt,Q+=f*Gt,le+=f*Zt,ae+=f*Yt,f=x[10],Ge+=f*R,$e+=f*ot,Ze+=f*dt,Je+=f*pt,Ye+=f*rt,Ce+=f*ct,Ne+=f*ut,_e+=f*Dt,Te+=f*St,Ie+=f*Nt,Ee+=f*Rt,X+=f*kt,Q+=f*qt,le+=f*Gt,ae+=f*Zt,ce+=f*Yt,f=x[11],$e+=f*R,Ze+=f*ot,Je+=f*dt,Ye+=f*pt,Ce+=f*rt,Ne+=f*ct,_e+=f*ut,Te+=f*Dt,Ie+=f*St,Ee+=f*Nt,X+=f*Rt,Q+=f*kt,le+=f*qt,ae+=f*Gt,ce+=f*Zt,ye+=f*Yt,f=x[12],Ze+=f*R,Je+=f*ot,Ye+=f*dt,Ce+=f*pt,Ne+=f*rt,_e+=f*ct,Te+=f*ut,Ie+=f*Dt,Ee+=f*St,X+=f*Nt,Q+=f*Rt,le+=f*kt,ae+=f*qt,ce+=f*Gt,ye+=f*Zt,Ve+=f*Yt,f=x[13],Je+=f*R,Ye+=f*ot,Ce+=f*dt,Ne+=f*pt,_e+=f*rt,Te+=f*ct,Ie+=f*ut,Ee+=f*Dt,X+=f*St,Q+=f*Nt,le+=f*Rt,ae+=f*kt,ce+=f*qt,ye+=f*Gt,Ve+=f*Zt,Qe+=f*Yt,f=x[14],Ye+=f*R,Ce+=f*ot,Ne+=f*dt,_e+=f*pt,Te+=f*rt,Ie+=f*ct,Ee+=f*ut,X+=f*Dt,Q+=f*St,le+=f*Nt,ae+=f*Rt,ce+=f*kt,ye+=f*qt,Ve+=f*Gt,Qe+=f*Zt,tt+=f*Yt,f=x[15],Ce+=f*R,Ne+=f*ot,_e+=f*dt,Te+=f*pt,Ie+=f*rt,Ee+=f*ct,X+=f*ut,Q+=f*Dt,le+=f*St,ae+=f*Nt,ce+=f*Rt,ye+=f*kt,Ve+=f*qt,Qe+=f*Gt,tt+=f*Zt,je+=f*Yt,F+=38*Ne,G+=38*_e,ee+=38*Te,fe+=38*Ie,Me+=38*Ee,pe+=38*X,ke+=38*Q,Ae+=38*le,Fe+=38*ae,He+=38*ce,Ge+=38*ye,$e+=38*Ve,Ze+=38*Qe,Je+=38*tt,Ye+=38*je,E=1,f=F+E+65535,E=Math.floor(f/65536),F=f-E*65536,f=G+E+65535,E=Math.floor(f/65536),G=f-E*65536,f=ee+E+65535,E=Math.floor(f/65536),ee=f-E*65536,f=fe+E+65535,E=Math.floor(f/65536),fe=f-E*65536,f=Me+E+65535,E=Math.floor(f/65536),Me=f-E*65536,f=pe+E+65535,E=Math.floor(f/65536),pe=f-E*65536,f=ke+E+65535,E=Math.floor(f/65536),ke=f-E*65536,f=Ae+E+65535,E=Math.floor(f/65536),Ae=f-E*65536,f=Fe+E+65535,E=Math.floor(f/65536),Fe=f-E*65536,f=He+E+65535,E=Math.floor(f/65536),He=f-E*65536,f=Ge+E+65535,E=Math.floor(f/65536),Ge=f-E*65536,f=$e+E+65535,E=Math.floor(f/65536),$e=f-E*65536,f=Ze+E+65535,E=Math.floor(f/65536),Ze=f-E*65536,f=Je+E+65535,E=Math.floor(f/65536),Je=f-E*65536,f=Ye+E+65535,E=Math.floor(f/65536),Ye=f-E*65536,f=Ce+E+65535,E=Math.floor(f/65536),Ce=f-E*65536,F+=E-1+37*(E-1),E=1,f=F+E+65535,E=Math.floor(f/65536),F=f-E*65536,f=G+E+65535,E=Math.floor(f/65536),G=f-E*65536,f=ee+E+65535,E=Math.floor(f/65536),ee=f-E*65536,f=fe+E+65535,E=Math.floor(f/65536),fe=f-E*65536,f=Me+E+65535,E=Math.floor(f/65536),Me=f-E*65536,f=pe+E+65535,E=Math.floor(f/65536),pe=f-E*65536,f=ke+E+65535,E=Math.floor(f/65536),ke=f-E*65536,f=Ae+E+65535,E=Math.floor(f/65536),Ae=f-E*65536,f=Fe+E+65535,E=Math.floor(f/65536),Fe=f-E*65536,f=He+E+65535,E=Math.floor(f/65536),He=f-E*65536,f=Ge+E+65535,E=Math.floor(f/65536),Ge=f-E*65536,f=$e+E+65535,E=Math.floor(f/65536),$e=f-E*65536,f=Ze+E+65535,E=Math.floor(f/65536),Ze=f-E*65536,f=Je+E+65535,E=Math.floor(f/65536),Je=f-E*65536,f=Ye+E+65535,E=Math.floor(f/65536),Ye=f-E*65536,f=Ce+E+65535,E=Math.floor(f/65536),Ce=f-E*65536,F+=E-1+37*(E-1),h[0]=F,h[1]=G,h[2]=ee,h[3]=fe,h[4]=Me,h[5]=pe,h[6]=ke,h[7]=Ae,h[8]=Fe,h[9]=He,h[10]=Ge,h[11]=$e,h[12]=Ze,h[13]=Je,h[14]=Ye,h[15]=Ce}function p(h,x){J(h,x,x)}function W(h,x){var w=t(),f;for(f=0;f<16;f++)w[f]=x[f];for(f=253;f>=0;f--)p(w,w),f!==2&&f!==4&&J(w,w,x);for(f=0;f<16;f++)h[f]=w[f]}function V(h,x){var w=t(),f;for(f=0;f<16;f++)w[f]=x[f];for(f=250;f>=0;f--)p(w,w),f!==1&&J(w,w,x);for(f=0;f<16;f++)h[f]=w[f]}function re(h,x,w){var f=new Uint8Array(32),E=new Float64Array(80),F,G,ee=t(),fe=t(),Me=t(),pe=t(),ke=t(),Ae=t();for(G=0;G<31;G++)f[G]=x[G];for(f[31]=x[31]&127|64,f[0]&=248,b(E,w),G=0;G<16;G++)fe[G]=E[G],pe[G]=ee[G]=Me[G]=0;for(ee[0]=pe[0]=1,G=254;G>=0;--G)F=f[G>>>3]>>>(G&7)&1,v(ee,fe,F),v(Me,pe,F),c(ke,ee,Me),m(ee,ee,Me),c(Me,fe,pe),m(fe,fe,pe),p(pe,ke),p(Ae,ee),J(ee,Me,ee),J(Me,fe,ke),c(ke,ee,Me),m(ee,ee,Me),p(fe,ee),m(Me,pe,Ae),J(ee,Me,l),c(ee,ee,pe),J(Me,Me,ee),J(ee,pe,Ae),J(pe,fe,E),p(fe,ke),v(ee,fe,F),v(Me,pe,F);for(G=0;G<16;G++)E[G+16]=ee[G],E[G+32]=Me[G],E[G+48]=fe[G],E[G+64]=pe[G];var Fe=E.subarray(32),He=E.subarray(16);return W(Fe,Fe),J(He,He,Fe),C(h,He),0}function g(h,x){return re(h,x,n)}function _(h,x){return r(x,32),g(h,x)}function T(h,x,w){var f=new Uint8Array(32);return re(f,w,x),Se(h,i,f,ue)}var N=S,L=s;function U(h,x,w,f,E,F){var G=new Uint8Array(32);return T(G,E,F),N(h,x,w,f,G)}function $(h,x,w,f,E,F){var G=new Uint8Array(32);return T(G,E,F),L(h,x,w,f,G)}var q=[1116352408,3609767458,1899447441,602891725,3049323471,3964484399,3921009573,2173295548,961987163,4081628472,1508970993,3053834265,2453635748,2937671579,2870763221,3664609560,3624381080,2734883394,310598401,1164996542,607225278,1323610764,1426881987,3590304994,1925078388,4068182383,2162078206,991336113,2614888103,633803317,3248222580,3479774868,3835390401,2666613458,4022224774,944711139,264347078,2341262773,604807628,2007800933,770255983,1495990901,1249150122,1856431235,1555081692,3175218132,1996064986,2198950837,2554220882,3999719339,2821834349,766784016,2952996808,2566594879,3210313671,3203337956,3336571891,1034457026,3584528711,2466948901,113926993,3758326383,338241895,168717936,666307205,1188179964,773529912,1546045734,1294757372,1522805485,1396182291,2643833823,1695183700,2343527390,1986661051,1014477480,2177026350,1206759142,2456956037,344077627,2730485921,1290863460,2820302411,3158454273,3259730800,3505952657,3345764771,106217008,3516065817,3606008344,3600352804,1432725776,4094571909,1467031594,275423344,851169720,430227734,3100823752,506948616,1363258195,659060556,3750685593,883997877,3785050280,958139571,3318307427,1322822218,3812723403,1537002063,2003034995,1747873779,3602036899,1955562222,1575990012,2024104815,1125592928,2227730452,2716904306,2361852424,442776044,2428436474,593698344,2756734187,3733110249,3204031479,2999351573,3329325298,3815920427,3391569614,3928383900,3515267271,566280711,3940187606,3454069534,4118630271,4000239992,116418474,1914138554,174292421,2731055270,289380356,3203993006,460393269,320620315,685471733,587496836,852142971,1086792851,1017036298,365543100,1126000580,2618297676,1288033470,3409855158,1501505948,4234509866,1607167915,987167468,1816402316,1246189591];function z(h,x,w,f){for(var E=new Int32Array(16),F=new Int32Array(16),G,ee,fe,Me,pe,ke,Ae,Fe,He,Ge,$e,Ze,Je,Ye,Ce,Ne,_e,Te,Ie,Ee,X,Q,le,ae,ce,ye,Ve=h[0],Qe=h[1],tt=h[2],je=h[3],R=h[4],ot=h[5],dt=h[6],pt=h[7],rt=x[0],ct=x[1],ut=x[2],Dt=x[3],St=x[4],Nt=x[5],Rt=x[6],kt=x[7],qt=0;f>=128;){for(Ie=0;Ie<16;Ie++)Ee=8*Ie+qt,E[Ie]=w[Ee+0]<<24|w[Ee+1]<<16|w[Ee+2]<<8|w[Ee+3],F[Ie]=w[Ee+4]<<24|w[Ee+5]<<16|w[Ee+6]<<8|w[Ee+7];for(Ie=0;Ie<80;Ie++)if(G=Ve,ee=Qe,fe=tt,Me=je,pe=R,ke=ot,Ae=dt,Fe=pt,He=rt,Ge=ct,$e=ut,Ze=Dt,Je=St,Ye=Nt,Ce=Rt,Ne=kt,X=pt,Q=kt,le=Q&65535,ae=Q>>>16,ce=X&65535,ye=X>>>16,X=(R>>>14|St<<32-14)^(R>>>18|St<<32-18)^(St>>>41-32|R<<32-(41-32)),Q=(St>>>14|R<<32-14)^(St>>>18|R<<32-18)^(R>>>41-32|St<<32-(41-32)),le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,X=R&ot^~R&dt,Q=St&Nt^~St&Rt,le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,X=q[Ie*2],Q=q[Ie*2+1],le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,X=E[Ie%16],Q=F[Ie%16],le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,ae+=le>>>16,ce+=ae>>>16,ye+=ce>>>16,_e=ce&65535|ye<<16,Te=le&65535|ae<<16,X=_e,Q=Te,le=Q&65535,ae=Q>>>16,ce=X&65535,ye=X>>>16,X=(Ve>>>28|rt<<32-28)^(rt>>>34-32|Ve<<32-(34-32))^(rt>>>39-32|Ve<<32-(39-32)),Q=(rt>>>28|Ve<<32-28)^(Ve>>>34-32|rt<<32-(34-32))^(Ve>>>39-32|rt<<32-(39-32)),le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,X=Ve&Qe^Ve&tt^Qe&tt,Q=rt&ct^rt&ut^ct&ut,le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,ae+=le>>>16,ce+=ae>>>16,ye+=ce>>>16,Fe=ce&65535|ye<<16,Ne=le&65535|ae<<16,X=Me,Q=Ze,le=Q&65535,ae=Q>>>16,ce=X&65535,ye=X>>>16,X=_e,Q=Te,le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,ae+=le>>>16,ce+=ae>>>16,ye+=ce>>>16,Me=ce&65535|ye<<16,Ze=le&65535|ae<<16,Qe=G,tt=ee,je=fe,R=Me,ot=pe,dt=ke,pt=Ae,Ve=Fe,ct=He,ut=Ge,Dt=$e,St=Ze,Nt=Je,Rt=Ye,kt=Ce,rt=Ne,Ie%16==15)for(Ee=0;Ee<16;Ee++)X=E[Ee],Q=F[Ee],le=Q&65535,ae=Q>>>16,ce=X&65535,ye=X>>>16,X=E[(Ee+9)%16],Q=F[(Ee+9)%16],le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,_e=E[(Ee+1)%16],Te=F[(Ee+1)%16],X=(_e>>>1|Te<<32-1)^(_e>>>8|Te<<32-8)^_e>>>7,Q=(Te>>>1|_e<<32-1)^(Te>>>8|_e<<32-8)^(Te>>>7|_e<<32-7),le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,_e=E[(Ee+14)%16],Te=F[(Ee+14)%16],X=(_e>>>19|Te<<32-19)^(Te>>>61-32|_e<<32-(61-32))^_e>>>6,Q=(Te>>>19|_e<<32-19)^(_e>>>61-32|Te<<32-(61-32))^(Te>>>6|_e<<32-6),le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,ae+=le>>>16,ce+=ae>>>16,ye+=ce>>>16,E[Ee]=ce&65535|ye<<16,F[Ee]=le&65535|ae<<16;X=Ve,Q=rt,le=Q&65535,ae=Q>>>16,ce=X&65535,ye=X>>>16,X=h[0],Q=x[0],le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,ae+=le>>>16,ce+=ae>>>16,ye+=ce>>>16,h[0]=Ve=ce&65535|ye<<16,x[0]=rt=le&65535|ae<<16,X=Qe,Q=ct,le=Q&65535,ae=Q>>>16,ce=X&65535,ye=X>>>16,X=h[1],Q=x[1],le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,ae+=le>>>16,ce+=ae>>>16,ye+=ce>>>16,h[1]=Qe=ce&65535|ye<<16,x[1]=ct=le&65535|ae<<16,X=tt,Q=ut,le=Q&65535,ae=Q>>>16,ce=X&65535,ye=X>>>16,X=h[2],Q=x[2],le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,ae+=le>>>16,ce+=ae>>>16,ye+=ce>>>16,h[2]=tt=ce&65535|ye<<16,x[2]=ut=le&65535|ae<<16,X=je,Q=Dt,le=Q&65535,ae=Q>>>16,ce=X&65535,ye=X>>>16,X=h[3],Q=x[3],le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,ae+=le>>>16,ce+=ae>>>16,ye+=ce>>>16,h[3]=je=ce&65535|ye<<16,x[3]=Dt=le&65535|ae<<16,X=R,Q=St,le=Q&65535,ae=Q>>>16,ce=X&65535,ye=X>>>16,X=h[4],Q=x[4],le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,ae+=le>>>16,ce+=ae>>>16,ye+=ce>>>16,h[4]=R=ce&65535|ye<<16,x[4]=St=le&65535|ae<<16,X=ot,Q=Nt,le=Q&65535,ae=Q>>>16,ce=X&65535,ye=X>>>16,X=h[5],Q=x[5],le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,ae+=le>>>16,ce+=ae>>>16,ye+=ce>>>16,h[5]=ot=ce&65535|ye<<16,x[5]=Nt=le&65535|ae<<16,X=dt,Q=Rt,le=Q&65535,ae=Q>>>16,ce=X&65535,ye=X>>>16,X=h[6],Q=x[6],le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,ae+=le>>>16,ce+=ae>>>16,ye+=ce>>>16,h[6]=dt=ce&65535|ye<<16,x[6]=Rt=le&65535|ae<<16,X=pt,Q=kt,le=Q&65535,ae=Q>>>16,ce=X&65535,ye=X>>>16,X=h[7],Q=x[7],le+=Q&65535,ae+=Q>>>16,ce+=X&65535,ye+=X>>>16,ae+=le>>>16,ce+=ae>>>16,ye+=ce>>>16,h[7]=pt=ce&65535|ye<<16,x[7]=kt=le&65535|ae<<16,qt+=128,f-=128}return f}function K(h,x,w){var f=new Int32Array(8),E=new Int32Array(8),F=new Uint8Array(256),G,ee=w;for(f[0]=1779033703,f[1]=3144134277,f[2]=1013904242,f[3]=2773480762,f[4]=1359893119,f[5]=2600822924,f[6]=528734635,f[7]=1541459225,E[0]=4089235720,E[1]=2227873595,E[2]=4271175723,E[3]=1595750129,E[4]=2917565137,E[5]=725511199,E[6]=4215389547,E[7]=327033209,z(f,E,x,w),w%=128,G=0;G<w;G++)F[G]=x[ee-w+G];for(F[w]=128,w=256-128*(w<112?1:0),F[w-9]=0,H(F,w-8,ee/536870912|0,ee<<3),z(f,E,F,w),G=0;G<8;G++)H(h,8*G,f[G],E[G]);return 0}function Z(h,x){var w=t(),f=t(),E=t(),F=t(),G=t(),ee=t(),fe=t(),Me=t(),pe=t();m(w,h[1],h[0]),m(pe,x[1],x[0]),J(w,w,pe),c(f,h[0],h[1]),c(pe,x[0],x[1]),J(f,f,pe),J(E,h[3],x[3]),J(E,E,A),J(F,h[2],x[2]),c(F,F,F),m(G,f,w),m(ee,F,E),c(fe,F,E),c(Me,f,w),J(h[0],G,ee),J(h[1],Me,fe),J(h[2],fe,ee),J(h[3],G,Me)}function ne(h,x,w){var f;for(f=0;f<4;f++)v(h[f],x[f],w)}function we(h,x){var w=t(),f=t(),E=t();W(E,x[2]),J(w,x[0],E),J(f,x[1],E),C(h,f),h[31]^=I(w)<<7}function Be(h,x,w){var f,E;for(u(h[0],o),u(h[1],a),u(h[2],a),u(h[3],o),E=255;E>=0;--E)f=w[E/8|0]>>(E&7)&1,ne(h,x,f),Z(x,h),Z(h,h),ne(h,x,f)}function Oe(h,x){var w=[t(),t(),t(),t()];u(w[0],M),u(w[1],P),u(w[2],a),J(w[3],M,P),Be(h,w,x)}function ze(h,x,w){var f=new Uint8Array(64),E=[t(),t(),t(),t()],F;for(w||r(x,32),K(f,x,32),f[0]&=248,f[31]&=127,f[31]|=64,Oe(E,f),we(h,E),F=0;F<32;F++)x[F+32]=h[F];return 0}var yt=new Float64Array([237,211,245,92,26,99,18,88,214,156,247,162,222,249,222,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16]);function Pe(h,x){var w,f,E,F;for(f=63;f>=32;--f){for(w=0,E=f-32,F=f-12;E<F;++E)x[E]+=w-16*x[f]*yt[E-(f-32)],w=Math.floor((x[E]+128)/256),x[E]-=w*256;x[E]+=w,x[f]=0}for(w=0,E=0;E<32;E++)x[E]+=w-(x[31]>>4)*yt[E],w=x[E]>>8,x[E]&=255;for(E=0;E<32;E++)x[E]-=w*yt[E];for(f=0;f<32;f++)x[f+1]+=x[f]>>8,h[f]=x[f]&255}function Ue(h){var x=new Float64Array(64),w;for(w=0;w<64;w++)x[w]=h[w];for(w=0;w<64;w++)h[w]=0;Pe(h,x)}function Mt(h,x,w,f){var E=new Uint8Array(64),F=new Uint8Array(64),G=new Uint8Array(64),ee,fe,Me=new Float64Array(64),pe=[t(),t(),t(),t()];K(E,f,32),E[0]&=248,E[31]&=127,E[31]|=64;var ke=w+64;for(ee=0;ee<w;ee++)h[64+ee]=x[ee];for(ee=0;ee<32;ee++)h[32+ee]=E[32+ee];for(K(G,h.subarray(32),w+32),Ue(G),Oe(pe,G),we(h,pe),ee=32;ee<64;ee++)h[ee]=f[ee];for(K(F,h,w+64),Ue(F),ee=0;ee<64;ee++)Me[ee]=0;for(ee=0;ee<32;ee++)Me[ee]=G[ee];for(ee=0;ee<32;ee++)for(fe=0;fe<32;fe++)Me[ee+fe]+=F[ee]*E[fe];return Pe(h.subarray(32),Me),ke}function gt(h,x){var w=t(),f=t(),E=t(),F=t(),G=t(),ee=t(),fe=t();return u(h[2],a),b(h[1],x),p(E,h[1]),J(F,E,d),m(E,E,h[2]),c(F,h[2],F),p(G,F),p(ee,G),J(fe,ee,G),J(w,fe,E),J(w,w,F),V(w,w),J(w,w,E),J(w,w,F),J(w,w,F),J(h[0],w,F),p(f,h[0]),J(f,f,F),O(f,E)&&J(h[0],h[0],D),p(f,h[0]),J(f,f,F),O(f,E)?-1:(I(h[0])===x[31]>>7&&m(h[0],o,h[0]),J(h[3],h[0],h[1]),0)}function lt(h,x,w,f){var E,F=new Uint8Array(32),G=new Uint8Array(64),ee=[t(),t(),t(),t()],fe=[t(),t(),t(),t()];if(w<64||gt(fe,f))return-1;for(E=0;E<w;E++)h[E]=x[E];for(E=0;E<32;E++)h[E+32]=f[E];if(K(G,h,w),Ue(G),Be(ee,fe,G),Oe(fe,x.subarray(32)),Z(ee,fe),we(F,ee),w-=64,me(x,0,F,0)){for(E=0;E<w;E++)h[E]=0;return-1}for(E=0;E<w;E++)h[E]=x[E+64];return w}var rr=32,et=24,ft=32,Ct=16,Xe=32,qe=32,ar=32,wt=32,bt=32,_r=et,Tt=ft,It=Ct,Vt=64,ht=32,mt=64,xr=32,Et=64;e.lowlevel={crypto_core_hsalsa20:Se,crypto_stream_xor:se,crypto_stream:We,crypto_stream_salsa20_xor:he,crypto_stream_salsa20:be,crypto_onetimeauth:k,crypto_onetimeauth_verify:j,crypto_verify_16:oe,crypto_verify_32:me,crypto_secretbox:S,crypto_secretbox_open:s,crypto_scalarmult:re,crypto_scalarmult_base:g,crypto_box_beforenm:T,crypto_box_afternm:N,crypto_box:U,crypto_box_open:$,crypto_box_keypair:_,crypto_hash:K,crypto_sign:Mt,crypto_sign_keypair:ze,crypto_sign_open:lt,crypto_secretbox_KEYBYTES:rr,crypto_secretbox_NONCEBYTES:et,crypto_secretbox_ZEROBYTES:ft,crypto_secretbox_BOXZEROBYTES:Ct,crypto_scalarmult_BYTES:Xe,crypto_scalarmult_SCALARBYTES:qe,crypto_box_PUBLICKEYBYTES:ar,crypto_box_SECRETKEYBYTES:wt,crypto_box_BEFORENMBYTES:bt,crypto_box_NONCEBYTES:_r,crypto_box_ZEROBYTES:Tt,crypto_box_BOXZEROBYTES:It,crypto_sign_BYTES:Vt,crypto_sign_PUBLICKEYBYTES:ht,crypto_sign_SECRETKEYBYTES:mt,crypto_sign_SEEDBYTES:xr,crypto_hash_BYTES:Et,gf:t,D:d,L:yt,pack25519:C,unpack25519:b,M:J,A:c,S:p,Z:m,pow2523:V,add:Z,set25519:u,modL:Pe,scalarmult:Be,scalarbase:Oe};function At(h,x){if(h.length!==rr)throw new Error("bad key size");if(x.length!==et)throw new Error("bad nonce size")}function $r(h,x){if(h.length!==ar)throw new Error("bad public key size");if(x.length!==wt)throw new Error("bad secret key size")}function it(){for(var h=0;h<arguments.length;h++)if(!(arguments[h]instanceof Uint8Array))throw new TypeError("unexpected type, use Uint8Array")}function _t(h){for(var x=0;x<h.length;x++)h[x]=0}e.randomBytes=function(h){var x=new Uint8Array(h);return r(x,h),x},e.secretbox=function(h,x,w){it(h,x,w),At(w,x);for(var f=new Uint8Array(ft+h.length),E=new Uint8Array(f.length),F=0;F<h.length;F++)f[F+ft]=h[F];return S(E,f,f.length,x,w),E.subarray(Ct)},e.secretbox.open=function(h,x,w){it(h,x,w),At(w,x);for(var f=new Uint8Array(Ct+h.length),E=new Uint8Array(f.length),F=0;F<h.length;F++)f[F+Ct]=h[F];return f.length<32||s(E,f,f.length,x,w)!==0?null:E.subarray(ft)},e.secretbox.keyLength=rr,e.secretbox.nonceLength=et,e.secretbox.overheadLength=Ct,e.scalarMult=function(h,x){if(it(h,x),h.length!==qe)throw new Error("bad n size");if(x.length!==Xe)throw new Error("bad p size");var w=new Uint8Array(Xe);return re(w,h,x),w},e.scalarMult.base=function(h){if(it(h),h.length!==qe)throw new Error("bad n size");var x=new Uint8Array(Xe);return g(x,h),x},e.scalarMult.scalarLength=qe,e.scalarMult.groupElementLength=Xe,e.box=function(h,x,w,f){var E=e.box.before(w,f);return e.secretbox(h,x,E)},e.box.before=function(h,x){it(h,x),$r(h,x);var w=new Uint8Array(bt);return T(w,h,x),w},e.box.after=e.secretbox,e.box.open=function(h,x,w,f){var E=e.box.before(w,f);return e.secretbox.open(h,x,E)},e.box.open.after=e.secretbox.open,e.box.keyPair=function(){var h=new Uint8Array(ar),x=new Uint8Array(wt);return _(h,x),{publicKey:h,secretKey:x}},e.box.keyPair.fromSecretKey=function(h){if(it(h),h.length!==wt)throw new Error("bad secret key size");var x=new Uint8Array(ar);return g(x,h),{publicKey:x,secretKey:new Uint8Array(h)}},e.box.publicKeyLength=ar,e.box.secretKeyLength=wt,e.box.sharedKeyLength=bt,e.box.nonceLength=_r,e.box.overheadLength=e.secretbox.overheadLength,e.sign=function(h,x){if(it(h,x),x.length!==mt)throw new Error("bad secret key size");var w=new Uint8Array(Vt+h.length);return Mt(w,h,h.length,x),w},e.sign.open=function(h,x){if(it(h,x),x.length!==ht)throw new Error("bad public key size");var w=new Uint8Array(h.length),f=lt(w,h,h.length,x);if(f<0)return null;for(var E=new Uint8Array(f),F=0;F<E.length;F++)E[F]=w[F];return E},e.sign.detached=function(h,x){for(var w=e.sign(h,x),f=new Uint8Array(Vt),E=0;E<f.length;E++)f[E]=w[E];return f},e.sign.detached.verify=function(h,x,w){if(it(h,x,w),x.length!==Vt)throw new Error("bad signature size");if(w.length!==ht)throw new Error("bad public key size");var f=new Uint8Array(Vt+h.length),E=new Uint8Array(Vt+h.length),F;for(F=0;F<Vt;F++)f[F]=x[F];for(F=0;F<h.length;F++)f[F+Vt]=h[F];return lt(E,f,f.length,w)>=0},e.sign.keyPair=function(){var h=new Uint8Array(ht),x=new Uint8Array(mt);return ze(h,x),{publicKey:h,secretKey:x}},e.sign.keyPair.fromSecretKey=function(h){if(it(h),h.length!==mt)throw new Error("bad secret key size");for(var x=new Uint8Array(ht),w=0;w<x.length;w++)x[w]=h[32+w];return{publicKey:x,secretKey:new Uint8Array(h)}},e.sign.keyPair.fromSeed=function(h){if(it(h),h.length!==xr)throw new Error("bad seed size");for(var x=new Uint8Array(ht),w=new Uint8Array(mt),f=0;f<32;f++)w[f]=h[f];return ze(x,w,!0),{publicKey:x,secretKey:w}},e.sign.publicKeyLength=ht,e.sign.secretKeyLength=mt,e.sign.seedLength=xr,e.sign.signatureLength=Vt,e.hash=function(h){it(h);var x=new Uint8Array(Et);return K(x,h,h.length),x},e.hash.hashLength=Et,e.verify=function(h,x){return it(h,x),h.length===0||x.length===0||h.length!==x.length?!1:Y(h,0,x,0,h.length)===0},e.setPRNG=function(h){r=h},function(){var h=typeof self!="undefined"?self.crypto||self.msCrypto:null;if(h&&h.getRandomValues){var x=65536;e.setPRNG(function(w,f){var E,F=new Uint8Array(f);for(E=0;E<f;E+=x)h.getRandomValues(F.subarray(E,E+Math.min(f-E,x)));for(E=0;E<f;E++)w[E]=F[E];_t(F)})}else typeof require!="undefined"&&(h=Gi(),h&&h.randomBytes&&e.setPRNG(function(w,f){var E,F=h.randomBytes(f);for(E=0;E<f;E++)w[E]=F[E];_t(F)}))}()})(typeof Zi!="undefined"&&Zi.exports?Zi.exports:self.nacl=self.nacl||{})});var Ef=De(Yi=>{"use strict";Yi.byteLength=W0;Yi.toByteArray=H0;Yi.fromByteArray=$0;var Br=[],yr=[],D0=typeof Uint8Array!="undefined"?Uint8Array:Array,Bs="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";for(var Fn=0,L0=Bs.length;Fn<L0;++Fn)Br[Fn]=Bs[Fn],yr[Bs.charCodeAt(Fn)]=Fn;yr["-".charCodeAt(0)]=62;yr["_".charCodeAt(0)]=63;function bf(e){var t=e.length;if(t%4>0)throw new Error("Invalid string. Length must be a multiple of 4");var r=e.indexOf("=");r===-1&&(r=t);var i=r===t?0:4-r%4;return[r,i]}function W0(e){var t=bf(e),r=t[0],i=t[1];return(r+i)*3/4-i}function F0(e,t,r){return(t+r)*3/4-r}function H0(e){var t,r=bf(e),i=r[0],n=r[1],o=new D0(F0(e,i,n)),a=0,l=n>0?i-4:i,d;for(d=0;d<l;d+=4)t=yr[e.charCodeAt(d)]<<18|yr[e.charCodeAt(d+1)]<<12|yr[e.charCodeAt(d+2)]<<6|yr[e.charCodeAt(d+3)],o[a++]=t>>16&255,o[a++]=t>>8&255,o[a++]=t&255;return n===2&&(t=yr[e.charCodeAt(d)]<<2|yr[e.charCodeAt(d+1)]>>4,o[a++]=t&255),n===1&&(t=yr[e.charCodeAt(d)]<<10|yr[e.charCodeAt(d+1)]<<4|yr[e.charCodeAt(d+2)]>>2,o[a++]=t>>8&255,o[a++]=t&255),o}function q0(e){return Br[e>>18&63]+Br[e>>12&63]+Br[e>>6&63]+Br[e&63]}function z0(e,t,r){for(var i,n=[],o=t;o<r;o+=3)i=(e[o]<<16&16711680)+(e[o+1]<<8&65280)+(e[o+2]&255),n.push(q0(i));return n.join("")}function $0(e){for(var t,r=e.length,i=r%3,n=[],o=16383,a=0,l=r-i;a<l;a+=o)n.push(z0(e,a,a+o>l?l:a+o));return i===1?(t=e[r-1],n.push(Br[t>>2]+Br[t<<4&63]+"==")):i===2&&(t=(e[r-2]<<8)+e[r-1],n.push(Br[t>>10]+Br[t>>4&63]+Br[t<<2&63]+"=")),n.join("")}});var Sf=De(Os=>{Os.read=function(e,t,r,i,n){var o,a,l=n*8-i-1,d=(1<<l)-1,A=d>>1,M=-7,P=r?n-1:0,D=r?-1:1,H=e[t+P];for(P+=D,o=H&(1<<-M)-1,H>>=-M,M+=l;M>0;o=o*256+e[t+P],P+=D,M-=8);for(a=o&(1<<-M)-1,o>>=-M,M+=i;M>0;a=a*256+e[t+P],P+=D,M-=8);if(o===0)o=1-A;else{if(o===d)return a?NaN:(H?-1:1)*Infinity;a=a+Math.pow(2,i),o=o-A}return(H?-1:1)*a*Math.pow(2,o-i)};Os.write=function(e,t,r,i,n,o){var a,l,d,A=o*8-n-1,M=(1<<A)-1,P=M>>1,D=n===23?Math.pow(2,-24)-Math.pow(2,-77):0,H=i?0:o-1,Y=i?1:-1,oe=t<0||t===0&&1/t<0?1:0;for(t=Math.abs(t),isNaN(t)||t===Infinity?(l=isNaN(t)?1:0,a=M):(a=Math.floor(Math.log(t)/Math.LN2),t*(d=Math.pow(2,-a))<1&&(a--,d*=2),a+P>=1?t+=D/d:t+=D*Math.pow(2,1-P),t*d>=2&&(a++,d/=2),a+P>=M?(l=0,a=M):a+P>=1?(l=(t*d-1)*Math.pow(2,n),a=a+P):(l=t*Math.pow(2,P-1)*Math.pow(2,n),a=0));n>=8;e[r+H]=l&255,H+=Y,l/=256,n-=8);for(a=a<<n|l,A+=n;A>0;e[r+H]=a&255,H+=Y,a/=256,A-=8);e[r+H-Y]|=oe*128}});var Vn=De($n=>{"use strict";var Ps=Ef(),Hn=Sf(),Af=typeof Symbol=="function"&&typeof Symbol.for=="function"?Symbol.for("nodejs.util.inspect.custom"):null;$n.Buffer=ie;$n.SlowBuffer=J0;$n.INSPECT_MAX_BYTES=50;var Ji=2147483647;$n.kMaxLength=Ji;ie.TYPED_ARRAY_SUPPORT=V0();!ie.TYPED_ARRAY_SUPPORT&&typeof console!="undefined"&&typeof console.error=="function"&&console.error("This browser lacks typed array (Uint8Array) support which is required by `buffer` v5.x. Use `buffer` v4.x if you require old browser support.");function V0(){try{let e=new Uint8Array(1),t={foo:function(){return 42}};return Object.setPrototypeOf(t,Uint8Array.prototype),Object.setPrototypeOf(e,t),e.foo()===42}catch(e){return!1}}Object.defineProperty(ie.prototype,"parent",{enumerable:!0,get:function(){if(!!ie.isBuffer(this))return this.buffer}});Object.defineProperty(ie.prototype,"offset",{enumerable:!0,get:function(){if(!!ie.isBuffer(this))return this.byteOffset}});function Vr(e){if(e>Ji)throw new RangeError('The value "'+e+'" is invalid for option "size"');let t=new Uint8Array(e);return Object.setPrototypeOf(t,ie.prototype),t}function ie(e,t,r){if(typeof e=="number"){if(typeof t=="string")throw new TypeError('The "string" argument must be of type string. Received type number');return Ns(e)}return _f(e,t,r)}ie.poolSize=8192;function _f(e,t,r){if(typeof e=="string")return G0(e,t);if(ArrayBuffer.isView(e))return Z0(e);if(e==null)throw new TypeError("The first argument must be one of type string, Buffer, ArrayBuffer, Array, or Array-like Object. Received type "+typeof e);if(Or(e,ArrayBuffer)||e&&Or(e.buffer,ArrayBuffer)||typeof SharedArrayBuffer!="undefined"&&(Or(e,SharedArrayBuffer)||e&&Or(e.buffer,SharedArrayBuffer)))return ks(e,t,r);if(typeof e=="number")throw new TypeError('The "value" argument must not be of type number. Received type number');let i=e.valueOf&&e.valueOf();if(i!=null&&i!==e)return ie.from(i,t,r);let n=Y0(e);if(n)return n;if(typeof Symbol!="undefined"&&Symbol.toPrimitive!=null&&typeof e[Symbol.toPrimitive]=="function")return ie.from(e[Symbol.toPrimitive]("string"),t,r);throw new TypeError("The first argument must be one of type string, Buffer, ArrayBuffer, Array, or Array-like Object. Received type "+typeof e)}ie.from=function(e,t,r){return _f(e,t,r)};Object.setPrototypeOf(ie.prototype,Uint8Array.prototype);Object.setPrototypeOf(ie,Uint8Array);function Mf(e){if(typeof e!="number")throw new TypeError('"size" argument must be of type number');if(e<0)throw new RangeError('The value "'+e+'" is invalid for option "size"')}function K0(e,t,r){return Mf(e),e<=0?Vr(e):t!==void 0?typeof r=="string"?Vr(e).fill(t,r):Vr(e).fill(t):Vr(e)}ie.alloc=function(e,t,r){return K0(e,t,r)};function Ns(e){return Mf(e),Vr(e<0?0:Us(e)|0)}ie.allocUnsafe=function(e){return Ns(e)};ie.allocUnsafeSlow=function(e){return Ns(e)};function G0(e,t){if((typeof t!="string"||t==="")&&(t="utf8"),!ie.isEncoding(t))throw new TypeError("Unknown encoding: "+t);let r=Cf(e,t)|0,i=Vr(r),n=i.write(e,t);return n!==r&&(i=i.slice(0,n)),i}function Rs(e){let t=e.length<0?0:Us(e.length)|0,r=Vr(t);for(let i=0;i<t;i+=1)r[i]=e[i]&255;return r}function Z0(e){if(Or(e,Uint8Array)){let t=new Uint8Array(e);return ks(t.buffer,t.byteOffset,t.byteLength)}return Rs(e)}function ks(e,t,r){if(t<0||e.byteLength<t)throw new RangeError('"offset" is outside of buffer bounds');if(e.byteLength<t+(r||0))throw new RangeError('"length" is outside of buffer bounds');let i;return t===void 0&&r===void 0?i=new Uint8Array(e):r===void 0?i=new Uint8Array(e,t):i=new Uint8Array(e,t,r),Object.setPrototypeOf(i,ie.prototype),i}function Y0(e){if(ie.isBuffer(e)){let t=Us(e.length)|0,r=Vr(t);return r.length===0||e.copy(r,0,0,t),r}if(e.length!==void 0)return typeof e.length!="number"||Ws(e.length)?Vr(0):Rs(e);if(e.type==="Buffer"&&Array.isArray(e.data))return Rs(e.data)}function Us(e){if(e>=Ji)throw new RangeError("Attempt to allocate Buffer larger than maximum size: 0x"+Ji.toString(16)+" bytes");return e|0}function J0(e){return+e!=e&&(e=0),ie.alloc(+e)}ie.isBuffer=function(t){return t!=null&&t._isBuffer===!0&&t!==ie.prototype};ie.compare=function(t,r){if(Or(t,Uint8Array)&&(t=ie.from(t,t.offset,t.byteLength)),Or(r,Uint8Array)&&(r=ie.from(r,r.offset,r.byteLength)),!ie.isBuffer(t)||!ie.isBuffer(r))throw new TypeError('The "buf1", "buf2" arguments must be one of type Buffer or Uint8Array');if(t===r)return 0;let i=t.length,n=r.length;for(let o=0,a=Math.min(i,n);o<a;++o)if(t[o]!==r[o]){i=t[o],n=r[o];break}return i<n?-1:n<i?1:0};ie.isEncoding=function(t){switch(String(t).toLowerCase()){case"hex":case"utf8":case"utf-8":case"ascii":case"latin1":case"binary":case"base64":case"ucs2":case"ucs-2":case"utf16le":case"utf-16le":return!0;default:return!1}};ie.concat=function(t,r){if(!Array.isArray(t))throw new TypeError('"list" argument must be an Array of Buffers');if(t.length===0)return ie.alloc(0);let i;if(r===void 0)for(r=0,i=0;i<t.length;++i)r+=t[i].length;let n=ie.allocUnsafe(r),o=0;for(i=0;i<t.length;++i){let a=t[i];if(Or(a,Uint8Array))o+a.length>n.length?(ie.isBuffer(a)||(a=ie.from(a)),a.copy(n,o)):Uint8Array.prototype.set.call(n,a,o);else if(ie.isBuffer(a))a.copy(n,o);else throw new TypeError('"list" argument must be an Array of Buffers');o+=a.length}return n};function Cf(e,t){if(ie.isBuffer(e))return e.length;if(ArrayBuffer.isView(e)||Or(e,ArrayBuffer))return e.byteLength;if(typeof e!="string")throw new TypeError('The "string" argument must be one of type string, Buffer, or ArrayBuffer. Received type '+typeof e);let r=e.length,i=arguments.length>2&&arguments[2]===!0;if(!i&&r===0)return 0;let n=!1;for(;;)switch(t){case"ascii":case"latin1":case"binary":return r;case"utf8":case"utf-8":return Ls(e).length;case"ucs2":case"ucs-2":case"utf16le":case"utf-16le":return r*2;case"hex":return r>>>1;case"base64":return Wf(e).length;default:if(n)return i?-1:Ls(e).length;t=(""+t).toLowerCase(),n=!0}}ie.byteLength=Cf;function X0(e,t,r){let i=!1;if((t===void 0||t<0)&&(t=0),t>this.length||((r===void 0||r>this.length)&&(r=this.length),r<=0)||(r>>>=0,t>>>=0,r<=t))return"";for(e||(e="utf8");;)switch(e){case"hex":return ah(this,t,r);case"utf8":case"utf-8":return Bf(this,t,r);case"ascii":return oh(this,t,r);case"latin1":case"binary":return sh(this,t,r);case"base64":return nh(this,t,r);case"ucs2":case"ucs-2":case"utf16le":case"utf-16le":return fh(this,t,r);default:if(i)throw new TypeError("Unknown encoding: "+e);e=(e+"").toLowerCase(),i=!0}}ie.prototype._isBuffer=!0;function Cn(e,t,r){let i=e[t];e[t]=e[r],e[r]=i}ie.prototype.swap16=function(){let t=this.length;if(t%2!=0)throw new RangeError("Buffer size must be a multiple of 16-bits");for(let r=0;r<t;r+=2)Cn(this,r,r+1);return this};ie.prototype.swap32=function(){let t=this.length;if(t%4!=0)throw new RangeError("Buffer size must be a multiple of 32-bits");for(let r=0;r<t;r+=4)Cn(this,r,r+3),Cn(this,r+1,r+2);return this};ie.prototype.swap64=function(){let t=this.length;if(t%8!=0)throw new RangeError("Buffer size must be a multiple of 64-bits");for(let r=0;r<t;r+=8)Cn(this,r,r+7),Cn(this,r+1,r+6),Cn(this,r+2,r+5),Cn(this,r+3,r+4);return this};ie.prototype.toString=function(){let t=this.length;return t===0?"":arguments.length===0?Bf(this,0,t):X0.apply(this,arguments)};ie.prototype.toLocaleString=ie.prototype.toString;ie.prototype.equals=function(t){if(!ie.isBuffer(t))throw new TypeError("Argument must be a Buffer");return this===t?!0:ie.compare(this,t)===0};ie.prototype.inspect=function(){let t="",r=$n.INSPECT_MAX_BYTES;return t=this.toString("hex",0,r).replace(/(.{2})/g,"$1 ").trim(),this.length>r&&(t+=" ... "),"<Buffer "+t+">"};Af&&(ie.prototype[Af]=ie.prototype.inspect);ie.prototype.compare=function(t,r,i,n,o){if(Or(t,Uint8Array)&&(t=ie.from(t,t.offset,t.byteLength)),!ie.isBuffer(t))throw new TypeError('The "target" argument must be one of type Buffer or Uint8Array. Received type '+typeof t);if(r===void 0&&(r=0),i===void 0&&(i=t?t.length:0),n===void 0&&(n=0),o===void 0&&(o=this.length),r<0||i>t.length||n<0||o>this.length)throw new RangeError("out of range index");if(n>=o&&r>=i)return 0;if(n>=o)return-1;if(r>=i)return 1;if(r>>>=0,i>>>=0,n>>>=0,o>>>=0,this===t)return 0;let a=o-n,l=i-r,d=Math.min(a,l),A=this.slice(n,o),M=t.slice(r,i);for(let P=0;P<d;++P)if(A[P]!==M[P]){a=A[P],l=M[P];break}return a<l?-1:l<a?1:0};function Tf(e,t,r,i,n){if(e.length===0)return-1;if(typeof r=="string"?(i=r,r=0):r>2147483647?r=2147483647:r<-2147483648&&(r=-2147483648),r=+r,Ws(r)&&(r=n?0:e.length-1),r<0&&(r=e.length+r),r>=e.length){if(n)return-1;r=e.length-1}else if(r<0)if(n)r=0;else return-1;if(typeof t=="string"&&(t=ie.from(t,i)),ie.isBuffer(t))return t.length===0?-1:If(e,t,r,i,n);if(typeof t=="number")return t=t&255,typeof Uint8Array.prototype.indexOf=="function"?n?Uint8Array.prototype.indexOf.call(e,t,r):Uint8Array.prototype.lastIndexOf.call(e,t,r):If(e,[t],r,i,n);throw new TypeError("val must be string, number or Buffer")}function If(e,t,r,i,n){let o=1,a=e.length,l=t.length;if(i!==void 0&&(i=String(i).toLowerCase(),i==="ucs2"||i==="ucs-2"||i==="utf16le"||i==="utf-16le")){if(e.length<2||t.length<2)return-1;o=2,a/=2,l/=2,r/=2}function d(M,P){return o===1?M[P]:M.readUInt16BE(P*o)}let A;if(n){let M=-1;for(A=r;A<a;A++)if(d(e,A)===d(t,M===-1?0:A-M)){if(M===-1&&(M=A),A-M+1===l)return M*o}else M!==-1&&(A-=A-M),M=-1}else for(r+l>a&&(r=a-l),A=r;A>=0;A--){let M=!0;for(let P=0;P<l;P++)if(d(e,A+P)!==d(t,P)){M=!1;break}if(M)return A}return-1}ie.prototype.includes=function(t,r,i){return this.indexOf(t,r,i)!==-1};ie.prototype.indexOf=function(t,r,i){return Tf(this,t,r,i,!0)};ie.prototype.lastIndexOf=function(t,r,i){return Tf(this,t,r,i,!1)};function Q0(e,t,r,i){r=Number(r)||0;let n=e.length-r;i?(i=Number(i),i>n&&(i=n)):i=n;let o=t.length;i>o/2&&(i=o/2);let a;for(a=0;a<i;++a){let l=parseInt(t.substr(a*2,2),16);if(Ws(l))return a;e[r+a]=l}return a}function j0(e,t,r,i){return Xi(Ls(t,e.length-r),e,r,i)}function eh(e,t,r,i){return Xi(hh(t),e,r,i)}function th(e,t,r,i){return Xi(Wf(t),e,r,i)}function rh(e,t,r,i){return Xi(dh(t,e.length-r),e,r,i)}ie.prototype.write=function(t,r,i,n){if(r===void 0)n="utf8",i=this.length,r=0;else if(i===void 0&&typeof r=="string")n=r,i=this.length,r=0;else if(isFinite(r))r=r>>>0,isFinite(i)?(i=i>>>0,n===void 0&&(n="utf8")):(n=i,i=void 0);else throw new Error("Buffer.write(string, encoding, offset[, length]) is no longer supported");let o=this.length-r;if((i===void 0||i>o)&&(i=o),t.length>0&&(i<0||r<0)||r>this.length)throw new RangeError("Attempt to write outside buffer bounds");n||(n="utf8");let a=!1;for(;;)switch(n){case"hex":return Q0(this,t,r,i);case"utf8":case"utf-8":return j0(this,t,r,i);case"ascii":case"latin1":case"binary":return eh(this,t,r,i);case"base64":return th(this,t,r,i);case"ucs2":case"ucs-2":case"utf16le":case"utf-16le":return rh(this,t,r,i);default:if(a)throw new TypeError("Unknown encoding: "+n);n=(""+n).toLowerCase(),a=!0}};ie.prototype.toJSON=function(){return{type:"Buffer",data:Array.prototype.slice.call(this._arr||this,0)}};function nh(e,t,r){return t===0&&r===e.length?Ps.fromByteArray(e):Ps.fromByteArray(e.slice(t,r))}function Bf(e,t,r){r=Math.min(e.length,r);let i=[],n=t;for(;n<r;){let o=e[n],a=null,l=o>239?4:o>223?3:o>191?2:1;if(n+l<=r){let d,A,M,P;switch(l){case 1:o<128&&(a=o);break;case 2:d=e[n+1],(d&192)==128&&(P=(o&31)<<6|d&63,P>127&&(a=P));break;case 3:d=e[n+1],A=e[n+2],(d&192)==128&&(A&192)==128&&(P=(o&15)<<12|(d&63)<<6|A&63,P>2047&&(P<55296||P>57343)&&(a=P));break;case 4:d=e[n+1],A=e[n+2],M=e[n+3],(d&192)==128&&(A&192)==128&&(M&192)==128&&(P=(o&15)<<18|(d&63)<<12|(A&63)<<6|M&63,P>65535&&P<1114112&&(a=P))}}a===null?(a=65533,l=1):a>65535&&(a-=65536,i.push(a>>>10&1023|55296),a=56320|a&1023),i.push(a),n+=l}return ih(i)}var Of=4096;function ih(e){let t=e.length;if(t<=Of)return String.fromCharCode.apply(String,e);let r="",i=0;for(;i<t;)r+=String.fromCharCode.apply(String,e.slice(i,i+=Of));return r}function oh(e,t,r){let i="";r=Math.min(e.length,r);for(let n=t;n<r;++n)i+=String.fromCharCode(e[n]&127);return i}function sh(e,t,r){let i="";r=Math.min(e.length,r);for(let n=t;n<r;++n)i+=String.fromCharCode(e[n]);return i}function ah(e,t,r){let i=e.length;(!t||t<0)&&(t=0),(!r||r<0||r>i)&&(r=i);let n="";for(let o=t;o<r;++o)n+=ph[e[o]];return n}function fh(e,t,r){let i=e.slice(t,r),n="";for(let o=0;o<i.length-1;o+=2)n+=String.fromCharCode(i[o]+i[o+1]*256);return n}ie.prototype.slice=function(t,r){let i=this.length;t=~~t,r=r===void 0?i:~~r,t<0?(t+=i,t<0&&(t=0)):t>i&&(t=i),r<0?(r+=i,r<0&&(r=0)):r>i&&(r=i),r<t&&(r=t);let n=this.subarray(t,r);return Object.setPrototypeOf(n,ie.prototype),n};function zt(e,t,r){if(e%1!=0||e<0)throw new RangeError("offset is not uint");if(e+t>r)throw new RangeError("Trying to access beyond buffer length")}ie.prototype.readUintLE=ie.prototype.readUIntLE=function(t,r,i){t=t>>>0,r=r>>>0,i||zt(t,r,this.length);let n=this[t],o=1,a=0;for(;++a<r&&(o*=256);)n+=this[t+a]*o;return n};ie.prototype.readUintBE=ie.prototype.readUIntBE=function(t,r,i){t=t>>>0,r=r>>>0,i||zt(t,r,this.length);let n=this[t+--r],o=1;for(;r>0&&(o*=256);)n+=this[t+--r]*o;return n};ie.prototype.readUint8=ie.prototype.readUInt8=function(t,r){return t=t>>>0,r||zt(t,1,this.length),this[t]};ie.prototype.readUint16LE=ie.prototype.readUInt16LE=function(t,r){return t=t>>>0,r||zt(t,2,this.length),this[t]|this[t+1]<<8};ie.prototype.readUint16BE=ie.prototype.readUInt16BE=function(t,r){return t=t>>>0,r||zt(t,2,this.length),this[t]<<8|this[t+1]};ie.prototype.readUint32LE=ie.prototype.readUInt32LE=function(t,r){return t=t>>>0,r||zt(t,4,this.length),(this[t]|this[t+1]<<8|this[t+2]<<16)+this[t+3]*16777216};ie.prototype.readUint32BE=ie.prototype.readUInt32BE=function(t,r){return t=t>>>0,r||zt(t,4,this.length),this[t]*16777216+(this[t+1]<<16|this[t+2]<<8|this[t+3])};ie.prototype.readBigUInt64LE=fn(function(t){t=t>>>0,zn(t,"offset");let r=this[t],i=this[t+7];(r===void 0||i===void 0)&&di(t,this.length-8);let n=r+this[++t]*2**8+this[++t]*2**16+this[++t]*2**24,o=this[++t]+this[++t]*2**8+this[++t]*2**16+i*2**24;return BigInt(n)+(BigInt(o)<<BigInt(32))});ie.prototype.readBigUInt64BE=fn(function(t){t=t>>>0,zn(t,"offset");let r=this[t],i=this[t+7];(r===void 0||i===void 0)&&di(t,this.length-8);let n=r*2**24+this[++t]*2**16+this[++t]*2**8+this[++t],o=this[++t]*2**24+this[++t]*2**16+this[++t]*2**8+i;return(BigInt(n)<<BigInt(32))+BigInt(o)});ie.prototype.readIntLE=function(t,r,i){t=t>>>0,r=r>>>0,i||zt(t,r,this.length);let n=this[t],o=1,a=0;for(;++a<r&&(o*=256);)n+=this[t+a]*o;return o*=128,n>=o&&(n-=Math.pow(2,8*r)),n};ie.prototype.readIntBE=function(t,r,i){t=t>>>0,r=r>>>0,i||zt(t,r,this.length);let n=r,o=1,a=this[t+--n];for(;n>0&&(o*=256);)a+=this[t+--n]*o;return o*=128,a>=o&&(a-=Math.pow(2,8*r)),a};ie.prototype.readInt8=function(t,r){return t=t>>>0,r||zt(t,1,this.length),this[t]&128?(255-this[t]+1)*-1:this[t]};ie.prototype.readInt16LE=function(t,r){t=t>>>0,r||zt(t,2,this.length);let i=this[t]|this[t+1]<<8;return i&32768?i|4294901760:i};ie.prototype.readInt16BE=function(t,r){t=t>>>0,r||zt(t,2,this.length);let i=this[t+1]|this[t]<<8;return i&32768?i|4294901760:i};ie.prototype.readInt32LE=function(t,r){return t=t>>>0,r||zt(t,4,this.length),this[t]|this[t+1]<<8|this[t+2]<<16|this[t+3]<<24};ie.prototype.readInt32BE=function(t,r){return t=t>>>0,r||zt(t,4,this.length),this[t]<<24|this[t+1]<<16|this[t+2]<<8|this[t+3]};ie.prototype.readBigInt64LE=fn(function(t){t=t>>>0,zn(t,"offset");let r=this[t],i=this[t+7];(r===void 0||i===void 0)&&di(t,this.length-8);let n=this[t+4]+this[t+5]*2**8+this[t+6]*2**16+(i<<24);return(BigInt(n)<<BigInt(32))+BigInt(r+this[++t]*2**8+this[++t]*2**16+this[++t]*2**24)});ie.prototype.readBigInt64BE=fn(function(t){t=t>>>0,zn(t,"offset");let r=this[t],i=this[t+7];(r===void 0||i===void 0)&&di(t,this.length-8);let n=(r<<24)+this[++t]*2**16+this[++t]*2**8+this[++t];return(BigInt(n)<<BigInt(32))+BigInt(this[++t]*2**24+this[++t]*2**16+this[++t]*2**8+i)});ie.prototype.readFloatLE=function(t,r){return t=t>>>0,r||zt(t,4,this.length),Hn.read(this,t,!0,23,4)};ie.prototype.readFloatBE=function(t,r){return t=t>>>0,r||zt(t,4,this.length),Hn.read(this,t,!1,23,4)};ie.prototype.readDoubleLE=function(t,r){return t=t>>>0,r||zt(t,8,this.length),Hn.read(this,t,!0,52,8)};ie.prototype.readDoubleBE=function(t,r){return t=t>>>0,r||zt(t,8,this.length),Hn.read(this,t,!1,52,8)};function or(e,t,r,i,n,o){if(!ie.isBuffer(e))throw new TypeError('"buffer" argument must be a Buffer instance');if(t>n||t<o)throw new RangeError('"value" argument is out of bounds');if(r+i>e.length)throw new RangeError("Index out of range")}ie.prototype.writeUintLE=ie.prototype.writeUIntLE=function(t,r,i,n){if(t=+t,r=r>>>0,i=i>>>0,!n){let l=Math.pow(2,8*i)-1;or(this,t,r,i,l,0)}let o=1,a=0;for(this[r]=t&255;++a<i&&(o*=256);)this[r+a]=t/o&255;return r+i};ie.prototype.writeUintBE=ie.prototype.writeUIntBE=function(t,r,i,n){if(t=+t,r=r>>>0,i=i>>>0,!n){let l=Math.pow(2,8*i)-1;or(this,t,r,i,l,0)}let o=i-1,a=1;for(this[r+o]=t&255;--o>=0&&(a*=256);)this[r+o]=t/a&255;return r+i};ie.prototype.writeUint8=ie.prototype.writeUInt8=function(t,r,i){return t=+t,r=r>>>0,i||or(this,t,r,1,255,0),this[r]=t&255,r+1};ie.prototype.writeUint16LE=ie.prototype.writeUInt16LE=function(t,r,i){return t=+t,r=r>>>0,i||or(this,t,r,2,65535,0),this[r]=t&255,this[r+1]=t>>>8,r+2};ie.prototype.writeUint16BE=ie.prototype.writeUInt16BE=function(t,r,i){return t=+t,r=r>>>0,i||or(this,t,r,2,65535,0),this[r]=t>>>8,this[r+1]=t&255,r+2};ie.prototype.writeUint32LE=ie.prototype.writeUInt32LE=function(t,r,i){return t=+t,r=r>>>0,i||or(this,t,r,4,4294967295,0),this[r+3]=t>>>24,this[r+2]=t>>>16,this[r+1]=t>>>8,this[r]=t&255,r+4};ie.prototype.writeUint32BE=ie.prototype.writeUInt32BE=function(t,r,i){return t=+t,r=r>>>0,i||or(this,t,r,4,4294967295,0),this[r]=t>>>24,this[r+1]=t>>>16,this[r+2]=t>>>8,this[r+3]=t&255,r+4};function Pf(e,t,r,i,n){Lf(t,i,n,e,r,7);let o=Number(t&BigInt(4294967295));e[r++]=o,o=o>>8,e[r++]=o,o=o>>8,e[r++]=o,o=o>>8,e[r++]=o;let a=Number(t>>BigInt(32)&BigInt(4294967295));return e[r++]=a,a=a>>8,e[r++]=a,a=a>>8,e[r++]=a,a=a>>8,e[r++]=a,r}function Nf(e,t,r,i,n){Lf(t,i,n,e,r,7);let o=Number(t&BigInt(4294967295));e[r+7]=o,o=o>>8,e[r+6]=o,o=o>>8,e[r+5]=o,o=o>>8,e[r+4]=o;let a=Number(t>>BigInt(32)&BigInt(4294967295));return e[r+3]=a,a=a>>8,e[r+2]=a,a=a>>8,e[r+1]=a,a=a>>8,e[r]=a,r+8}ie.prototype.writeBigUInt64LE=fn(function(t,r=0){return Pf(this,t,r,BigInt(0),BigInt("0xffffffffffffffff"))});ie.prototype.writeBigUInt64BE=fn(function(t,r=0){return Nf(this,t,r,BigInt(0),BigInt("0xffffffffffffffff"))});ie.prototype.writeIntLE=function(t,r,i,n){if(t=+t,r=r>>>0,!n){let d=Math.pow(2,8*i-1);or(this,t,r,i,d-1,-d)}let o=0,a=1,l=0;for(this[r]=t&255;++o<i&&(a*=256);)t<0&&l===0&&this[r+o-1]!==0&&(l=1),this[r+o]=(t/a>>0)-l&255;return r+i};ie.prototype.writeIntBE=function(t,r,i,n){if(t=+t,r=r>>>0,!n){let d=Math.pow(2,8*i-1);or(this,t,r,i,d-1,-d)}let o=i-1,a=1,l=0;for(this[r+o]=t&255;--o>=0&&(a*=256);)t<0&&l===0&&this[r+o+1]!==0&&(l=1),this[r+o]=(t/a>>0)-l&255;return r+i};ie.prototype.writeInt8=function(t,r,i){return t=+t,r=r>>>0,i||or(this,t,r,1,127,-128),t<0&&(t=255+t+1),this[r]=t&255,r+1};ie.prototype.writeInt16LE=function(t,r,i){return t=+t,r=r>>>0,i||or(this,t,r,2,32767,-32768),this[r]=t&255,this[r+1]=t>>>8,r+2};ie.prototype.writeInt16BE=function(t,r,i){return t=+t,r=r>>>0,i||or(this,t,r,2,32767,-32768),this[r]=t>>>8,this[r+1]=t&255,r+2};ie.prototype.writeInt32LE=function(t,r,i){return t=+t,r=r>>>0,i||or(this,t,r,4,2147483647,-2147483648),this[r]=t&255,this[r+1]=t>>>8,this[r+2]=t>>>16,this[r+3]=t>>>24,r+4};ie.prototype.writeInt32BE=function(t,r,i){return t=+t,r=r>>>0,i||or(this,t,r,4,2147483647,-2147483648),t<0&&(t=4294967295+t+1),this[r]=t>>>24,this[r+1]=t>>>16,this[r+2]=t>>>8,this[r+3]=t&255,r+4};ie.prototype.writeBigInt64LE=fn(function(t,r=0){return Pf(this,t,r,-BigInt("0x8000000000000000"),BigInt("0x7fffffffffffffff"))});ie.prototype.writeBigInt64BE=fn(function(t,r=0){return Nf(this,t,r,-BigInt("0x8000000000000000"),BigInt("0x7fffffffffffffff"))});function Rf(e,t,r,i,n,o){if(r+i>e.length)throw new RangeError("Index out of range");if(r<0)throw new RangeError("Index out of range")}function kf(e,t,r,i,n){return t=+t,r=r>>>0,n||Rf(e,t,r,4,34028234663852886e22,-34028234663852886e22),Hn.write(e,t,r,i,23,4),r+4}ie.prototype.writeFloatLE=function(t,r,i){return kf(this,t,r,!0,i)};ie.prototype.writeFloatBE=function(t,r,i){return kf(this,t,r,!1,i)};function Uf(e,t,r,i,n){return t=+t,r=r>>>0,n||Rf(e,t,r,8,17976931348623157e292,-17976931348623157e292),Hn.write(e,t,r,i,52,8),r+8}ie.prototype.writeDoubleLE=function(t,r,i){return Uf(this,t,r,!0,i)};ie.prototype.writeDoubleBE=function(t,r,i){return Uf(this,t,r,!1,i)};ie.prototype.copy=function(t,r,i,n){if(!ie.isBuffer(t))throw new TypeError("argument should be a Buffer");if(i||(i=0),!n&&n!==0&&(n=this.length),r>=t.length&&(r=t.length),r||(r=0),n>0&&n<i&&(n=i),n===i||t.length===0||this.length===0)return 0;if(r<0)throw new RangeError("targetStart out of bounds");if(i<0||i>=this.length)throw new RangeError("Index out of range");if(n<0)throw new RangeError("sourceEnd out of bounds");n>this.length&&(n=this.length),t.length-r<n-i&&(n=t.length-r+i);let o=n-i;return this===t&&typeof Uint8Array.prototype.copyWithin=="function"?this.copyWithin(r,i,n):Uint8Array.prototype.set.call(t,this.subarray(i,n),r),o};ie.prototype.fill=function(t,r,i,n){if(typeof t=="string"){if(typeof r=="string"?(n=r,r=0,i=this.length):typeof i=="string"&&(n=i,i=this.length),n!==void 0&&typeof n!="string")throw new TypeError("encoding must be a string");if(typeof n=="string"&&!ie.isEncoding(n))throw new TypeError("Unknown encoding: "+n);if(t.length===1){let a=t.charCodeAt(0);(n==="utf8"&&a<128||n==="latin1")&&(t=a)}}else typeof t=="number"?t=t&255:typeof t=="boolean"&&(t=Number(t));if(r<0||this.length<r||this.length<i)throw new RangeError("Out of range index");if(i<=r)return this;r=r>>>0,i=i===void 0?this.length:i>>>0,t||(t=0);let o;if(typeof t=="number")for(o=r;o<i;++o)this[o]=t;else{let a=ie.isBuffer(t)?t:ie.from(t,n),l=a.length;if(l===0)throw new TypeError('The value "'+t+'" is invalid for argument "value"');for(o=0;o<i-r;++o)this[o+r]=a[o%l]}return this};var qn={};function Ds(e,t,r){qn[e]=class extends r{constructor(){super();Object.defineProperty(this,"message",{value:t.apply(this,arguments),writable:!0,configurable:!0}),this.name=`${this.name} [${e}]`,this.stack,delete this.name}get code(){return e}set code(n){Object.defineProperty(this,"code",{configurable:!0,enumerable:!0,value:n,writable:!0})}toString(){return`${this.name} [${e}]: ${this.message}`}}}Ds("ERR_BUFFER_OUT_OF_BOUNDS",function(e){return e?`${e} is outside of buffer bounds`:"Attempt to access memory outside buffer bounds"},RangeError);Ds("ERR_INVALID_ARG_TYPE",function(e,t){return`The "${e}" argument must be of type number. Received type ${typeof t}`},TypeError);Ds("ERR_OUT_OF_RANGE",function(e,t,r){let i=`The value of "${e}" is out of range.`,n=r;return Number.isInteger(r)&&Math.abs(r)>2**32?n=Df(String(r)):typeof r=="bigint"&&(n=String(r),(r>BigInt(2)**BigInt(32)||r<-(BigInt(2)**BigInt(32)))&&(n=Df(n)),n+="n"),i+=` It must be ${t}. Received ${n}`,i},RangeError);function Df(e){let t="",r=e.length,i=e[0]==="-"?1:0;for(;r>=i+4;r-=3)t=`_${e.slice(r-3,r)}${t}`;return`${e.slice(0,r)}${t}`}function ch(e,t,r){zn(t,"offset"),(e[t]===void 0||e[t+r]===void 0)&&di(t,e.length-(r+1))}function Lf(e,t,r,i,n,o){if(e>r||e<t){let a=typeof t=="bigint"?"n":"",l;throw o>3?t===0||t===BigInt(0)?l=`>= 0${a} and < 2${a} ** ${(o+1)*8}${a}`:l=`>= -(2${a} ** ${(o+1)*8-1}${a}) and < 2 ** ${(o+1)*8-1}${a}`:l=`>= ${t}${a} and <= ${r}${a}`,new qn.ERR_OUT_OF_RANGE("value",l,e)}ch(i,n,o)}function zn(e,t){if(typeof e!="number")throw new qn.ERR_INVALID_ARG_TYPE(t,"number",e)}function di(e,t,r){throw Math.floor(e)!==e?(zn(e,r),new qn.ERR_OUT_OF_RANGE(r||"offset","an integer",e)):t<0?new qn.ERR_BUFFER_OUT_OF_BOUNDS:new qn.ERR_OUT_OF_RANGE(r||"offset",`>= ${r?1:0} and <= ${t}`,e)}var uh=/[^+/0-9A-Za-z-_]/g;function lh(e){if(e=e.split("=")[0],e=e.trim().replace(uh,""),e.length<2)return"";for(;e.length%4!=0;)e=e+"=";return e}function Ls(e,t){t=t||Infinity;let r,i=e.length,n=null,o=[];for(let a=0;a<i;++a){if(r=e.charCodeAt(a),r>55295&&r<57344){if(!n){if(r>56319){(t-=3)>-1&&o.push(239,191,189);continue}else if(a+1===i){(t-=3)>-1&&o.push(239,191,189);continue}n=r;continue}if(r<56320){(t-=3)>-1&&o.push(239,191,189),n=r;continue}r=(n-55296<<10|r-56320)+65536}else n&&(t-=3)>-1&&o.push(239,191,189);if(n=null,r<128){if((t-=1)<0)break;o.push(r)}else if(r<2048){if((t-=2)<0)break;o.push(r>>6|192,r&63|128)}else if(r<65536){if((t-=3)<0)break;o.push(r>>12|224,r>>6&63|128,r&63|128)}else if(r<1114112){if((t-=4)<0)break;o.push(r>>18|240,r>>12&63|128,r>>6&63|128,r&63|128)}else throw new Error("Invalid code point")}return o}function hh(e){let t=[];for(let r=0;r<e.length;++r)t.push(e.charCodeAt(r)&255);return t}function dh(e,t){let r,i,n,o=[];for(let a=0;a<e.length&&!((t-=2)<0);++a)r=e.charCodeAt(a),i=r>>8,n=r%256,o.push(n),o.push(i);return o}function Wf(e){return Ps.toByteArray(lh(e))}function Xi(e,t,r,i){let n;for(n=0;n<i&&!(n+r>=t.length||n>=e.length);++n)t[n+r]=e[n];return n}function Or(e,t){return e instanceof t||e!=null&&e.constructor!=null&&e.constructor.name!=null&&e.constructor.name===t.name}function Ws(e){return e!==e}var ph=function(){let e="0123456789abcdef",t=new Array(256);for(let r=0;r<16;++r){let i=r*16;for(let n=0;n<16;++n)t[i+n]=e[r]+e[n]}return t}();function fn(e){return typeof BigInt=="undefined"?yh:e}function yh(){throw new Error("BigInt not supported")}});var Ff=De(()=>{});var Qi=De((Hf,Fs)=>{(function(e,t){"use strict";function r(S,s){if(!S)throw new Error(s||"Assertion failed")}function i(S,s){S.super_=s;var u=function(){};u.prototype=s.prototype,S.prototype=new u,S.prototype.constructor=S}function n(S,s,u){if(n.isBN(S))return S;this.negative=0,this.words=null,this.length=0,this.red=null,S!==null&&((s==="le"||s==="be")&&(u=s,s=10),this._init(S||0,s||10,u||"be"))}typeof e=="object"?e.exports=n:t.BN=n,n.BN=n,n.wordSize=26;var o;try{typeof window!="undefined"&&typeof window.Buffer!="undefined"?o=window.Buffer:o=Ff().Buffer}catch(S){}n.isBN=function(s){return s instanceof n?!0:s!==null&&typeof s=="object"&&s.constructor.wordSize===n.wordSize&&Array.isArray(s.words)},n.max=function(s,u){return s.cmp(u)>0?s:u},n.min=function(s,u){return s.cmp(u)<0?s:u},n.prototype._init=function(s,u,y){if(typeof s=="number")return this._initNumber(s,u,y);if(typeof s=="object")return this._initArray(s,u,y);u==="hex"&&(u=16),r(u===(u|0)&&u>=2&&u<=36),s=s.toString().replace(/\s+/g,"");var v=0;s[0]==="-"&&(v++,this.negative=1),v<s.length&&(u===16?this._parseHex(s,v,y):(this._parseBase(s,u,v),y==="le"&&this._initArray(this.toArray(),u,y)))},n.prototype._initNumber=function(s,u,y){s<0&&(this.negative=1,s=-s),s<67108864?(this.words=[s&67108863],this.length=1):s<4503599627370496?(this.words=[s&67108863,s/67108864&67108863],this.length=2):(r(s<9007199254740992),this.words=[s&67108863,s/67108864&67108863,1],this.length=3),y==="le"&&this._initArray(this.toArray(),u,y)},n.prototype._initArray=function(s,u,y){if(r(typeof s.length=="number"),s.length<=0)return this.words=[0],this.length=1,this;this.length=Math.ceil(s.length/3),this.words=new Array(this.length);for(var v=0;v<this.length;v++)this.words[v]=0;var C,O,I=0;if(y==="be")for(v=s.length-1,C=0;v>=0;v-=3)O=s[v]|s[v-1]<<8|s[v-2]<<16,this.words[C]|=O<<I&67108863,this.words[C+1]=O>>>26-I&67108863,I+=24,I>=26&&(I-=26,C++);else if(y==="le")for(v=0,C=0;v<s.length;v+=3)O=s[v]|s[v+1]<<8|s[v+2]<<16,this.words[C]|=O<<I&67108863,this.words[C+1]=O>>>26-I&67108863,I+=24,I>=26&&(I-=26,C++);return this._strip()};function a(S,s){var u=S.charCodeAt(s);if(u>=48&&u<=57)return u-48;if(u>=65&&u<=70)return u-55;if(u>=97&&u<=102)return u-87;r(!1,"Invalid character in "+S)}function l(S,s,u){var y=a(S,u);return u-1>=s&&(y|=a(S,u-1)<<4),y}n.prototype._parseHex=function(s,u,y){this.length=Math.ceil((s.length-u)/6),this.words=new Array(this.length);for(var v=0;v<this.length;v++)this.words[v]=0;var C=0,O=0,I;if(y==="be")for(v=s.length-1;v>=u;v-=2)I=l(s,u,v)<<C,this.words[O]|=I&67108863,C>=18?(C-=18,O+=1,this.words[O]|=I>>>26):C+=8;else{var b=s.length-u;for(v=b%2==0?u+1:u;v<s.length;v+=2)I=l(s,u,v)<<C,this.words[O]|=I&67108863,C>=18?(C-=18,O+=1,this.words[O]|=I>>>26):C+=8}this._strip()};function d(S,s,u,y){for(var v=0,C=0,O=Math.min(S.length,u),I=s;I<O;I++){var b=S.charCodeAt(I)-48;v*=y,b>=49?C=b-49+10:b>=17?C=b-17+10:C=b,r(b>=0&&C<y,"Invalid character"),v+=C}return v}n.prototype._parseBase=function(s,u,y){this.words=[0],this.length=1;for(var v=0,C=1;C<=67108863;C*=u)v++;v--,C=C/u|0;for(var O=s.length-y,I=O%v,b=Math.min(O,O-I)+y,c=0,m=y;m<b;m+=v)c=d(s,m,m+v,u),this.imuln(C),this.words[0]+c<67108864?this.words[0]+=c:this._iaddn(c);if(I!==0){var J=1;for(c=d(s,m,s.length,u),m=0;m<I;m++)J*=u;this.imuln(J),this.words[0]+c<67108864?this.words[0]+=c:this._iaddn(c)}this._strip()},n.prototype.copy=function(s){s.words=new Array(this.length);for(var u=0;u<this.length;u++)s.words[u]=this.words[u];s.length=this.length,s.negative=this.negative,s.red=this.red};function A(S,s){S.words=s.words,S.length=s.length,S.negative=s.negative,S.red=s.red}if(n.prototype._move=function(s){A(s,this)},n.prototype.clone=function(){var s=new n(null);return this.copy(s),s},n.prototype._expand=function(s){for(;this.length<s;)this.words[this.length++]=0;return this},n.prototype._strip=function(){for(;this.length>1&&this.words[this.length-1]===0;)this.length--;return this._normSign()},n.prototype._normSign=function(){return this.length===1&&this.words[0]===0&&(this.negative=0),this},typeof Symbol!="undefined"&&typeof Symbol.for=="function")try{n.prototype[Symbol.for("nodejs.util.inspect.custom")]=M}catch(S){n.prototype.inspect=M}else n.prototype.inspect=M;function M(){return(this.red?"<BN-R: ":"<BN: ")+this.toString(16)+">"}var P=["","0","00","000","0000","00000","000000","0000000","00000000","000000000","0000000000","00000000000","000000000000","0000000000000","00000000000000","000000000000000","0000000000000000","00000000000000000","000000000000000000","0000000000000000000","00000000000000000000","000000000000000000000","0000000000000000000000","00000000000000000000000","000000000000000000000000","0000000000000000000000000"],D=[0,0,25,16,12,11,10,9,8,8,7,7,7,7,6,6,6,6,6,6,6,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5],H=[0,0,33554432,43046721,16777216,48828125,60466176,40353607,16777216,43046721,1e7,19487171,35831808,62748517,7529536,11390625,16777216,24137569,34012224,47045881,64e6,4084101,5153632,6436343,7962624,9765625,11881376,14348907,17210368,20511149,243e5,28629151,33554432,39135393,45435424,52521875,60466176];n.prototype.toString=function(s,u){s=s||10,u=u|0||1;var y;if(s===16||s==="hex"){y="";for(var v=0,C=0,O=0;O<this.length;O++){var I=this.words[O],b=((I<<v|C)&16777215).toString(16);C=I>>>24-v&16777215,v+=2,v>=26&&(v-=26,O--),C!==0||O!==this.length-1?y=P[6-b.length]+b+y:y=b+y}for(C!==0&&(y=C.toString(16)+y);y.length%u!=0;)y="0"+y;return this.negative!==0&&(y="-"+y),y}if(s===(s|0)&&s>=2&&s<=36){var c=D[s],m=H[s];y="";var J=this.clone();for(J.negative=0;!J.isZero();){var p=J.modrn(m).toString(s);J=J.idivn(m),J.isZero()?y=p+y:y=P[c-p.length]+p+y}for(this.isZero()&&(y="0"+y);y.length%u!=0;)y="0"+y;return this.negative!==0&&(y="-"+y),y}r(!1,"Base should be between 2 and 36")},n.prototype.toNumber=function(){var s=this.words[0];return this.length===2?s+=this.words[1]*67108864:this.length===3&&this.words[2]===1?s+=4503599627370496+this.words[1]*67108864:this.length>2&&r(!1,"Number can only safely store up to 53 bits"),this.negative!==0?-s:s},n.prototype.toJSON=function(){return this.toString(16,2)},o&&(n.prototype.toBuffer=function(s,u){return this.toArrayLike(o,s,u)}),n.prototype.toArray=function(s,u){return this.toArrayLike(Array,s,u)};var Y=function(s,u){return s.allocUnsafe?s.allocUnsafe(u):new s(u)};n.prototype.toArrayLike=function(s,u,y){this._strip();var v=this.byteLength(),C=y||Math.max(1,v);r(v<=C,"byte array longer than desired length"),r(C>0,"Requested array length <= 0");var O=Y(s,C),I=u==="le"?"LE":"BE";return this["_toArrayLike"+I](O,v),O},n.prototype._toArrayLikeLE=function(s,u){for(var y=0,v=0,C=0,O=0;C<this.length;C++){var I=this.words[C]<<O|v;s[y++]=I&255,y<s.length&&(s[y++]=I>>8&255),y<s.length&&(s[y++]=I>>16&255),O===6?(y<s.length&&(s[y++]=I>>24&255),v=0,O=0):(v=I>>>24,O+=2)}if(y<s.length)for(s[y++]=v;y<s.length;)s[y++]=0},n.prototype._toArrayLikeBE=function(s,u){for(var y=s.length-1,v=0,C=0,O=0;C<this.length;C++){var I=this.words[C]<<O|v;s[y--]=I&255,y>=0&&(s[y--]=I>>8&255),y>=0&&(s[y--]=I>>16&255),O===6?(y>=0&&(s[y--]=I>>24&255),v=0,O=0):(v=I>>>24,O+=2)}if(y>=0)for(s[y--]=v;y>=0;)s[y--]=0},Math.clz32?n.prototype._countBits=function(s){return 32-Math.clz32(s)}:n.prototype._countBits=function(s){var u=s,y=0;return u>=4096&&(y+=13,u>>>=13),u>=64&&(y+=7,u>>>=7),u>=8&&(y+=4,u>>>=4),u>=2&&(y+=2,u>>>=2),y+u},n.prototype._zeroBits=function(s){if(s===0)return 26;var u=s,y=0;return(u&8191)==0&&(y+=13,u>>>=13),(u&127)==0&&(y+=7,u>>>=7),(u&15)==0&&(y+=4,u>>>=4),(u&3)==0&&(y+=2,u>>>=2),(u&1)==0&&y++,y},n.prototype.bitLength=function(){var s=this.words[this.length-1],u=this._countBits(s);return(this.length-1)*26+u};function oe(S){for(var s=new Array(S.bitLength()),u=0;u<s.length;u++){var y=u/26|0,v=u%26;s[u]=S.words[y]>>>v&1}return s}n.prototype.zeroBits=function(){if(this.isZero())return 0;for(var s=0,u=0;u<this.length;u++){var y=this._zeroBits(this.words[u]);if(s+=y,y!==26)break}return s},n.prototype.byteLength=function(){return Math.ceil(this.bitLength()/8)},n.prototype.toTwos=function(s){return this.negative!==0?this.abs().inotn(s).iaddn(1):this.clone()},n.prototype.fromTwos=function(s){return this.testn(s-1)?this.notn(s).iaddn(1).ineg():this.clone()},n.prototype.isNeg=function(){return this.negative!==0},n.prototype.neg=function(){return this.clone().ineg()},n.prototype.ineg=function(){return this.isZero()||(this.negative^=1),this},n.prototype.iuor=function(s){for(;this.length<s.length;)this.words[this.length++]=0;for(var u=0;u<s.length;u++)this.words[u]=this.words[u]|s.words[u];return this._strip()},n.prototype.ior=function(s){return r((this.negative|s.negative)==0),this.iuor(s)},n.prototype.or=function(s){return this.length>s.length?this.clone().ior(s):s.clone().ior(this)},n.prototype.uor=function(s){return this.length>s.length?this.clone().iuor(s):s.clone().iuor(this)},n.prototype.iuand=function(s){var u;this.length>s.length?u=s:u=this;for(var y=0;y<u.length;y++)this.words[y]=this.words[y]&s.words[y];return this.length=u.length,this._strip()},n.prototype.iand=function(s){return r((this.negative|s.negative)==0),this.iuand(s)},n.prototype.and=function(s){return this.length>s.length?this.clone().iand(s):s.clone().iand(this)},n.prototype.uand=function(s){return this.length>s.length?this.clone().iuand(s):s.clone().iuand(this)},n.prototype.iuxor=function(s){var u,y;this.length>s.length?(u=this,y=s):(u=s,y=this);for(var v=0;v<y.length;v++)this.words[v]=u.words[v]^y.words[v];if(this!==u)for(;v<u.length;v++)this.words[v]=u.words[v];return this.length=u.length,this._strip()},n.prototype.ixor=function(s){return r((this.negative|s.negative)==0),this.iuxor(s)},n.prototype.xor=function(s){return this.length>s.length?this.clone().ixor(s):s.clone().ixor(this)},n.prototype.uxor=function(s){return this.length>s.length?this.clone().iuxor(s):s.clone().iuxor(this)},n.prototype.inotn=function(s){r(typeof s=="number"&&s>=0);var u=Math.ceil(s/26)|0,y=s%26;this._expand(u),y>0&&u--;for(var v=0;v<u;v++)this.words[v]=~this.words[v]&67108863;return y>0&&(this.words[v]=~this.words[v]&67108863>>26-y),this._strip()},n.prototype.notn=function(s){return this.clone().inotn(s)},n.prototype.setn=function(s,u){r(typeof s=="number"&&s>=0);var y=s/26|0,v=s%26;return this._expand(y+1),u?this.words[y]=this.words[y]|1<<v:this.words[y]=this.words[y]&~(1<<v),this._strip()},n.prototype.iadd=function(s){var u;if(this.negative!==0&&s.negative===0)return this.negative=0,u=this.isub(s),this.negative^=1,this._normSign();if(this.negative===0&&s.negative!==0)return s.negative=0,u=this.isub(s),s.negative=1,u._normSign();var y,v;this.length>s.length?(y=this,v=s):(y=s,v=this);for(var C=0,O=0;O<v.length;O++)u=(y.words[O]|0)+(v.words[O]|0)+C,this.words[O]=u&67108863,C=u>>>26;for(;C!==0&&O<y.length;O++)u=(y.words[O]|0)+C,this.words[O]=u&67108863,C=u>>>26;if(this.length=y.length,C!==0)this.words[this.length]=C,this.length++;else if(y!==this)for(;O<y.length;O++)this.words[O]=y.words[O];return this},n.prototype.add=function(s){var u;return s.negative!==0&&this.negative===0?(s.negative=0,u=this.sub(s),s.negative^=1,u):s.negative===0&&this.negative!==0?(this.negative=0,u=s.sub(this),this.negative=1,u):this.length>s.length?this.clone().iadd(s):s.clone().iadd(this)},n.prototype.isub=function(s){if(s.negative!==0){s.negative=0;var u=this.iadd(s);return s.negative=1,u._normSign()}else if(this.negative!==0)return this.negative=0,this.iadd(s),this.negative=1,this._normSign();var y=this.cmp(s);if(y===0)return this.negative=0,this.length=1,this.words[0]=0,this;var v,C;y>0?(v=this,C=s):(v=s,C=this);for(var O=0,I=0;I<C.length;I++)u=(v.words[I]|0)-(C.words[I]|0)+O,O=u>>26,this.words[I]=u&67108863;for(;O!==0&&I<v.length;I++)u=(v.words[I]|0)+O,O=u>>26,this.words[I]=u&67108863;if(O===0&&I<v.length&&v!==this)for(;I<v.length;I++)this.words[I]=v.words[I];return this.length=Math.max(this.length,I),v!==this&&(this.negative=1),this._strip()},n.prototype.sub=function(s){return this.clone().isub(s)};function me(S,s,u){u.negative=s.negative^S.negative;var y=S.length+s.length|0;u.length=y,y=y-1|0;var v=S.words[0]|0,C=s.words[0]|0,O=v*C,I=O&67108863,b=O/67108864|0;u.words[0]=I;for(var c=1;c<y;c++){for(var m=b>>>26,J=b&67108863,p=Math.min(c,s.length-1),W=Math.max(0,c-S.length+1);W<=p;W++){var V=c-W|0;v=S.words[V]|0,C=s.words[W]|0,O=v*C+J,m+=O/67108864|0,J=O&67108863}u.words[c]=J|0,b=m|0}return b!==0?u.words[c]=b|0:u.length--,u._strip()}var te=function(s,u,y){var v=s.words,C=u.words,O=y.words,I=0,b,c,m,J=v[0]|0,p=J&8191,W=J>>>13,V=v[1]|0,re=V&8191,g=V>>>13,_=v[2]|0,T=_&8191,N=_>>>13,L=v[3]|0,U=L&8191,$=L>>>13,q=v[4]|0,z=q&8191,K=q>>>13,Z=v[5]|0,ne=Z&8191,we=Z>>>13,Be=v[6]|0,Oe=Be&8191,ze=Be>>>13,yt=v[7]|0,Pe=yt&8191,Ue=yt>>>13,Mt=v[8]|0,gt=Mt&8191,lt=Mt>>>13,rr=v[9]|0,et=rr&8191,ft=rr>>>13,Ct=C[0]|0,Xe=Ct&8191,qe=Ct>>>13,ar=C[1]|0,wt=ar&8191,bt=ar>>>13,_r=C[2]|0,Tt=_r&8191,It=_r>>>13,Vt=C[3]|0,ht=Vt&8191,mt=Vt>>>13,xr=C[4]|0,Et=xr&8191,At=xr>>>13,$r=C[5]|0,it=$r&8191,_t=$r>>>13,h=C[6]|0,x=h&8191,w=h>>>13,f=C[7]|0,E=f&8191,F=f>>>13,G=C[8]|0,ee=G&8191,fe=G>>>13,Me=C[9]|0,pe=Me&8191,ke=Me>>>13;y.negative=s.negative^u.negative,y.length=19,b=Math.imul(p,Xe),c=Math.imul(p,qe),c=c+Math.imul(W,Xe)|0,m=Math.imul(W,qe);var Ae=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(Ae>>>26)|0,Ae&=67108863,b=Math.imul(re,Xe),c=Math.imul(re,qe),c=c+Math.imul(g,Xe)|0,m=Math.imul(g,qe),b=b+Math.imul(p,wt)|0,c=c+Math.imul(p,bt)|0,c=c+Math.imul(W,wt)|0,m=m+Math.imul(W,bt)|0;var Fe=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(Fe>>>26)|0,Fe&=67108863,b=Math.imul(T,Xe),c=Math.imul(T,qe),c=c+Math.imul(N,Xe)|0,m=Math.imul(N,qe),b=b+Math.imul(re,wt)|0,c=c+Math.imul(re,bt)|0,c=c+Math.imul(g,wt)|0,m=m+Math.imul(g,bt)|0,b=b+Math.imul(p,Tt)|0,c=c+Math.imul(p,It)|0,c=c+Math.imul(W,Tt)|0,m=m+Math.imul(W,It)|0;var He=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(He>>>26)|0,He&=67108863,b=Math.imul(U,Xe),c=Math.imul(U,qe),c=c+Math.imul($,Xe)|0,m=Math.imul($,qe),b=b+Math.imul(T,wt)|0,c=c+Math.imul(T,bt)|0,c=c+Math.imul(N,wt)|0,m=m+Math.imul(N,bt)|0,b=b+Math.imul(re,Tt)|0,c=c+Math.imul(re,It)|0,c=c+Math.imul(g,Tt)|0,m=m+Math.imul(g,It)|0,b=b+Math.imul(p,ht)|0,c=c+Math.imul(p,mt)|0,c=c+Math.imul(W,ht)|0,m=m+Math.imul(W,mt)|0;var Ge=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(Ge>>>26)|0,Ge&=67108863,b=Math.imul(z,Xe),c=Math.imul(z,qe),c=c+Math.imul(K,Xe)|0,m=Math.imul(K,qe),b=b+Math.imul(U,wt)|0,c=c+Math.imul(U,bt)|0,c=c+Math.imul($,wt)|0,m=m+Math.imul($,bt)|0,b=b+Math.imul(T,Tt)|0,c=c+Math.imul(T,It)|0,c=c+Math.imul(N,Tt)|0,m=m+Math.imul(N,It)|0,b=b+Math.imul(re,ht)|0,c=c+Math.imul(re,mt)|0,c=c+Math.imul(g,ht)|0,m=m+Math.imul(g,mt)|0,b=b+Math.imul(p,Et)|0,c=c+Math.imul(p,At)|0,c=c+Math.imul(W,Et)|0,m=m+Math.imul(W,At)|0;var $e=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+($e>>>26)|0,$e&=67108863,b=Math.imul(ne,Xe),c=Math.imul(ne,qe),c=c+Math.imul(we,Xe)|0,m=Math.imul(we,qe),b=b+Math.imul(z,wt)|0,c=c+Math.imul(z,bt)|0,c=c+Math.imul(K,wt)|0,m=m+Math.imul(K,bt)|0,b=b+Math.imul(U,Tt)|0,c=c+Math.imul(U,It)|0,c=c+Math.imul($,Tt)|0,m=m+Math.imul($,It)|0,b=b+Math.imul(T,ht)|0,c=c+Math.imul(T,mt)|0,c=c+Math.imul(N,ht)|0,m=m+Math.imul(N,mt)|0,b=b+Math.imul(re,Et)|0,c=c+Math.imul(re,At)|0,c=c+Math.imul(g,Et)|0,m=m+Math.imul(g,At)|0,b=b+Math.imul(p,it)|0,c=c+Math.imul(p,_t)|0,c=c+Math.imul(W,it)|0,m=m+Math.imul(W,_t)|0;var Ze=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(Ze>>>26)|0,Ze&=67108863,b=Math.imul(Oe,Xe),c=Math.imul(Oe,qe),c=c+Math.imul(ze,Xe)|0,m=Math.imul(ze,qe),b=b+Math.imul(ne,wt)|0,c=c+Math.imul(ne,bt)|0,c=c+Math.imul(we,wt)|0,m=m+Math.imul(we,bt)|0,b=b+Math.imul(z,Tt)|0,c=c+Math.imul(z,It)|0,c=c+Math.imul(K,Tt)|0,m=m+Math.imul(K,It)|0,b=b+Math.imul(U,ht)|0,c=c+Math.imul(U,mt)|0,c=c+Math.imul($,ht)|0,m=m+Math.imul($,mt)|0,b=b+Math.imul(T,Et)|0,c=c+Math.imul(T,At)|0,c=c+Math.imul(N,Et)|0,m=m+Math.imul(N,At)|0,b=b+Math.imul(re,it)|0,c=c+Math.imul(re,_t)|0,c=c+Math.imul(g,it)|0,m=m+Math.imul(g,_t)|0,b=b+Math.imul(p,x)|0,c=c+Math.imul(p,w)|0,c=c+Math.imul(W,x)|0,m=m+Math.imul(W,w)|0;var Je=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(Je>>>26)|0,Je&=67108863,b=Math.imul(Pe,Xe),c=Math.imul(Pe,qe),c=c+Math.imul(Ue,Xe)|0,m=Math.imul(Ue,qe),b=b+Math.imul(Oe,wt)|0,c=c+Math.imul(Oe,bt)|0,c=c+Math.imul(ze,wt)|0,m=m+Math.imul(ze,bt)|0,b=b+Math.imul(ne,Tt)|0,c=c+Math.imul(ne,It)|0,c=c+Math.imul(we,Tt)|0,m=m+Math.imul(we,It)|0,b=b+Math.imul(z,ht)|0,c=c+Math.imul(z,mt)|0,c=c+Math.imul(K,ht)|0,m=m+Math.imul(K,mt)|0,b=b+Math.imul(U,Et)|0,c=c+Math.imul(U,At)|0,c=c+Math.imul($,Et)|0,m=m+Math.imul($,At)|0,b=b+Math.imul(T,it)|0,c=c+Math.imul(T,_t)|0,c=c+Math.imul(N,it)|0,m=m+Math.imul(N,_t)|0,b=b+Math.imul(re,x)|0,c=c+Math.imul(re,w)|0,c=c+Math.imul(g,x)|0,m=m+Math.imul(g,w)|0,b=b+Math.imul(p,E)|0,c=c+Math.imul(p,F)|0,c=c+Math.imul(W,E)|0,m=m+Math.imul(W,F)|0;var Ye=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(Ye>>>26)|0,Ye&=67108863,b=Math.imul(gt,Xe),c=Math.imul(gt,qe),c=c+Math.imul(lt,Xe)|0,m=Math.imul(lt,qe),b=b+Math.imul(Pe,wt)|0,c=c+Math.imul(Pe,bt)|0,c=c+Math.imul(Ue,wt)|0,m=m+Math.imul(Ue,bt)|0,b=b+Math.imul(Oe,Tt)|0,c=c+Math.imul(Oe,It)|0,c=c+Math.imul(ze,Tt)|0,m=m+Math.imul(ze,It)|0,b=b+Math.imul(ne,ht)|0,c=c+Math.imul(ne,mt)|0,c=c+Math.imul(we,ht)|0,m=m+Math.imul(we,mt)|0,b=b+Math.imul(z,Et)|0,c=c+Math.imul(z,At)|0,c=c+Math.imul(K,Et)|0,m=m+Math.imul(K,At)|0,b=b+Math.imul(U,it)|0,c=c+Math.imul(U,_t)|0,c=c+Math.imul($,it)|0,m=m+Math.imul($,_t)|0,b=b+Math.imul(T,x)|0,c=c+Math.imul(T,w)|0,c=c+Math.imul(N,x)|0,m=m+Math.imul(N,w)|0,b=b+Math.imul(re,E)|0,c=c+Math.imul(re,F)|0,c=c+Math.imul(g,E)|0,m=m+Math.imul(g,F)|0,b=b+Math.imul(p,ee)|0,c=c+Math.imul(p,fe)|0,c=c+Math.imul(W,ee)|0,m=m+Math.imul(W,fe)|0;var Ce=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(Ce>>>26)|0,Ce&=67108863,b=Math.imul(et,Xe),c=Math.imul(et,qe),c=c+Math.imul(ft,Xe)|0,m=Math.imul(ft,qe),b=b+Math.imul(gt,wt)|0,c=c+Math.imul(gt,bt)|0,c=c+Math.imul(lt,wt)|0,m=m+Math.imul(lt,bt)|0,b=b+Math.imul(Pe,Tt)|0,c=c+Math.imul(Pe,It)|0,c=c+Math.imul(Ue,Tt)|0,m=m+Math.imul(Ue,It)|0,b=b+Math.imul(Oe,ht)|0,c=c+Math.imul(Oe,mt)|0,c=c+Math.imul(ze,ht)|0,m=m+Math.imul(ze,mt)|0,b=b+Math.imul(ne,Et)|0,c=c+Math.imul(ne,At)|0,c=c+Math.imul(we,Et)|0,m=m+Math.imul(we,At)|0,b=b+Math.imul(z,it)|0,c=c+Math.imul(z,_t)|0,c=c+Math.imul(K,it)|0,m=m+Math.imul(K,_t)|0,b=b+Math.imul(U,x)|0,c=c+Math.imul(U,w)|0,c=c+Math.imul($,x)|0,m=m+Math.imul($,w)|0,b=b+Math.imul(T,E)|0,c=c+Math.imul(T,F)|0,c=c+Math.imul(N,E)|0,m=m+Math.imul(N,F)|0,b=b+Math.imul(re,ee)|0,c=c+Math.imul(re,fe)|0,c=c+Math.imul(g,ee)|0,m=m+Math.imul(g,fe)|0,b=b+Math.imul(p,pe)|0,c=c+Math.imul(p,ke)|0,c=c+Math.imul(W,pe)|0,m=m+Math.imul(W,ke)|0;var Ne=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(Ne>>>26)|0,Ne&=67108863,b=Math.imul(et,wt),c=Math.imul(et,bt),c=c+Math.imul(ft,wt)|0,m=Math.imul(ft,bt),b=b+Math.imul(gt,Tt)|0,c=c+Math.imul(gt,It)|0,c=c+Math.imul(lt,Tt)|0,m=m+Math.imul(lt,It)|0,b=b+Math.imul(Pe,ht)|0,c=c+Math.imul(Pe,mt)|0,c=c+Math.imul(Ue,ht)|0,m=m+Math.imul(Ue,mt)|0,b=b+Math.imul(Oe,Et)|0,c=c+Math.imul(Oe,At)|0,c=c+Math.imul(ze,Et)|0,m=m+Math.imul(ze,At)|0,b=b+Math.imul(ne,it)|0,c=c+Math.imul(ne,_t)|0,c=c+Math.imul(we,it)|0,m=m+Math.imul(we,_t)|0,b=b+Math.imul(z,x)|0,c=c+Math.imul(z,w)|0,c=c+Math.imul(K,x)|0,m=m+Math.imul(K,w)|0,b=b+Math.imul(U,E)|0,c=c+Math.imul(U,F)|0,c=c+Math.imul($,E)|0,m=m+Math.imul($,F)|0,b=b+Math.imul(T,ee)|0,c=c+Math.imul(T,fe)|0,c=c+Math.imul(N,ee)|0,m=m+Math.imul(N,fe)|0,b=b+Math.imul(re,pe)|0,c=c+Math.imul(re,ke)|0,c=c+Math.imul(g,pe)|0,m=m+Math.imul(g,ke)|0;var _e=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(_e>>>26)|0,_e&=67108863,b=Math.imul(et,Tt),c=Math.imul(et,It),c=c+Math.imul(ft,Tt)|0,m=Math.imul(ft,It),b=b+Math.imul(gt,ht)|0,c=c+Math.imul(gt,mt)|0,c=c+Math.imul(lt,ht)|0,m=m+Math.imul(lt,mt)|0,b=b+Math.imul(Pe,Et)|0,c=c+Math.imul(Pe,At)|0,c=c+Math.imul(Ue,Et)|0,m=m+Math.imul(Ue,At)|0,b=b+Math.imul(Oe,it)|0,c=c+Math.imul(Oe,_t)|0,c=c+Math.imul(ze,it)|0,m=m+Math.imul(ze,_t)|0,b=b+Math.imul(ne,x)|0,c=c+Math.imul(ne,w)|0,c=c+Math.imul(we,x)|0,m=m+Math.imul(we,w)|0,b=b+Math.imul(z,E)|0,c=c+Math.imul(z,F)|0,c=c+Math.imul(K,E)|0,m=m+Math.imul(K,F)|0,b=b+Math.imul(U,ee)|0,c=c+Math.imul(U,fe)|0,c=c+Math.imul($,ee)|0,m=m+Math.imul($,fe)|0,b=b+Math.imul(T,pe)|0,c=c+Math.imul(T,ke)|0,c=c+Math.imul(N,pe)|0,m=m+Math.imul(N,ke)|0;var Te=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(Te>>>26)|0,Te&=67108863,b=Math.imul(et,ht),c=Math.imul(et,mt),c=c+Math.imul(ft,ht)|0,m=Math.imul(ft,mt),b=b+Math.imul(gt,Et)|0,c=c+Math.imul(gt,At)|0,c=c+Math.imul(lt,Et)|0,m=m+Math.imul(lt,At)|0,b=b+Math.imul(Pe,it)|0,c=c+Math.imul(Pe,_t)|0,c=c+Math.imul(Ue,it)|0,m=m+Math.imul(Ue,_t)|0,b=b+Math.imul(Oe,x)|0,c=c+Math.imul(Oe,w)|0,c=c+Math.imul(ze,x)|0,m=m+Math.imul(ze,w)|0,b=b+Math.imul(ne,E)|0,c=c+Math.imul(ne,F)|0,c=c+Math.imul(we,E)|0,m=m+Math.imul(we,F)|0,b=b+Math.imul(z,ee)|0,c=c+Math.imul(z,fe)|0,c=c+Math.imul(K,ee)|0,m=m+Math.imul(K,fe)|0,b=b+Math.imul(U,pe)|0,c=c+Math.imul(U,ke)|0,c=c+Math.imul($,pe)|0,m=m+Math.imul($,ke)|0;var Ie=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(Ie>>>26)|0,Ie&=67108863,b=Math.imul(et,Et),c=Math.imul(et,At),c=c+Math.imul(ft,Et)|0,m=Math.imul(ft,At),b=b+Math.imul(gt,it)|0,c=c+Math.imul(gt,_t)|0,c=c+Math.imul(lt,it)|0,m=m+Math.imul(lt,_t)|0,b=b+Math.imul(Pe,x)|0,c=c+Math.imul(Pe,w)|0,c=c+Math.imul(Ue,x)|0,m=m+Math.imul(Ue,w)|0,b=b+Math.imul(Oe,E)|0,c=c+Math.imul(Oe,F)|0,c=c+Math.imul(ze,E)|0,m=m+Math.imul(ze,F)|0,b=b+Math.imul(ne,ee)|0,c=c+Math.imul(ne,fe)|0,c=c+Math.imul(we,ee)|0,m=m+Math.imul(we,fe)|0,b=b+Math.imul(z,pe)|0,c=c+Math.imul(z,ke)|0,c=c+Math.imul(K,pe)|0,m=m+Math.imul(K,ke)|0;var Ee=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(Ee>>>26)|0,Ee&=67108863,b=Math.imul(et,it),c=Math.imul(et,_t),c=c+Math.imul(ft,it)|0,m=Math.imul(ft,_t),b=b+Math.imul(gt,x)|0,c=c+Math.imul(gt,w)|0,c=c+Math.imul(lt,x)|0,m=m+Math.imul(lt,w)|0,b=b+Math.imul(Pe,E)|0,c=c+Math.imul(Pe,F)|0,c=c+Math.imul(Ue,E)|0,m=m+Math.imul(Ue,F)|0,b=b+Math.imul(Oe,ee)|0,c=c+Math.imul(Oe,fe)|0,c=c+Math.imul(ze,ee)|0,m=m+Math.imul(ze,fe)|0,b=b+Math.imul(ne,pe)|0,c=c+Math.imul(ne,ke)|0,c=c+Math.imul(we,pe)|0,m=m+Math.imul(we,ke)|0;var X=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(X>>>26)|0,X&=67108863,b=Math.imul(et,x),c=Math.imul(et,w),c=c+Math.imul(ft,x)|0,m=Math.imul(ft,w),b=b+Math.imul(gt,E)|0,c=c+Math.imul(gt,F)|0,c=c+Math.imul(lt,E)|0,m=m+Math.imul(lt,F)|0,b=b+Math.imul(Pe,ee)|0,c=c+Math.imul(Pe,fe)|0,c=c+Math.imul(Ue,ee)|0,m=m+Math.imul(Ue,fe)|0,b=b+Math.imul(Oe,pe)|0,c=c+Math.imul(Oe,ke)|0,c=c+Math.imul(ze,pe)|0,m=m+Math.imul(ze,ke)|0;var Q=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(Q>>>26)|0,Q&=67108863,b=Math.imul(et,E),c=Math.imul(et,F),c=c+Math.imul(ft,E)|0,m=Math.imul(ft,F),b=b+Math.imul(gt,ee)|0,c=c+Math.imul(gt,fe)|0,c=c+Math.imul(lt,ee)|0,m=m+Math.imul(lt,fe)|0,b=b+Math.imul(Pe,pe)|0,c=c+Math.imul(Pe,ke)|0,c=c+Math.imul(Ue,pe)|0,m=m+Math.imul(Ue,ke)|0;var le=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(le>>>26)|0,le&=67108863,b=Math.imul(et,ee),c=Math.imul(et,fe),c=c+Math.imul(ft,ee)|0,m=Math.imul(ft,fe),b=b+Math.imul(gt,pe)|0,c=c+Math.imul(gt,ke)|0,c=c+Math.imul(lt,pe)|0,m=m+Math.imul(lt,ke)|0;var ae=(I+b|0)+((c&8191)<<13)|0;I=(m+(c>>>13)|0)+(ae>>>26)|0,ae&=67108863,b=Math.imul(et,pe),c=Math.imul(et,ke),c=c+Math.imul(ft,pe)|0,m=Math.imul(ft,ke);var ce=(I+b|0)+((c&8191)<<13)|0;return I=(m+(c>>>13)|0)+(ce>>>26)|0,ce&=67108863,O[0]=Ae,O[1]=Fe,O[2]=He,O[3]=Ge,O[4]=$e,O[5]=Ze,O[6]=Je,O[7]=Ye,O[8]=Ce,O[9]=Ne,O[10]=_e,O[11]=Te,O[12]=Ie,O[13]=Ee,O[14]=X,O[15]=Q,O[16]=le,O[17]=ae,O[18]=ce,I!==0&&(O[19]=I,y.length++),y};Math.imul||(te=me);function ge(S,s,u){u.negative=s.negative^S.negative,u.length=S.length+s.length;for(var y=0,v=0,C=0;C<u.length-1;C++){var O=v;v=0;for(var I=y&67108863,b=Math.min(C,s.length-1),c=Math.max(0,C-S.length+1);c<=b;c++){var m=C-c,J=S.words[m]|0,p=s.words[c]|0,W=J*p,V=W&67108863;O=O+(W/67108864|0)|0,V=V+I|0,I=V&67108863,O=O+(V>>>26)|0,v+=O>>>26,O&=67108863}u.words[C]=I,y=O,O=v}return y!==0?u.words[C]=y:u.length--,u._strip()}function de(S,s,u){return ge(S,s,u)}n.prototype.mulTo=function(s,u){var y,v=this.length+s.length;return this.length===10&&s.length===10?y=te(this,s,u):v<63?y=me(this,s,u):v<1024?y=ge(this,s,u):y=de(this,s,u),y};function Se(S,s){this.x=S,this.y=s}Se.prototype.makeRBT=function(s){for(var u=new Array(s),y=n.prototype._countBits(s)-1,v=0;v<s;v++)u[v]=this.revBin(v,y,s);return u},Se.prototype.revBin=function(s,u,y){if(s===0||s===y-1)return s;for(var v=0,C=0;C<u;C++)v|=(s&1)<<u-C-1,s>>=1;return v},Se.prototype.permute=function(s,u,y,v,C,O){for(var I=0;I<O;I++)v[I]=u[s[I]],C[I]=y[s[I]]},Se.prototype.transform=function(s,u,y,v,C,O){this.permute(O,s,u,y,v,C);for(var I=1;I<C;I<<=1)for(var b=I<<1,c=Math.cos(2*Math.PI/b),m=Math.sin(2*Math.PI/b),J=0;J<C;J+=b)for(var p=c,W=m,V=0;V<I;V++){var re=y[J+V],g=v[J+V],_=y[J+V+I],T=v[J+V+I],N=p*_-W*T;T=p*T+W*_,_=N,y[J+V]=re+_,v[J+V]=g+T,y[J+V+I]=re-_,v[J+V+I]=g-T,V!==b&&(N=c*p-m*W,W=c*W+m*p,p=N)}},Se.prototype.guessLen13b=function(s,u){var y=Math.max(u,s)|1,v=y&1,C=0;for(y=y/2|0;y;y=y>>>1)C++;return 1<<C+1+v},Se.prototype.conjugate=function(s,u,y){if(!(y<=1))for(var v=0;v<y/2;v++){var C=s[v];s[v]=s[y-v-1],s[y-v-1]=C,C=u[v],u[v]=-u[y-v-1],u[y-v-1]=-C}},Se.prototype.normalize13b=function(s,u){for(var y=0,v=0;v<u/2;v++){var C=Math.round(s[2*v+1]/u)*8192+Math.round(s[2*v]/u)+y;s[v]=C&67108863,C<67108864?y=0:y=C/67108864|0}return s},Se.prototype.convert13b=function(s,u,y,v){for(var C=0,O=0;O<u;O++)C=C+(s[O]|0),y[2*O]=C&8191,C=C>>>13,y[2*O+1]=C&8191,C=C>>>13;for(O=2*u;O<v;++O)y[O]=0;r(C===0),r((C&~8191)==0)},Se.prototype.stub=function(s){for(var u=new Array(s),y=0;y<s;y++)u[y]=0;return u},Se.prototype.mulp=function(s,u,y){var v=2*this.guessLen13b(s.length,u.length),C=this.makeRBT(v),O=this.stub(v),I=new Array(v),b=new Array(v),c=new Array(v),m=new Array(v),J=new Array(v),p=new Array(v),W=y.words;W.length=v,this.convert13b(s.words,s.length,I,v),this.convert13b(u.words,u.length,m,v),this.transform(I,O,b,c,v,C),this.transform(m,O,J,p,v,C);for(var V=0;V<v;V++){var re=b[V]*J[V]-c[V]*p[V];c[V]=b[V]*p[V]+c[V]*J[V],b[V]=re}return this.conjugate(b,c,v),this.transform(b,c,W,O,v,C),this.conjugate(W,O,v),this.normalize13b(W,v),y.negative=s.negative^u.negative,y.length=s.length+u.length,y._strip()},n.prototype.mul=function(s){var u=new n(null);return u.words=new Array(this.length+s.length),this.mulTo(s,u)},n.prototype.mulf=function(s){var u=new n(null);return u.words=new Array(this.length+s.length),de(this,s,u)},n.prototype.imul=function(s){return this.clone().mulTo(s,this)},n.prototype.imuln=function(s){var u=s<0;u&&(s=-s),r(typeof s=="number"),r(s<67108864);for(var y=0,v=0;v<this.length;v++){var C=(this.words[v]|0)*s,O=(C&67108863)+(y&67108863);y>>=26,y+=C/67108864|0,y+=O>>>26,this.words[v]=O&67108863}return y!==0&&(this.words[v]=y,this.length++),u?this.ineg():this},n.prototype.muln=function(s){return this.clone().imuln(s)},n.prototype.sqr=function(){return this.mul(this)},n.prototype.isqr=function(){return this.imul(this.clone())},n.prototype.pow=function(s){var u=oe(s);if(u.length===0)return new n(1);for(var y=this,v=0;v<u.length&&u[v]===0;v++,y=y.sqr());if(++v<u.length)for(var C=y.sqr();v<u.length;v++,C=C.sqr())u[v]!==0&&(y=y.mul(C));return y},n.prototype.iushln=function(s){r(typeof s=="number"&&s>=0);var u=s%26,y=(s-u)/26,v=67108863>>>26-u<<26-u,C;if(u!==0){var O=0;for(C=0;C<this.length;C++){var I=this.words[C]&v,b=(this.words[C]|0)-I<<u;this.words[C]=b|O,O=I>>>26-u}O&&(this.words[C]=O,this.length++)}if(y!==0){for(C=this.length-1;C>=0;C--)this.words[C+y]=this.words[C];for(C=0;C<y;C++)this.words[C]=0;this.length+=y}return this._strip()},n.prototype.ishln=function(s){return r(this.negative===0),this.iushln(s)},n.prototype.iushrn=function(s,u,y){r(typeof s=="number"&&s>=0);var v;u?v=(u-u%26)/26:v=0;var C=s%26,O=Math.min((s-C)/26,this.length),I=67108863^67108863>>>C<<C,b=y;if(v-=O,v=Math.max(0,v),b){for(var c=0;c<O;c++)b.words[c]=this.words[c];b.length=O}if(O!==0)if(this.length>O)for(this.length-=O,c=0;c<this.length;c++)this.words[c]=this.words[c+O];else this.words[0]=0,this.length=1;var m=0;for(c=this.length-1;c>=0&&(m!==0||c>=v);c--){var J=this.words[c]|0;this.words[c]=m<<26-C|J>>>C,m=J&I}return b&&m!==0&&(b.words[b.length++]=m),this.length===0&&(this.words[0]=0,this.length=1),this._strip()},n.prototype.ishrn=function(s,u,y){return r(this.negative===0),this.iushrn(s,u,y)},n.prototype.shln=function(s){return this.clone().ishln(s)},n.prototype.ushln=function(s){return this.clone().iushln(s)},n.prototype.shrn=function(s){return this.clone().ishrn(s)},n.prototype.ushrn=function(s){return this.clone().iushrn(s)},n.prototype.testn=function(s){r(typeof s=="number"&&s>=0);var u=s%26,y=(s-u)/26,v=1<<u;if(this.length<=y)return!1;var C=this.words[y];return!!(C&v)},n.prototype.imaskn=function(s){r(typeof s=="number"&&s>=0);var u=s%26,y=(s-u)/26;if(r(this.negative===0,"imaskn works only with positive numbers"),this.length<=y)return this;if(u!==0&&y++,this.length=Math.min(y,this.length),u!==0){var v=67108863^67108863>>>u<<u;this.words[this.length-1]&=v}return this._strip()},n.prototype.maskn=function(s){return this.clone().imaskn(s)},n.prototype.iaddn=function(s){return r(typeof s=="number"),r(s<67108864),s<0?this.isubn(-s):this.negative!==0?this.length===1&&(this.words[0]|0)<=s?(this.words[0]=s-(this.words[0]|0),this.negative=0,this):(this.negative=0,this.isubn(s),this.negative=1,this):this._iaddn(s)},n.prototype._iaddn=function(s){this.words[0]+=s;for(var u=0;u<this.length&&this.words[u]>=67108864;u++)this.words[u]-=67108864,u===this.length-1?this.words[u+1]=1:this.words[u+1]++;return this.length=Math.max(this.length,u+1),this},n.prototype.isubn=function(s){if(r(typeof s=="number"),r(s<67108864),s<0)return this.iaddn(-s);if(this.negative!==0)return this.negative=0,this.iaddn(s),this.negative=1,this;if(this.words[0]-=s,this.length===1&&this.words[0]<0)this.words[0]=-this.words[0],this.negative=1;else for(var u=0;u<this.length&&this.words[u]<0;u++)this.words[u]+=67108864,this.words[u+1]-=1;return this._strip()},n.prototype.addn=function(s){return this.clone().iaddn(s)},n.prototype.subn=function(s){return this.clone().isubn(s)},n.prototype.iabs=function(){return this.negative=0,this},n.prototype.abs=function(){return this.clone().iabs()},n.prototype._ishlnsubmul=function(s,u,y){var v=s.length+y,C;this._expand(v);var O,I=0;for(C=0;C<s.length;C++){O=(this.words[C+y]|0)+I;var b=(s.words[C]|0)*u;O-=b&67108863,I=(O>>26)-(b/67108864|0),this.words[C+y]=O&67108863}for(;C<this.length-y;C++)O=(this.words[C+y]|0)+I,I=O>>26,this.words[C+y]=O&67108863;if(I===0)return this._strip();for(r(I===-1),I=0,C=0;C<this.length;C++)O=-(this.words[C]|0)+I,I=O>>26,this.words[C]=O&67108863;return this.negative=1,this._strip()},n.prototype._wordDiv=function(s,u){var y=this.length-s.length,v=this.clone(),C=s,O=C.words[C.length-1]|0,I=this._countBits(O);y=26-I,y!==0&&(C=C.ushln(y),v.iushln(y),O=C.words[C.length-1]|0);var b=v.length-C.length,c;if(u!=="mod"){c=new n(null),c.length=b+1,c.words=new Array(c.length);for(var m=0;m<c.length;m++)c.words[m]=0}var J=v.clone()._ishlnsubmul(C,1,b);J.negative===0&&(v=J,c&&(c.words[b]=1));for(var p=b-1;p>=0;p--){var W=(v.words[C.length+p]|0)*67108864+(v.words[C.length+p-1]|0);for(W=Math.min(W/O|0,67108863),v._ishlnsubmul(C,W,p);v.negative!==0;)W--,v.negative=0,v._ishlnsubmul(C,1,p),v.isZero()||(v.negative^=1);c&&(c.words[p]=W)}return c&&c._strip(),v._strip(),u!=="div"&&y!==0&&v.iushrn(y),{div:c||null,mod:v}},n.prototype.divmod=function(s,u,y){if(r(!s.isZero()),this.isZero())return{div:new n(0),mod:new n(0)};var v,C,O;return this.negative!==0&&s.negative===0?(O=this.neg().divmod(s,u),u!=="mod"&&(v=O.div.neg()),u!=="div"&&(C=O.mod.neg(),y&&C.negative!==0&&C.iadd(s)),{div:v,mod:C}):this.negative===0&&s.negative!==0?(O=this.divmod(s.neg(),u),u!=="mod"&&(v=O.div.neg()),{div:v,mod:O.mod}):(this.negative&s.negative)!=0?(O=this.neg().divmod(s.neg(),u),u!=="div"&&(C=O.mod.neg(),y&&C.negative!==0&&C.isub(s)),{div:O.div,mod:C}):s.length>this.length||this.cmp(s)<0?{div:new n(0),mod:this}:s.length===1?u==="div"?{div:this.divn(s.words[0]),mod:null}:u==="mod"?{div:null,mod:new n(this.modrn(s.words[0]))}:{div:this.divn(s.words[0]),mod:new n(this.modrn(s.words[0]))}:this._wordDiv(s,u)},n.prototype.div=function(s){return this.divmod(s,"div",!1).div},n.prototype.mod=function(s){return this.divmod(s,"mod",!1).mod},n.prototype.umod=function(s){return this.divmod(s,"mod",!0).mod},n.prototype.divRound=function(s){var u=this.divmod(s);if(u.mod.isZero())return u.div;var y=u.div.negative!==0?u.mod.isub(s):u.mod,v=s.ushrn(1),C=s.andln(1),O=y.cmp(v);return O<0||C===1&&O===0?u.div:u.div.negative!==0?u.div.isubn(1):u.div.iaddn(1)},n.prototype.modrn=function(s){var u=s<0;u&&(s=-s),r(s<=67108863);for(var y=(1<<26)%s,v=0,C=this.length-1;C>=0;C--)v=(y*v+(this.words[C]|0))%s;return u?-v:v},n.prototype.modn=function(s){return this.modrn(s)},n.prototype.idivn=function(s){var u=s<0;u&&(s=-s),r(s<=67108863);for(var y=0,v=this.length-1;v>=0;v--){var C=(this.words[v]|0)+y*67108864;this.words[v]=C/s|0,y=C%s}return this._strip(),u?this.ineg():this},n.prototype.divn=function(s){return this.clone().idivn(s)},n.prototype.egcd=function(s){r(s.negative===0),r(!s.isZero());var u=this,y=s.clone();u.negative!==0?u=u.umod(s):u=u.clone();for(var v=new n(1),C=new n(0),O=new n(0),I=new n(1),b=0;u.isEven()&&y.isEven();)u.iushrn(1),y.iushrn(1),++b;for(var c=y.clone(),m=u.clone();!u.isZero();){for(var J=0,p=1;(u.words[0]&p)==0&&J<26;++J,p<<=1);if(J>0)for(u.iushrn(J);J-- >0;)(v.isOdd()||C.isOdd())&&(v.iadd(c),C.isub(m)),v.iushrn(1),C.iushrn(1);for(var W=0,V=1;(y.words[0]&V)==0&&W<26;++W,V<<=1);if(W>0)for(y.iushrn(W);W-- >0;)(O.isOdd()||I.isOdd())&&(O.iadd(c),I.isub(m)),O.iushrn(1),I.iushrn(1);u.cmp(y)>=0?(u.isub(y),v.isub(O),C.isub(I)):(y.isub(u),O.isub(v),I.isub(C))}return{a:O,b:I,gcd:y.iushln(b)}},n.prototype._invmp=function(s){r(s.negative===0),r(!s.isZero());var u=this,y=s.clone();u.negative!==0?u=u.umod(s):u=u.clone();for(var v=new n(1),C=new n(0),O=y.clone();u.cmpn(1)>0&&y.cmpn(1)>0;){for(var I=0,b=1;(u.words[0]&b)==0&&I<26;++I,b<<=1);if(I>0)for(u.iushrn(I);I-- >0;)v.isOdd()&&v.iadd(O),v.iushrn(1);for(var c=0,m=1;(y.words[0]&m)==0&&c<26;++c,m<<=1);if(c>0)for(y.iushrn(c);c-- >0;)C.isOdd()&&C.iadd(O),C.iushrn(1);u.cmp(y)>=0?(u.isub(y),v.isub(C)):(y.isub(u),C.isub(v))}var J;return u.cmpn(1)===0?J=v:J=C,J.cmpn(0)<0&&J.iadd(s),J},n.prototype.gcd=function(s){if(this.isZero())return s.abs();if(s.isZero())return this.abs();var u=this.clone(),y=s.clone();u.negative=0,y.negative=0;for(var v=0;u.isEven()&&y.isEven();v++)u.iushrn(1),y.iushrn(1);do{for(;u.isEven();)u.iushrn(1);for(;y.isEven();)y.iushrn(1);var C=u.cmp(y);if(C<0){var O=u;u=y,y=O}else if(C===0||y.cmpn(1)===0)break;u.isub(y)}while(!0);return y.iushln(v)},n.prototype.invm=function(s){return this.egcd(s).a.umod(s)},n.prototype.isEven=function(){return(this.words[0]&1)==0},n.prototype.isOdd=function(){return(this.words[0]&1)==1},n.prototype.andln=function(s){return this.words[0]&s},n.prototype.bincn=function(s){r(typeof s=="number");var u=s%26,y=(s-u)/26,v=1<<u;if(this.length<=y)return this._expand(y+1),this.words[y]|=v,this;for(var C=v,O=y;C!==0&&O<this.length;O++){var I=this.words[O]|0;I+=C,C=I>>>26,I&=67108863,this.words[O]=I}return C!==0&&(this.words[O]=C,this.length++),this},n.prototype.isZero=function(){return this.length===1&&this.words[0]===0},n.prototype.cmpn=function(s){var u=s<0;if(this.negative!==0&&!u)return-1;if(this.negative===0&&u)return 1;this._strip();var y;if(this.length>1)y=1;else{u&&(s=-s),r(s<=67108863,"Number is too big");var v=this.words[0]|0;y=v===s?0:v<s?-1:1}return this.negative!==0?-y|0:y},n.prototype.cmp=function(s){if(this.negative!==0&&s.negative===0)return-1;if(this.negative===0&&s.negative!==0)return 1;var u=this.ucmp(s);return this.negative!==0?-u|0:u},n.prototype.ucmp=function(s){if(this.length>s.length)return 1;if(this.length<s.length)return-1;for(var u=0,y=this.length-1;y>=0;y--){var v=this.words[y]|0,C=s.words[y]|0;if(v!==C){v<C?u=-1:v>C&&(u=1);break}}return u},n.prototype.gtn=function(s){return this.cmpn(s)===1},n.prototype.gt=function(s){return this.cmp(s)===1},n.prototype.gten=function(s){return this.cmpn(s)>=0},n.prototype.gte=function(s){return this.cmp(s)>=0},n.prototype.ltn=function(s){return this.cmpn(s)===-1},n.prototype.lt=function(s){return this.cmp(s)===-1},n.prototype.lten=function(s){return this.cmpn(s)<=0},n.prototype.lte=function(s){return this.cmp(s)<=0},n.prototype.eqn=function(s){return this.cmpn(s)===0},n.prototype.eq=function(s){return this.cmp(s)===0},n.red=function(s){return new k(s)},n.prototype.toRed=function(s){return r(!this.red,"Already a number in reduction context"),r(this.negative===0,"red works only with positives"),s.convertTo(this)._forceRed(s)},n.prototype.fromRed=function(){return r(this.red,"fromRed works only with numbers in reduction context"),this.red.convertFrom(this)},n.prototype._forceRed=function(s){return this.red=s,this},n.prototype.forceRed=function(s){return r(!this.red,"Already a number in reduction context"),this._forceRed(s)},n.prototype.redAdd=function(s){return r(this.red,"redAdd works only with red numbers"),this.red.add(this,s)},n.prototype.redIAdd=function(s){return r(this.red,"redIAdd works only with red numbers"),this.red.iadd(this,s)},n.prototype.redSub=function(s){return r(this.red,"redSub works only with red numbers"),this.red.sub(this,s)},n.prototype.redISub=function(s){return r(this.red,"redISub works only with red numbers"),this.red.isub(this,s)},n.prototype.redShl=function(s){return r(this.red,"redShl works only with red numbers"),this.red.shl(this,s)},n.prototype.redMul=function(s){return r(this.red,"redMul works only with red numbers"),this.red._verify2(this,s),this.red.mul(this,s)},n.prototype.redIMul=function(s){return r(this.red,"redMul works only with red numbers"),this.red._verify2(this,s),this.red.imul(this,s)},n.prototype.redSqr=function(){return r(this.red,"redSqr works only with red numbers"),this.red._verify1(this),this.red.sqr(this)},n.prototype.redISqr=function(){return r(this.red,"redISqr works only with red numbers"),this.red._verify1(this),this.red.isqr(this)},n.prototype.redSqrt=function(){return r(this.red,"redSqrt works only with red numbers"),this.red._verify1(this),this.red.sqrt(this)},n.prototype.redInvm=function(){return r(this.red,"redInvm works only with red numbers"),this.red._verify1(this),this.red.invm(this)},n.prototype.redNeg=function(){return r(this.red,"redNeg works only with red numbers"),this.red._verify1(this),this.red.neg(this)},n.prototype.redPow=function(s){return r(this.red&&!s.red,"redPow(normalNum)"),this.red._verify1(this),this.red.pow(this,s)};var ue={k256:null,p224:null,p192:null,p25519:null};function he(S,s){this.name=S,this.p=new n(s,16),this.n=this.p.bitLength(),this.k=new n(1).iushln(this.n).isub(this.p),this.tmp=this._tmp()}he.prototype._tmp=function(){var s=new n(null);return s.words=new Array(Math.ceil(this.n/13)),s},he.prototype.ireduce=function(s){var u=s,y;do this.split(u,this.tmp),u=this.imulK(u),u=u.iadd(this.tmp),y=u.bitLength();while(y>this.n);var v=y<this.n?-1:u.ucmp(this.p);return v===0?(u.words[0]=0,u.length=1):v>0?u.isub(this.p):u.strip!==void 0?u.strip():u._strip(),u},he.prototype.split=function(s,u){s.iushrn(this.n,0,u)},he.prototype.imulK=function(s){return s.imul(this.k)};function be(){he.call(this,"k256","ffffffff ffffffff ffffffff ffffffff ffffffff ffffffff fffffffe fffffc2f")}i(be,he),be.prototype.split=function(s,u){for(var y=4194303,v=Math.min(s.length,9),C=0;C<v;C++)u.words[C]=s.words[C];if(u.length=v,s.length<=9){s.words[0]=0,s.length=1;return}var O=s.words[9];for(u.words[u.length++]=O&y,C=10;C<s.length;C++){var I=s.words[C]|0;s.words[C-10]=(I&y)<<4|O>>>22,O=I}O>>>=22,s.words[C-10]=O,O===0&&s.length>10?s.length-=10:s.length-=9},be.prototype.imulK=function(s){s.words[s.length]=0,s.words[s.length+1]=0,s.length+=2;for(var u=0,y=0;y<s.length;y++){var v=s.words[y]|0;u+=v*977,s.words[y]=u&67108863,u=v*64+(u/67108864|0)}return s.words[s.length-1]===0&&(s.length--,s.words[s.length-1]===0&&s.length--),s};function We(){he.call(this,"p224","ffffffff ffffffff ffffffff ffffffff 00000000 00000000 00000001")}i(We,he);function se(){he.call(this,"p192","ffffffff ffffffff ffffffff fffffffe ffffffff ffffffff")}i(se,he);function B(){he.call(this,"25519","7fffffffffffffff ffffffffffffffff ffffffffffffffff ffffffffffffffed")}i(B,he),B.prototype.imulK=function(s){for(var u=0,y=0;y<s.length;y++){var v=(s.words[y]|0)*19+u,C=v&67108863;v>>>=26,s.words[y]=C,u=v}return u!==0&&(s.words[s.length++]=u),s},n._prime=function(s){if(ue[s])return ue[s];var u;if(s==="k256")u=new be;else if(s==="p224")u=new We;else if(s==="p192")u=new se;else if(s==="p25519")u=new B;else throw new Error("Unknown prime "+s);return ue[s]=u,u};function k(S){if(typeof S=="string"){var s=n._prime(S);this.m=s.p,this.prime=s}else r(S.gtn(1),"modulus must be greater than 1"),this.m=S,this.prime=null}k.prototype._verify1=function(s){r(s.negative===0,"red works only with positives"),r(s.red,"red works only with red numbers")},k.prototype._verify2=function(s,u){r((s.negative|u.negative)==0,"red works only with positives"),r(s.red&&s.red===u.red,"red works only with red numbers")},k.prototype.imod=function(s){return this.prime?this.prime.ireduce(s)._forceRed(this):(A(s,s.umod(this.m)._forceRed(this)),s)},k.prototype.neg=function(s){return s.isZero()?s.clone():this.m.sub(s)._forceRed(this)},k.prototype.add=function(s,u){this._verify2(s,u);var y=s.add(u);return y.cmp(this.m)>=0&&y.isub(this.m),y._forceRed(this)},k.prototype.iadd=function(s,u){this._verify2(s,u);var y=s.iadd(u);return y.cmp(this.m)>=0&&y.isub(this.m),y},k.prototype.sub=function(s,u){this._verify2(s,u);var y=s.sub(u);return y.cmpn(0)<0&&y.iadd(this.m),y._forceRed(this)},k.prototype.isub=function(s,u){this._verify2(s,u);var y=s.isub(u);return y.cmpn(0)<0&&y.iadd(this.m),y},k.prototype.shl=function(s,u){return this._verify1(s),this.imod(s.ushln(u))},k.prototype.imul=function(s,u){return this._verify2(s,u),this.imod(s.imul(u))},k.prototype.mul=function(s,u){return this._verify2(s,u),this.imod(s.mul(u))},k.prototype.isqr=function(s){return this.imul(s,s.clone())},k.prototype.sqr=function(s){return this.mul(s,s)},k.prototype.sqrt=function(s){if(s.isZero())return s.clone();var u=this.m.andln(3);if(r(u%2==1),u===3){var y=this.m.add(new n(1)).iushrn(2);return this.pow(s,y)}for(var v=this.m.subn(1),C=0;!v.isZero()&&v.andln(1)===0;)C++,v.iushrn(1);r(!v.isZero());var O=new n(1).toRed(this),I=O.redNeg(),b=this.m.subn(1).iushrn(1),c=this.m.bitLength();for(c=new n(2*c*c).toRed(this);this.pow(c,b).cmp(I)!==0;)c.redIAdd(I);for(var m=this.pow(c,v),J=this.pow(s,v.addn(1).iushrn(1)),p=this.pow(s,v),W=C;p.cmp(O)!==0;){for(var V=p,re=0;V.cmp(O)!==0;re++)V=V.redSqr();r(re<W);var g=this.pow(m,new n(1).iushln(W-re-1));J=J.redMul(g),m=g.redSqr(),p=p.redMul(m),W=re}return J},k.prototype.invm=function(s){var u=s._invmp(this.m);return u.negative!==0?(u.negative=0,this.imod(u).redNeg()):this.imod(u)},k.prototype.pow=function(s,u){if(u.isZero())return new n(1).toRed(this);if(u.cmpn(1)===0)return s.clone();var y=4,v=new Array(1<<y);v[0]=new n(1).toRed(this),v[1]=s;for(var C=2;C<v.length;C++)v[C]=this.mul(v[C-1],s);var O=v[0],I=0,b=0,c=u.bitLength()%26;for(c===0&&(c=26),C=u.length-1;C>=0;C--){for(var m=u.words[C],J=c-1;J>=0;J--){var p=m>>J&1;if(O!==v[0]&&(O=this.sqr(O)),p===0&&I===0){b=0;continue}I<<=1,I|=p,b++,!(b!==y&&(C!==0||J!==0))&&(O=this.mul(O,v[I]),b=0,I=0)}c=26}return O},k.prototype.convertTo=function(s){var u=s.umod(this.m);return u===s?u.clone():u},k.prototype.convertFrom=function(s){var u=s.clone();return u.red=null,u},n.mont=function(s){return new j(s)};function j(S){k.call(this,S),this.shift=this.m.bitLength(),this.shift%26!=0&&(this.shift+=26-this.shift%26),this.r=new n(1).iushln(this.shift),this.r2=this.imod(this.r.sqr()),this.rinv=this.r._invmp(this.m),this.minv=this.rinv.mul(this.r).isubn(1).div(this.m),this.minv=this.minv.umod(this.r),this.minv=this.r.sub(this.minv)}i(j,k),j.prototype.convertTo=function(s){return this.imod(s.ushln(this.shift))},j.prototype.convertFrom=function(s){var u=this.imod(s.mul(this.rinv));return u.red=null,u},j.prototype.imul=function(s,u){if(s.isZero()||u.isZero())return s.words[0]=0,s.length=1,s;var y=s.imul(u),v=y.maskn(this.shift).mul(this.minv).imaskn(this.shift).mul(this.m),C=y.isub(v).iushrn(this.shift),O=C;return C.cmp(this.m)>=0?O=C.isub(this.m):C.cmpn(0)<0&&(O=C.iadd(this.m)),O._forceRed(this)},j.prototype.mul=function(s,u){if(s.isZero()||u.isZero())return new n(0)._forceRed(this);var y=s.mul(u),v=y.maskn(this.shift).mul(this.minv).imaskn(this.shift).mul(this.m),C=y.isub(v).iushrn(this.shift),O=C;return C.cmp(this.m)>=0?O=C.isub(this.m):C.cmpn(0)<0&&(O=C.iadd(this.m)),O._forceRed(this)},j.prototype.invm=function(s){var u=this.imod(s._invmp(this.m).mul(this.r2));return u._forceRed(this)}})(typeof Fs=="undefined"||Fs,Hf)});var Hs=De((O2,ji)=>{(function(){"use strict";var e="input is invalid type",t="finalize already called",r=typeof window=="object",i=r?window:{};i.JS_SHA3_NO_WINDOW&&(r=!1);var n=!r&&typeof self=="object",o=!i.JS_SHA3_NO_NODE_JS&&typeof process=="object"&&process.versions&&process.versions.node;o?i=global:n&&(i=self);var a=!i.JS_SHA3_NO_COMMON_JS&&typeof ji=="object"&&ji.exports,l=typeof define=="function"&&define.amd,d=!i.JS_SHA3_NO_ARRAY_BUFFER&&typeof ArrayBuffer!="undefined",A="0123456789abcdef".split(""),M=[31,7936,2031616,520093696],P=[4,1024,262144,67108864],D=[1,256,65536,16777216],H=[6,1536,393216,100663296],Y=[0,8,16,24],oe=[1,0,32898,0,32906,2147483648,2147516416,2147483648,32907,0,2147483649,0,2147516545,2147483648,32777,2147483648,138,0,136,0,2147516425,0,2147483658,0,2147516555,0,139,2147483648,32905,2147483648,32771,2147483648,32770,2147483648,128,2147483648,32778,0,2147483658,2147483648,2147516545,2147483648,32896,2147483648,2147483649,0,2147516424,2147483648],me=[224,256,384,512],te=[128,256],ge=["hex","buffer","arrayBuffer","array","digest"],de={"128":168,"256":136};(i.JS_SHA3_NO_NODE_JS||!Array.isArray)&&(Array.isArray=function(p){return Object.prototype.toString.call(p)==="[object Array]"}),d&&(i.JS_SHA3_NO_ARRAY_BUFFER_IS_VIEW||!ArrayBuffer.isView)&&(ArrayBuffer.isView=function(p){return typeof p=="object"&&p.buffer&&p.buffer.constructor===ArrayBuffer});for(var Se=function(p,W,V){return function(re){return new c(p,W,p).update(re)[V]()}},ue=function(p,W,V){return function(re,g){return new c(p,W,g).update(re)[V]()}},he=function(p,W,V){return function(re,g,_,T){return s["cshake"+p].update(re,g,_,T)[V]()}},be=function(p,W,V){return function(re,g,_,T){return s["kmac"+p].update(re,g,_,T)[V]()}},We=function(p,W,V,re){for(var g=0;g<ge.length;++g){var _=ge[g];p[_]=W(V,re,_)}return p},se=function(p,W){var V=Se(p,W,"hex");return V.create=function(){return new c(p,W,p)},V.update=function(re){return V.create().update(re)},We(V,Se,p,W)},B=function(p,W){var V=ue(p,W,"hex");return V.create=function(re){return new c(p,W,re)},V.update=function(re,g){return V.create(g).update(re)},We(V,ue,p,W)},k=function(p,W){var V=de[p],re=he(p,W,"hex");return re.create=function(g,_,T){return!_&&!T?s["shake"+p].create(g):new c(p,W,g).bytepad([_,T],V)},re.update=function(g,_,T,N){return re.create(_,T,N).update(g)},We(re,he,p,W)},j=function(p,W){var V=de[p],re=be(p,W,"hex");return re.create=function(g,_,T){return new m(p,W,_).bytepad(["KMAC",T],V).bytepad([g],V)},re.update=function(g,_,T,N){return re.create(g,T,N).update(_)},We(re,be,p,W)},S=[{name:"keccak",padding:D,bits:me,createMethod:se},{name:"sha3",padding:H,bits:me,createMethod:se},{name:"shake",padding:M,bits:te,createMethod:B},{name:"cshake",padding:P,bits:te,createMethod:k},{name:"kmac",padding:P,bits:te,createMethod:j}],s={},u=[],y=0;y<S.length;++y)for(var v=S[y],C=v.bits,O=0;O<C.length;++O){var I=v.name+"_"+C[O];if(u.push(I),s[I]=v.createMethod(C[O],v.padding),v.name!=="sha3"){var b=v.name+C[O];u.push(b),s[b]=s[I]}}function c(p,W,V){this.blocks=[],this.s=[],this.padding=W,this.outputBits=V,this.reset=!0,this.finalized=!1,this.block=0,this.start=0,this.blockCount=1600-(p<<1)>>5,this.byteCount=this.blockCount<<2,this.outputBlocks=V>>5,this.extraBytes=(V&31)>>3;for(var re=0;re<50;++re)this.s[re]=0}c.prototype.update=function(p){if(this.finalized)throw new Error(t);var W,V=typeof p;if(V!=="string"){if(V==="object"){if(p===null)throw new Error(e);if(d&&p.constructor===ArrayBuffer)p=new Uint8Array(p);else if(!Array.isArray(p)&&(!d||!ArrayBuffer.isView(p)))throw new Error(e)}else throw new Error(e);W=!0}for(var re=this.blocks,g=this.byteCount,_=p.length,T=this.blockCount,N=0,L=this.s,U,$;N<_;){if(this.reset)for(this.reset=!1,re[0]=this.block,U=1;U<T+1;++U)re[U]=0;if(W)for(U=this.start;N<_&&U<g;++N)re[U>>2]|=p[N]<<Y[U++&3];else for(U=this.start;N<_&&U<g;++N)$=p.charCodeAt(N),$<128?re[U>>2]|=$<<Y[U++&3]:$<2048?(re[U>>2]|=(192|$>>6)<<Y[U++&3],re[U>>2]|=(128|$&63)<<Y[U++&3]):$<55296||$>=57344?(re[U>>2]|=(224|$>>12)<<Y[U++&3],re[U>>2]|=(128|$>>6&63)<<Y[U++&3],re[U>>2]|=(128|$&63)<<Y[U++&3]):($=65536+(($&1023)<<10|p.charCodeAt(++N)&1023),re[U>>2]|=(240|$>>18)<<Y[U++&3],re[U>>2]|=(128|$>>12&63)<<Y[U++&3],re[U>>2]|=(128|$>>6&63)<<Y[U++&3],re[U>>2]|=(128|$&63)<<Y[U++&3]);if(this.lastByteIndex=U,U>=g){for(this.start=U-g,this.block=re[T],U=0;U<T;++U)L[U]^=re[U];J(L),this.reset=!0}else this.start=U}return this},c.prototype.encode=function(p,W){var V=p&255,re=1,g=[V];for(p=p>>8,V=p&255;V>0;)g.unshift(V),p=p>>8,V=p&255,++re;return W?g.push(re):g.unshift(re),this.update(g),g.length},c.prototype.encodeString=function(p){var W,V=typeof p;if(V!=="string"){if(V==="object"){if(p===null)throw new Error(e);if(d&&p.constructor===ArrayBuffer)p=new Uint8Array(p);else if(!Array.isArray(p)&&(!d||!ArrayBuffer.isView(p)))throw new Error(e)}else throw new Error(e);W=!0}var re=0,g=p.length;if(W)re=g;else for(var _=0;_<p.length;++_){var T=p.charCodeAt(_);T<128?re+=1:T<2048?re+=2:T<55296||T>=57344?re+=3:(T=65536+((T&1023)<<10|p.charCodeAt(++_)&1023),re+=4)}return re+=this.encode(re*8),this.update(p),re},c.prototype.bytepad=function(p,W){for(var V=this.encode(W),re=0;re<p.length;++re)V+=this.encodeString(p[re]);var g=W-V%W,_=[];return _.length=g,this.update(_),this},c.prototype.finalize=function(){if(!this.finalized){this.finalized=!0;var p=this.blocks,W=this.lastByteIndex,V=this.blockCount,re=this.s;if(p[W>>2]|=this.padding[W&3],this.lastByteIndex===this.byteCount)for(p[0]=p[V],W=1;W<V+1;++W)p[W]=0;for(p[V-1]|=2147483648,W=0;W<V;++W)re[W]^=p[W];J(re)}},c.prototype.toString=c.prototype.hex=function(){this.finalize();for(var p=this.blockCount,W=this.s,V=this.outputBlocks,re=this.extraBytes,g=0,_=0,T="",N;_<V;){for(g=0;g<p&&_<V;++g,++_)N=W[g],T+=A[N>>4&15]+A[N&15]+A[N>>12&15]+A[N>>8&15]+A[N>>20&15]+A[N>>16&15]+A[N>>28&15]+A[N>>24&15];_%p==0&&(J(W),g=0)}return re&&(N=W[g],T+=A[N>>4&15]+A[N&15],re>1&&(T+=A[N>>12&15]+A[N>>8&15]),re>2&&(T+=A[N>>20&15]+A[N>>16&15])),T},c.prototype.arrayBuffer=function(){this.finalize();var p=this.blockCount,W=this.s,V=this.outputBlocks,re=this.extraBytes,g=0,_=0,T=this.outputBits>>3,N;re?N=new ArrayBuffer(V+1<<2):N=new ArrayBuffer(T);for(var L=new Uint32Array(N);_<V;){for(g=0;g<p&&_<V;++g,++_)L[_]=W[g];_%p==0&&J(W)}return re&&(L[g]=W[g],N=N.slice(0,T)),N},c.prototype.buffer=c.prototype.arrayBuffer,c.prototype.digest=c.prototype.array=function(){this.finalize();for(var p=this.blockCount,W=this.s,V=this.outputBlocks,re=this.extraBytes,g=0,_=0,T=[],N,L;_<V;){for(g=0;g<p&&_<V;++g,++_)N=_<<2,L=W[g],T[N]=L&255,T[N+1]=L>>8&255,T[N+2]=L>>16&255,T[N+3]=L>>24&255;_%p==0&&J(W)}return re&&(N=_<<2,L=W[g],T[N]=L&255,re>1&&(T[N+1]=L>>8&255),re>2&&(T[N+2]=L>>16&255)),T};function m(p,W,V){c.call(this,p,W,V)}m.prototype=new c,m.prototype.finalize=function(){return this.encode(this.outputBits,!0),c.prototype.finalize.call(this)};var J=function(p){var W,V,re,g,_,T,N,L,U,$,q,z,K,Z,ne,we,Be,Oe,ze,yt,Pe,Ue,Mt,gt,lt,rr,et,ft,Ct,Xe,qe,ar,wt,bt,_r,Tt,It,Vt,ht,mt,xr,Et,At,$r,it,_t,h,x,w,f,E,F,G,ee,fe,Me,pe,ke,Ae,Fe,He,Ge,$e;for(re=0;re<48;re+=2)g=p[0]^p[10]^p[20]^p[30]^p[40],_=p[1]^p[11]^p[21]^p[31]^p[41],T=p[2]^p[12]^p[22]^p[32]^p[42],N=p[3]^p[13]^p[23]^p[33]^p[43],L=p[4]^p[14]^p[24]^p[34]^p[44],U=p[5]^p[15]^p[25]^p[35]^p[45],$=p[6]^p[16]^p[26]^p[36]^p[46],q=p[7]^p[17]^p[27]^p[37]^p[47],z=p[8]^p[18]^p[28]^p[38]^p[48],K=p[9]^p[19]^p[29]^p[39]^p[49],W=z^(T<<1|N>>>31),V=K^(N<<1|T>>>31),p[0]^=W,p[1]^=V,p[10]^=W,p[11]^=V,p[20]^=W,p[21]^=V,p[30]^=W,p[31]^=V,p[40]^=W,p[41]^=V,W=g^(L<<1|U>>>31),V=_^(U<<1|L>>>31),p[2]^=W,p[3]^=V,p[12]^=W,p[13]^=V,p[22]^=W,p[23]^=V,p[32]^=W,p[33]^=V,p[42]^=W,p[43]^=V,W=T^($<<1|q>>>31),V=N^(q<<1|$>>>31),p[4]^=W,p[5]^=V,p[14]^=W,p[15]^=V,p[24]^=W,p[25]^=V,p[34]^=W,p[35]^=V,p[44]^=W,p[45]^=V,W=L^(z<<1|K>>>31),V=U^(K<<1|z>>>31),p[6]^=W,p[7]^=V,p[16]^=W,p[17]^=V,p[26]^=W,p[27]^=V,p[36]^=W,p[37]^=V,p[46]^=W,p[47]^=V,W=$^(g<<1|_>>>31),V=q^(_<<1|g>>>31),p[8]^=W,p[9]^=V,p[18]^=W,p[19]^=V,p[28]^=W,p[29]^=V,p[38]^=W,p[39]^=V,p[48]^=W,p[49]^=V,Z=p[0],ne=p[1],_t=p[11]<<4|p[10]>>>28,h=p[10]<<4|p[11]>>>28,ft=p[20]<<3|p[21]>>>29,Ct=p[21]<<3|p[20]>>>29,Fe=p[31]<<9|p[30]>>>23,He=p[30]<<9|p[31]>>>23,Et=p[40]<<18|p[41]>>>14,At=p[41]<<18|p[40]>>>14,bt=p[2]<<1|p[3]>>>31,_r=p[3]<<1|p[2]>>>31,we=p[13]<<12|p[12]>>>20,Be=p[12]<<12|p[13]>>>20,x=p[22]<<10|p[23]>>>22,w=p[23]<<10|p[22]>>>22,Xe=p[33]<<13|p[32]>>>19,qe=p[32]<<13|p[33]>>>19,Ge=p[42]<<2|p[43]>>>30,$e=p[43]<<2|p[42]>>>30,ee=p[5]<<30|p[4]>>>2,fe=p[4]<<30|p[5]>>>2,Tt=p[14]<<6|p[15]>>>26,It=p[15]<<6|p[14]>>>26,Oe=p[25]<<11|p[24]>>>21,ze=p[24]<<11|p[25]>>>21,f=p[34]<<15|p[35]>>>17,E=p[35]<<15|p[34]>>>17,ar=p[45]<<29|p[44]>>>3,wt=p[44]<<29|p[45]>>>3,gt=p[6]<<28|p[7]>>>4,lt=p[7]<<28|p[6]>>>4,Me=p[17]<<23|p[16]>>>9,pe=p[16]<<23|p[17]>>>9,Vt=p[26]<<25|p[27]>>>7,ht=p[27]<<25|p[26]>>>7,yt=p[36]<<21|p[37]>>>11,Pe=p[37]<<21|p[36]>>>11,F=p[47]<<24|p[46]>>>8,G=p[46]<<24|p[47]>>>8,$r=p[8]<<27|p[9]>>>5,it=p[9]<<27|p[8]>>>5,rr=p[18]<<20|p[19]>>>12,et=p[19]<<20|p[18]>>>12,ke=p[29]<<7|p[28]>>>25,Ae=p[28]<<7|p[29]>>>25,mt=p[38]<<8|p[39]>>>24,xr=p[39]<<8|p[38]>>>24,Ue=p[48]<<14|p[49]>>>18,Mt=p[49]<<14|p[48]>>>18,p[0]=Z^~we&Oe,p[1]=ne^~Be&ze,p[10]=gt^~rr&ft,p[11]=lt^~et&Ct,p[20]=bt^~Tt&Vt,p[21]=_r^~It&ht,p[30]=$r^~_t&x,p[31]=it^~h&w,p[40]=ee^~Me&ke,p[41]=fe^~pe&Ae,p[2]=we^~Oe&yt,p[3]=Be^~ze&Pe,p[12]=rr^~ft&Xe,p[13]=et^~Ct&qe,p[22]=Tt^~Vt&mt,p[23]=It^~ht&xr,p[32]=_t^~x&f,p[33]=h^~w&E,p[42]=Me^~ke&Fe,p[43]=pe^~Ae&He,p[4]=Oe^~yt&Ue,p[5]=ze^~Pe&Mt,p[14]=ft^~Xe&ar,p[15]=Ct^~qe&wt,p[24]=Vt^~mt&Et,p[25]=ht^~xr&At,p[34]=x^~f&F,p[35]=w^~E&G,p[44]=ke^~Fe&Ge,p[45]=Ae^~He&$e,p[6]=yt^~Ue&Z,p[7]=Pe^~Mt&ne,p[16]=Xe^~ar&gt,p[17]=qe^~wt&lt,p[26]=mt^~Et&bt,p[27]=xr^~At&_r,p[36]=f^~F&$r,p[37]=E^~G&it,p[46]=Fe^~Ge&ee,p[47]=He^~$e&fe,p[8]=Ue^~Z&we,p[9]=Mt^~ne&Be,p[18]=ar^~gt&rr,p[19]=wt^~lt&et,p[28]=Et^~bt&Tt,p[29]=At^~_r&It,p[38]=F^~$r&_t,p[39]=G^~it&h,p[48]=Ge^~ee&Me,p[49]=$e^~fe&pe,p[0]^=oe[re],p[1]^=oe[re+1]};if(a)ji.exports=s;else{for(y=0;y<u.length;++y)i[u[y]]=s[u[y]];l&&define(function(){return s})}})()});var Kn=De(nr=>{"use strict";Object.defineProperty(nr,"__esModule",{value:!0});nr.output=nr.exists=nr.hash=nr.bytes=nr.bool=nr.number=void 0;function eo(e){if(!Number.isSafeInteger(e)||e<0)throw new Error(`Wrong positive integer: ${e}`)}nr.number=eo;function qf(e){if(typeof e!="boolean")throw new Error(`Expected boolean, not ${e}`)}nr.bool=qf;function qs(e,...t){if(!(e instanceof Uint8Array))throw new TypeError("Expected Uint8Array");if(t.length>0&&!t.includes(e.length))throw new TypeError(`Expected Uint8Array of length ${t}, not of length=${e.length}`)}nr.bytes=qs;function zf(e){if(typeof e!="function"||typeof e.create!="function")throw new Error("Hash should be wrapped by utils.wrapConstructor");eo(e.outputLen),eo(e.blockLen)}nr.hash=zf;function $f(e,t=!0){if(e.destroyed)throw new Error("Hash instance has been destroyed");if(t&&e.finished)throw new Error("Hash#digest() has already been called")}nr.exists=$f;function Vf(e,t){qs(e);let r=t.outputLen;if(e.length<r)throw new Error(`digestInto() expects output buffer of length at least ${r}`)}nr.output=Vf;var gh={number:eo,bool:qf,bytes:qs,hash:zf,exists:$f,output:Vf};nr.default=gh});var Kf=De(to=>{"use strict";Object.defineProperty(to,"__esModule",{value:!0});to.crypto=void 0;var mh=Gi();to.crypto={node:mh,web:void 0}});var Kr=De(at=>{"use strict";Object.defineProperty(at,"__esModule",{value:!0});at.randomBytes=at.wrapConstructorWithOpts=at.wrapConstructor=at.checkOpts=at.Hash=at.concatBytes=at.toBytes=at.utf8ToBytes=at.asyncLoop=at.nextTick=at.hexToBytes=at.bytesToHex=at.isLE=at.rotr=at.createView=at.u32=at.u8=void 0;var ro=Kf(),wh=e=>new Uint8Array(e.buffer,e.byteOffset,e.byteLength);at.u8=wh;var xh=e=>new Uint32Array(e.buffer,e.byteOffset,Math.floor(e.byteLength/4));at.u32=xh;var vh=e=>new DataView(e.buffer,e.byteOffset,e.byteLength);at.createView=vh;var bh=(e,t)=>e<<32-t|e>>>t;at.rotr=bh;at.isLE=new Uint8Array(new Uint32Array([287454020]).buffer)[0]===68;if(!at.isLE)throw new Error("Non little-endian hardware is not supported");var Eh=Array.from({length:256},(e,t)=>t.toString(16).padStart(2,"0"));function Sh(e){if(!(e instanceof Uint8Array))throw new Error("Uint8Array expected");let t="";for(let r=0;r<e.length;r++)t+=Eh[e[r]];return t}at.bytesToHex=Sh;function Ah(e){if(typeof e!="string")throw new TypeError("hexToBytes: expected string, got "+typeof e);if(e.length%2)throw new Error("hexToBytes: received invalid unpadded hex");let t=new Uint8Array(e.length/2);for(let r=0;r<t.length;r++){let i=r*2,n=e.slice(i,i+2),o=Number.parseInt(n,16);if(Number.isNaN(o)||o<0)throw new Error("Invalid byte sequence");t[r]=o}return t}at.hexToBytes=Ah;var _h=async()=>{};at.nextTick=_h;async function Mh(e,t,r){let i=Date.now();for(let n=0;n<e;n++){r(n);let o=Date.now()-i;o>=0&&o<t||(await(0,at.nextTick)(),i+=o)}}at.asyncLoop=Mh;function Gf(e){if(typeof e!="string")throw new TypeError(`utf8ToBytes expected string, got ${typeof e}`);return new TextEncoder().encode(e)}at.utf8ToBytes=Gf;function zs(e){if(typeof e=="string"&&(e=Gf(e)),!(e instanceof Uint8Array))throw new TypeError(`Expected input type is Uint8Array (got ${typeof e})`);return e}at.toBytes=zs;function Ch(...e){if(!e.every(i=>i instanceof Uint8Array))throw new Error("Uint8Array list expected");if(e.length===1)return e[0];let t=e.reduce((i,n)=>i+n.length,0),r=new Uint8Array(t);for(let i=0,n=0;i<e.length;i++){let o=e[i];r.set(o,n),n+=o.length}return r}at.concatBytes=Ch;var Zf=class{clone(){return this._cloneInto()}};at.Hash=Zf;var Th=e=>Object.prototype.toString.call(e)==="[object Object]"&&e.constructor===Object;function Ih(e,t){if(t!==void 0&&(typeof t!="object"||!Th(t)))throw new TypeError("Options should be object or undefined");return Object.assign(e,t)}at.checkOpts=Ih;function Bh(e){let t=i=>e().update(zs(i)).digest(),r=e();return t.outputLen=r.outputLen,t.blockLen=r.blockLen,t.create=()=>e(),t}at.wrapConstructor=Bh;function Oh(e){let t=(i,n)=>e(n).update(zs(i)).digest(),r=e({});return t.outputLen=r.outputLen,t.blockLen=r.blockLen,t.create=i=>e(i),t}at.wrapConstructorWithOpts=Oh;function Ph(e=32){if(ro.crypto.web)return ro.crypto.web.getRandomValues(new Uint8Array(e));if(ro.crypto.node)return new Uint8Array(ro.crypto.node.randomBytes(e).buffer);throw new Error("The environment doesn't have randomBytes function")}at.randomBytes=Ph});var yi=De(pi=>{"use strict";Object.defineProperty(pi,"__esModule",{value:!0});pi.hmac=void 0;var no=Kn(),Yf=Kr(),$s=class extends Yf.Hash{constructor(t,r){super();this.finished=!1,this.destroyed=!1,no.default.hash(t);let i=(0,Yf.toBytes)(r);if(this.iHash=t.create(),typeof this.iHash.update!="function")throw new TypeError("Expected instance of class which extends utils.Hash");this.blockLen=this.iHash.blockLen,this.outputLen=this.iHash.outputLen;let n=this.blockLen,o=new Uint8Array(n);o.set(i.length>n?t.create().update(i).digest():i);for(let a=0;a<o.length;a++)o[a]^=54;this.iHash.update(o),this.oHash=t.create();for(let a=0;a<o.length;a++)o[a]^=54^92;this.oHash.update(o),o.fill(0)}update(t){return no.default.exists(this),this.iHash.update(t),this}digestInto(t){no.default.exists(this),no.default.bytes(t,this.outputLen),this.finished=!0,this.iHash.digestInto(t),this.oHash.update(t),this.oHash.digestInto(t),this.destroy()}digest(){let t=new Uint8Array(this.oHash.outputLen);return this.digestInto(t),t}_cloneInto(t){t||(t=Object.create(Object.getPrototypeOf(this),{}));let{oHash:r,iHash:i,finished:n,destroyed:o,blockLen:a,outputLen:l}=this;return t=t,t.finished=n,t.destroyed=o,t.blockLen=a,t.outputLen=l,t.oHash=r._cloneInto(t.oHash),t.iHash=i._cloneInto(t.iHash),t}destroy(){this.destroyed=!0,this.oHash.destroy(),this.iHash.destroy()}},Nh=(e,t,r)=>new $s(e,t).update(r).digest();pi.hmac=Nh;pi.hmac.create=(e,t)=>new $s(e,t)});var Qf=De(Zn=>{"use strict";Object.defineProperty(Zn,"__esModule",{value:!0});Zn.pbkdf2Async=Zn.pbkdf2=void 0;var io=Kn(),Rh=yi(),Gn=Kr();function Jf(e,t,r,i){io.default.hash(e);let n=(0,Gn.checkOpts)({dkLen:32,asyncTick:10},i),{c:o,dkLen:a,asyncTick:l}=n;if(io.default.number(o),io.default.number(a),io.default.number(l),o<1)throw new Error("PBKDF2: iterations (c) should be >= 1");let d=(0,Gn.toBytes)(t),A=(0,Gn.toBytes)(r),M=new Uint8Array(a),P=Rh.hmac.create(e,d),D=P._cloneInto().update(A);return{c:o,dkLen:a,asyncTick:l,DK:M,PRF:P,PRFSalt:D}}function Xf(e,t,r,i,n){return e.destroy(),t.destroy(),i&&i.destroy(),n.fill(0),r}function kh(e,t,r,i){let{c:n,dkLen:o,DK:a,PRF:l,PRFSalt:d}=Jf(e,t,r,i),A,M=new Uint8Array(4),P=(0,Gn.createView)(M),D=new Uint8Array(l.outputLen);for(let H=1,Y=0;Y<o;H++,Y+=l.outputLen){let oe=a.subarray(Y,Y+l.outputLen);P.setInt32(0,H,!1),(A=d._cloneInto(A)).update(M).digestInto(D),oe.set(D.subarray(0,oe.length));for(let me=1;me<n;me++){l._cloneInto(A).update(D).digestInto(D);for(let te=0;te<oe.length;te++)oe[te]^=D[te]}}return Xf(l,d,a,A,D)}Zn.pbkdf2=kh;async function Uh(e,t,r,i){let{c:n,dkLen:o,asyncTick:a,DK:l,PRF:d,PRFSalt:A}=Jf(e,t,r,i),M,P=new Uint8Array(4),D=(0,Gn.createView)(P),H=new Uint8Array(d.outputLen);for(let Y=1,oe=0;oe<o;Y++,oe+=d.outputLen){let me=l.subarray(oe,oe+d.outputLen);D.setInt32(0,Y,!1),(M=A._cloneInto(M)).update(P).digestInto(H),me.set(H.subarray(0,me.length)),await(0,Gn.asyncLoop)(n-1,a,te=>{d._cloneInto(M).update(H).digestInto(H);for(let ge=0;ge<me.length;ge++)me[ge]^=H[ge]})}return Xf(d,A,l,M,H)}Zn.pbkdf2Async=Uh});var so=De(oo=>{"use strict";Object.defineProperty(oo,"__esModule",{value:!0});oo.SHA2=void 0;var Vs=Kn(),gi=Kr();function Dh(e,t,r,i){if(typeof e.setBigUint64=="function")return e.setBigUint64(t,r,i);let n=BigInt(32),o=BigInt(4294967295),a=Number(r>>n&o),l=Number(r&o),d=i?4:0,A=i?0:4;e.setUint32(t+d,a,i),e.setUint32(t+A,l,i)}var jf=class extends gi.Hash{constructor(t,r,i,n){super();this.blockLen=t,this.outputLen=r,this.padOffset=i,this.isLE=n,this.finished=!1,this.length=0,this.pos=0,this.destroyed=!1,this.buffer=new Uint8Array(t),this.view=(0,gi.createView)(this.buffer)}update(t){Vs.default.exists(this);let{view:r,buffer:i,blockLen:n}=this;t=(0,gi.toBytes)(t);let o=t.length;for(let a=0;a<o;){let l=Math.min(n-this.pos,o-a);if(l===n){let d=(0,gi.createView)(t);for(;n<=o-a;a+=n)this.process(d,a);continue}i.set(t.subarray(a,a+l),this.pos),this.pos+=l,a+=l,this.pos===n&&(this.process(r,0),this.pos=0)}return this.length+=t.length,this.roundClean(),this}digestInto(t){Vs.default.exists(this),Vs.default.output(t,this),this.finished=!0;let{buffer:r,view:i,blockLen:n,isLE:o}=this,{pos:a}=this;r[a++]=128,this.buffer.subarray(a).fill(0),this.padOffset>n-a&&(this.process(i,0),a=0);for(let d=a;d<n;d++)r[d]=0;Dh(i,n-8,BigInt(this.length*8),o),this.process(i,0);let l=(0,gi.createView)(t);this.get().forEach((d,A)=>l.setUint32(4*A,d,o))}digest(){let{buffer:t,outputLen:r}=this;this.digestInto(t);let i=t.slice(0,r);return this.destroy(),i}_cloneInto(t){t||(t=new this.constructor),t.set(...this.get());let{blockLen:r,buffer:i,length:n,finished:o,destroyed:a,pos:l}=this;return t.length=n,t.pos=l,t.finished=o,t.destroyed=a,n%r&&t.buffer.set(i),t}};oo.SHA2=jf});var fo=De(ao=>{"use strict";Object.defineProperty(ao,"__esModule",{value:!0});ao.sha256=void 0;var Lh=so(),vr=Kr(),Wh=(e,t,r)=>e&t^~e&r,Fh=(e,t,r)=>e&t^e&r^t&r,Hh=new Uint32Array([1116352408,1899447441,3049323471,3921009573,961987163,1508970993,2453635748,2870763221,3624381080,310598401,607225278,1426881987,1925078388,2162078206,2614888103,3248222580,3835390401,4022224774,264347078,604807628,770255983,1249150122,1555081692,1996064986,2554220882,2821834349,2952996808,3210313671,3336571891,3584528711,113926993,338241895,666307205,773529912,1294757372,1396182291,1695183700,1986661051,2177026350,2456956037,2730485921,2820302411,3259730800,3345764771,3516065817,3600352804,4094571909,275423344,430227734,506948616,659060556,883997877,958139571,1322822218,1537002063,1747873779,1955562222,2024104815,2227730452,2361852424,2428436474,2756734187,3204031479,3329325298]),cn=new Uint32Array([1779033703,3144134277,1013904242,2773480762,1359893119,2600822924,528734635,1541459225]),un=new Uint32Array(64),ec=class extends Lh.SHA2{constructor(){super(64,32,8,!1);this.A=cn[0]|0,this.B=cn[1]|0,this.C=cn[2]|0,this.D=cn[3]|0,this.E=cn[4]|0,this.F=cn[5]|0,this.G=cn[6]|0,this.H=cn[7]|0}get(){let{A:t,B:r,C:i,D:n,E:o,F:a,G:l,H:d}=this;return[t,r,i,n,o,a,l,d]}set(t,r,i,n,o,a,l,d){this.A=t|0,this.B=r|0,this.C=i|0,this.D=n|0,this.E=o|0,this.F=a|0,this.G=l|0,this.H=d|0}process(t,r){for(let P=0;P<16;P++,r+=4)un[P]=t.getUint32(r,!1);for(let P=16;P<64;P++){let D=un[P-15],H=un[P-2],Y=(0,vr.rotr)(D,7)^(0,vr.rotr)(D,18)^D>>>3,oe=(0,vr.rotr)(H,17)^(0,vr.rotr)(H,19)^H>>>10;un[P]=oe+un[P-7]+Y+un[P-16]|0}let{A:i,B:n,C:o,D:a,E:l,F:d,G:A,H:M}=this;for(let P=0;P<64;P++){let D=(0,vr.rotr)(l,6)^(0,vr.rotr)(l,11)^(0,vr.rotr)(l,25),H=M+D+Wh(l,d,A)+Hh[P]+un[P]|0,oe=((0,vr.rotr)(i,2)^(0,vr.rotr)(i,13)^(0,vr.rotr)(i,22))+Fh(i,n,o)|0;M=A,A=d,d=l,l=a+H|0,a=o,o=n,n=i,i=H+oe|0}i=i+this.A|0,n=n+this.B|0,o=o+this.C|0,a=a+this.D|0,l=l+this.E|0,d=d+this.F|0,A=A+this.G|0,M=M+this.H|0,this.set(i,n,o,a,l,d,A,M)}roundClean(){un.fill(0)}destroy(){this.set(0,0,0,0,0,0,0,0),this.buffer.fill(0)}};ao.sha256=(0,vr.wrapConstructor)(()=>new ec)});var nc=De(gr=>{"use strict";Object.defineProperty(gr,"__esModule",{value:!0});gr.add=gr.toBig=gr.split=gr.fromBig=void 0;var co=BigInt(2**32-1),Ks=BigInt(32);function Gs(e,t=!1){return t?{h:Number(e&co),l:Number(e>>Ks&co)}:{h:Number(e>>Ks&co)|0,l:Number(e&co)|0}}gr.fromBig=Gs;function tc(e,t=!1){let r=new Uint32Array(e.length),i=new Uint32Array(e.length);for(let n=0;n<e.length;n++){let{h:o,l:a}=Gs(e[n],t);[r[n],i[n]]=[o,a]}return[r,i]}gr.split=tc;var qh=(e,t)=>BigInt(e>>>0)<<Ks|BigInt(t>>>0);gr.toBig=qh;var zh=(e,t,r)=>e>>>r,$h=(e,t,r)=>e<<32-r|t>>>r,Vh=(e,t,r)=>e>>>r|t<<32-r,Kh=(e,t,r)=>e<<32-r|t>>>r,Gh=(e,t,r)=>e<<64-r|t>>>r-32,Zh=(e,t,r)=>e>>>r-32|t<<64-r,Yh=(e,t)=>t,Jh=(e,t)=>e,Xh=(e,t,r)=>e<<r|t>>>32-r,Qh=(e,t,r)=>t<<r|e>>>32-r,jh=(e,t,r)=>t<<r-32|e>>>64-r,ed=(e,t,r)=>e<<r-32|t>>>64-r;function rc(e,t,r,i){let n=(t>>>0)+(i>>>0);return{h:e+r+(n/2**32|0)|0,l:n|0}}gr.add=rc;var td=(e,t,r)=>(e>>>0)+(t>>>0)+(r>>>0),rd=(e,t,r,i)=>t+r+i+(e/2**32|0)|0,nd=(e,t,r,i)=>(e>>>0)+(t>>>0)+(r>>>0)+(i>>>0),id=(e,t,r,i,n)=>t+r+i+n+(e/2**32|0)|0,od=(e,t,r,i,n)=>(e>>>0)+(t>>>0)+(r>>>0)+(i>>>0)+(n>>>0),sd=(e,t,r,i,n,o)=>t+r+i+n+o+(e/2**32|0)|0,ad={fromBig:Gs,split:tc,toBig:gr.toBig,shrSH:zh,shrSL:$h,rotrSH:Vh,rotrSL:Kh,rotrBH:Gh,rotrBL:Zh,rotr32H:Yh,rotr32L:Jh,rotlSH:Xh,rotlSL:Qh,rotlBH:jh,rotlBL:ed,add:rc,add3L:td,add3H:rd,add4L:nd,add4H:id,add5H:sd,add5L:od};gr.default=ad});var uo=De(Pr=>{"use strict";Object.defineProperty(Pr,"__esModule",{value:!0});Pr.sha384=Pr.sha512_256=Pr.sha512=Pr.SHA512=void 0;var fd=so(),nt=nc(),Zs=Kr(),[cd,ud]=nt.default.split(["0x428a2f98d728ae22","0x7137449123ef65cd","0xb5c0fbcfec4d3b2f","0xe9b5dba58189dbbc","0x3956c25bf348b538","0x59f111f1b605d019","0x923f82a4af194f9b","0xab1c5ed5da6d8118","0xd807aa98a3030242","0x12835b0145706fbe","0x243185be4ee4b28c","0x550c7dc3d5ffb4e2","0x72be5d74f27b896f","0x80deb1fe3b1696b1","0x9bdc06a725c71235","0xc19bf174cf692694","0xe49b69c19ef14ad2","0xefbe4786384f25e3","0x0fc19dc68b8cd5b5","0x240ca1cc77ac9c65","0x2de92c6f592b0275","0x4a7484aa6ea6e483","0x5cb0a9dcbd41fbd4","0x76f988da831153b5","0x983e5152ee66dfab","0xa831c66d2db43210","0xb00327c898fb213f","0xbf597fc7beef0ee4","0xc6e00bf33da88fc2","0xd5a79147930aa725","0x06ca6351e003826f","0x142929670a0e6e70","0x27b70a8546d22ffc","0x2e1b21385c26c926","0x4d2c6dfc5ac42aed","0x53380d139d95b3df","0x650a73548baf63de","0x766a0abb3c77b2a8","0x81c2c92e47edaee6","0x92722c851482353b","0xa2bfe8a14cf10364","0xa81a664bbc423001","0xc24b8b70d0f89791","0xc76c51a30654be30","0xd192e819d6ef5218","0xd69906245565a910","0xf40e35855771202a","0x106aa07032bbd1b8","0x19a4c116b8d2d0c8","0x1e376c085141ab53","0x2748774cdf8eeb99","0x34b0bcb5e19b48a8","0x391c0cb3c5c95a63","0x4ed8aa4ae3418acb","0x5b9cca4f7763e373","0x682e6ff3d6b2b8a3","0x748f82ee5defb2fc","0x78a5636f43172f60","0x84c87814a1f0ab72","0x8cc702081a6439ec","0x90befffa23631e28","0xa4506cebde82bde9","0xbef9a3f7b2c67915","0xc67178f2e372532b","0xca273eceea26619c","0xd186b8c721c0c207","0xeada7dd6cde0eb1e","0xf57d4f7fee6ed178","0x06f067aa72176fba","0x0a637dc5a2c898a6","0x113f9804bef90dae","0x1b710b35131c471b","0x28db77f523047d84","0x32caab7b40c72493","0x3c9ebe0a15c9bebc","0x431d67c49c100d4c","0x4cc5d4becb3e42b6","0x597f299cfc657e2a","0x5fcb6fab3ad6faec","0x6c44198c4a475817"].map(e=>BigInt(e))),ln=new Uint32Array(80),hn=new Uint32Array(80),mi=class extends fd.SHA2{constructor(){super(128,64,16,!1);this.Ah=1779033703|0,this.Al=4089235720|0,this.Bh=3144134277|0,this.Bl=2227873595|0,this.Ch=1013904242|0,this.Cl=4271175723|0,this.Dh=2773480762|0,this.Dl=1595750129|0,this.Eh=1359893119|0,this.El=2917565137|0,this.Fh=2600822924|0,this.Fl=725511199|0,this.Gh=528734635|0,this.Gl=4215389547|0,this.Hh=1541459225|0,this.Hl=327033209|0}get(){let{Ah:t,Al:r,Bh:i,Bl:n,Ch:o,Cl:a,Dh:l,Dl:d,Eh:A,El:M,Fh:P,Fl:D,Gh:H,Gl:Y,Hh:oe,Hl:me}=this;return[t,r,i,n,o,a,l,d,A,M,P,D,H,Y,oe,me]}set(t,r,i,n,o,a,l,d,A,M,P,D,H,Y,oe,me){this.Ah=t|0,this.Al=r|0,this.Bh=i|0,this.Bl=n|0,this.Ch=o|0,this.Cl=a|0,this.Dh=l|0,this.Dl=d|0,this.Eh=A|0,this.El=M|0,this.Fh=P|0,this.Fl=D|0,this.Gh=H|0,this.Gl=Y|0,this.Hh=oe|0,this.Hl=me|0}process(t,r){for(let de=0;de<16;de++,r+=4)ln[de]=t.getUint32(r),hn[de]=t.getUint32(r+=4);for(let de=16;de<80;de++){let Se=ln[de-15]|0,ue=hn[de-15]|0,he=nt.default.rotrSH(Se,ue,1)^nt.default.rotrSH(Se,ue,8)^nt.default.shrSH(Se,ue,7),be=nt.default.rotrSL(Se,ue,1)^nt.default.rotrSL(Se,ue,8)^nt.default.shrSL(Se,ue,7),We=ln[de-2]|0,se=hn[de-2]|0,B=nt.default.rotrSH(We,se,19)^nt.default.rotrBH(We,se,61)^nt.default.shrSH(We,se,6),k=nt.default.rotrSL(We,se,19)^nt.default.rotrBL(We,se,61)^nt.default.shrSL(We,se,6),j=nt.default.add4L(be,k,hn[de-7],hn[de-16]),S=nt.default.add4H(j,he,B,ln[de-7],ln[de-16]);ln[de]=S|0,hn[de]=j|0}let{Ah:i,Al:n,Bh:o,Bl:a,Ch:l,Cl:d,Dh:A,Dl:M,Eh:P,El:D,Fh:H,Fl:Y,Gh:oe,Gl:me,Hh:te,Hl:ge}=this;for(let de=0;de<80;de++){let Se=nt.default.rotrSH(P,D,14)^nt.default.rotrSH(P,D,18)^nt.default.rotrBH(P,D,41),ue=nt.default.rotrSL(P,D,14)^nt.default.rotrSL(P,D,18)^nt.default.rotrBL(P,D,41),he=P&H^~P&oe,be=D&Y^~D&me,We=nt.default.add5L(ge,ue,be,ud[de],hn[de]),se=nt.default.add5H(We,te,Se,he,cd[de],ln[de]),B=We|0,k=nt.default.rotrSH(i,n,28)^nt.default.rotrBH(i,n,34)^nt.default.rotrBH(i,n,39),j=nt.default.rotrSL(i,n,28)^nt.default.rotrBL(i,n,34)^nt.default.rotrBL(i,n,39),S=i&o^i&l^o&l,s=n&a^n&d^a&d;te=oe|0,ge=me|0,oe=H|0,me=Y|0,H=P|0,Y=D|0,{h:P,l:D}=nt.default.add(A|0,M|0,se|0,B|0),A=l|0,M=d|0,l=o|0,d=a|0,o=i|0,a=n|0;let u=nt.default.add3L(B,j,s);i=nt.default.add3H(u,se,k,S),n=u|0}({h:i,l:n}=nt.default.add(this.Ah|0,this.Al|0,i|0,n|0)),{h:o,l:a}=nt.default.add(this.Bh|0,this.Bl|0,o|0,a|0),{h:l,l:d}=nt.default.add(this.Ch|0,this.Cl|0,l|0,d|0),{h:A,l:M}=nt.default.add(this.Dh|0,this.Dl|0,A|0,M|0),{h:P,l:D}=nt.default.add(this.Eh|0,this.El|0,P|0,D|0),{h:H,l:Y}=nt.default.add(this.Fh|0,this.Fl|0,H|0,Y|0),{h:oe,l:me}=nt.default.add(this.Gh|0,this.Gl|0,oe|0,me|0),{h:te,l:ge}=nt.default.add(this.Hh|0,this.Hl|0,te|0,ge|0),this.set(i,n,o,a,l,d,A,M,P,D,H,Y,oe,me,te,ge)}roundClean(){ln.fill(0),hn.fill(0)}destroy(){this.buffer.fill(0),this.set(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)}};Pr.SHA512=mi;var ic=class extends mi{constructor(){super();this.Ah=573645204|0,this.Al=4230739756|0,this.Bh=2673172387|0,this.Bl=3360449730|0,this.Ch=596883563|0,this.Cl=1867755857|0,this.Dh=2520282905|0,this.Dl=1497426621|0,this.Eh=2519219938|0,this.El=2827943907|0,this.Fh=3193839141|0,this.Fl=1401305490|0,this.Gh=721525244|0,this.Gl=746961066|0,this.Hh=246885852|0,this.Hl=2177182882|0,this.outputLen=32}},oc=class extends mi{constructor(){super();this.Ah=3418070365|0,this.Al=3238371032|0,this.Bh=1654270250|0,this.Bl=914150663|0,this.Ch=2438529370|0,this.Cl=812702999|0,this.Dh=355462360|0,this.Dl=4144912697|0,this.Eh=1731405415|0,this.El=4290775857|0,this.Fh=2394180231|0,this.Fl=1750603025|0,this.Gh=3675008525|0,this.Gl=1694076839|0,this.Hh=1203062813|0,this.Hl=3204075428|0,this.outputLen=48}};Pr.sha512=(0,Zs.wrapConstructor)(()=>new mi);Pr.sha512_256=(0,Zs.wrapConstructor)(()=>new ic);Pr.sha384=(0,Zs.wrapConstructor)(()=>new oc)});var Qs=De(Le=>{"use strict";Object.defineProperty(Le,"__esModule",{value:!0});Le.bytes=Le.stringToBytes=Le.str=Le.bytesToString=Le.hex=Le.utf8=Le.bech32m=Le.bech32=Le.base58check=Le.base58xmr=Le.base58xrp=Le.base58flickr=Le.base58=Le.base64url=Le.base64=Le.base32crockford=Le.base32hex=Le.base32=Le.base16=Le.utils=Le.assertNumber=void 0;function dn(e){if(!Number.isSafeInteger(e))throw new Error(`Wrong integer: ${e}`)}Le.assertNumber=dn;function br(...e){let t=(n,o)=>a=>n(o(a)),r=Array.from(e).reverse().reduce((n,o)=>n?t(n,o.encode):o.encode,void 0),i=e.reduce((n,o)=>n?t(n,o.decode):o.decode,void 0);return{encode:r,decode:i}}function Nr(e){return{encode:t=>{if(!Array.isArray(t)||t.length&&typeof t[0]!="number")throw new Error("alphabet.encode input should be an array of numbers");return t.map(r=>{if(dn(r),r<0||r>=e.length)throw new Error(`Digit index outside alphabet: ${r} (alphabet: ${e.length})`);return e[r]})},decode:t=>{if(!Array.isArray(t)||t.length&&typeof t[0]!="string")throw new Error("alphabet.decode input should be array of strings");return t.map(r=>{if(typeof r!="string")throw new Error(`alphabet.decode: not string element=${r}`);let i=e.indexOf(r);if(i===-1)throw new Error(`Unknown letter: "${r}". Allowed: ${e}`);return i})}}}function Rr(e=""){if(typeof e!="string")throw new Error("join separator should be string");return{encode:t=>{if(!Array.isArray(t)||t.length&&typeof t[0]!="string")throw new Error("join.encode input should be array of strings");for(let r of t)if(typeof r!="string")throw new Error(`join.encode: non-string input=${r}`);return t.join(e)},decode:t=>{if(typeof t!="string")throw new Error("join.decode input should be string");return t.split(e)}}}function wi(e,t="="){if(dn(e),typeof t!="string")throw new Error("padding chr should be string");return{encode(r){if(!Array.isArray(r)||r.length&&typeof r[0]!="string")throw new Error("padding.encode input should be array of strings");for(let i of r)if(typeof i!="string")throw new Error(`padding.encode: non-string input=${i}`);for(;r.length*e%8;)r.push(t);return r},decode(r){if(!Array.isArray(r)||r.length&&typeof r[0]!="string")throw new Error("padding.encode input should be array of strings");for(let n of r)if(typeof n!="string")throw new Error(`padding.decode: non-string input=${n}`);let i=r.length;if(i*e%8)throw new Error("Invalid padding: string should have whole number of bytes");for(;i>0&&r[i-1]===t;i--)if(!((i-1)*e%8))throw new Error("Invalid padding: string has too much padding");return r.slice(0,i)}}}function sc(e){if(typeof e!="function")throw new Error("normalize fn should be function");return{encode:t=>t,decode:t=>e(t)}}function ac(e,t,r){if(t<2)throw new Error(`convertRadix: wrong from=${t}, base cannot be less than 2`);if(r<2)throw new Error(`convertRadix: wrong to=${r}, base cannot be less than 2`);if(!Array.isArray(e))throw new Error("convertRadix: data should be array");if(!e.length)return[];let i=0,n=[],o=Array.from(e);for(o.forEach(a=>{if(dn(a),a<0||a>=t)throw new Error(`Wrong integer: ${a}`)});;){let a=0,l=!0;for(let d=i;d<o.length;d++){let A=o[d],M=t*a+A;if(!Number.isSafeInteger(M)||t*a/t!==a||M-A!=t*a)throw new Error("convertRadix: carry overflow");if(a=M%r,o[d]=Math.floor(M/r),!Number.isSafeInteger(o[d])||o[d]*r+a!==M)throw new Error("convertRadix: carry overflow");if(l)o[d]?l=!1:i=d;else continue}if(n.push(a),l)break}for(let a=0;a<e.length-1&&e[a]===0;a++)n.push(0);return n.reverse()}var fc=(e,t)=>t?fc(t,e%t):e,lo=(e,t)=>e+(t-fc(e,t));function Ys(e,t,r,i){if(!Array.isArray(e))throw new Error("convertRadix2: data should be array");if(t<=0||t>32)throw new Error(`convertRadix2: wrong from=${t}`);if(r<=0||r>32)throw new Error(`convertRadix2: wrong to=${r}`);if(lo(t,r)>32)throw new Error(`convertRadix2: carry overflow from=${t} to=${r} carryBits=${lo(t,r)}`);let n=0,o=0,a=2**r-1,l=[];for(let d of e){if(dn(d),d>=2**t)throw new Error(`convertRadix2: invalid data word=${d} from=${t}`);if(n=n<<t|d,o+t>32)throw new Error(`convertRadix2: carry overflow pos=${o} from=${t}`);for(o+=t;o>=r;o-=r)l.push((n>>o-r&a)>>>0);n&=2**o-1}if(n=n<<r-o&a,!i&&o>=t)throw new Error("Excess padding");if(!i&&n)throw new Error(`Non-zero padding: ${n}`);return i&&o>0&&l.push(n>>>0),l}function cc(e){return dn(e),{encode:t=>{if(!(t instanceof Uint8Array))throw new Error("radix.encode input should be Uint8Array");return ac(Array.from(t),2**8,e)},decode:t=>{if(!Array.isArray(t)||t.length&&typeof t[0]!="number")throw new Error("radix.decode input should be array of strings");return Uint8Array.from(ac(t,e,2**8))}}}function Gr(e,t=!1){if(dn(e),e<=0||e>32)throw new Error("radix2: bits should be in (0..32]");if(lo(8,e)>32||lo(e,8)>32)throw new Error("radix2: carry overflow");return{encode:r=>{if(!(r instanceof Uint8Array))throw new Error("radix2.encode input should be Uint8Array");return Ys(Array.from(r),8,e,!t)},decode:r=>{if(!Array.isArray(r)||r.length&&typeof r[0]!="number")throw new Error("radix2.decode input should be array of strings");return Uint8Array.from(Ys(r,e,8,t))}}}function uc(e){if(typeof e!="function")throw new Error("unsafeWrapper fn should be function");return function(...t){try{return e.apply(null,t)}catch(r){}}}function lc(e,t){if(dn(e),typeof t!="function")throw new Error("checksum fn should be function");return{encode(r){if(!(r instanceof Uint8Array))throw new Error("checksum.encode: input should be Uint8Array");let i=t(r).slice(0,e),n=new Uint8Array(r.length+e);return n.set(r),n.set(i,r.length),n},decode(r){if(!(r instanceof Uint8Array))throw new Error("checksum.decode: input should be Uint8Array");let i=r.slice(0,-e),n=t(i).slice(0,e),o=r.slice(-e);for(let a=0;a<e;a++)if(n[a]!==o[a])throw new Error("Invalid checksum");return i}}}Le.utils={alphabet:Nr,chain:br,checksum:lc,radix:cc,radix2:Gr,join:Rr,padding:wi};Le.base16=br(Gr(4),Nr("0123456789ABCDEF"),Rr(""));Le.base32=br(Gr(5),Nr("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"),wi(5),Rr(""));Le.base32hex=br(Gr(5),Nr("0123456789ABCDEFGHIJKLMNOPQRSTUV"),wi(5),Rr(""));Le.base32crockford=br(Gr(5),Nr("0123456789ABCDEFGHJKMNPQRSTVWXYZ"),Rr(""),sc(e=>e.toUpperCase().replace(/O/g,"0").replace(/[IL]/g,"1")));Le.base64=br(Gr(6),Nr("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"),wi(6),Rr(""));Le.base64url=br(Gr(6),Nr("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"),wi(6),Rr(""));var Js=e=>br(cc(58),Nr(e),Rr(""));Le.base58=Js("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");Le.base58flickr=Js("123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ");Le.base58xrp=Js("rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz");var hc=[0,2,3,5,6,7,9,10,11];Le.base58xmr={encode(e){let t="";for(let r=0;r<e.length;r+=8){let i=e.subarray(r,r+8);t+=Le.base58.encode(i).padStart(hc[i.length],"1")}return t},decode(e){let t=[];for(let r=0;r<e.length;r+=11){let i=e.slice(r,r+11),n=hc.indexOf(i.length),o=Le.base58.decode(i);for(let a=0;a<o.length-n;a++)if(o[a]!==0)throw new Error("base58xmr: wrong padding");t=t.concat(Array.from(o.slice(o.length-n)))}return Uint8Array.from(t)}};var ld=e=>br(lc(4,t=>e(e(t))),Le.base58);Le.base58check=ld;var Xs=br(Nr("qpzry9x8gf2tvdw0s3jn54khce6mua7l"),Rr("")),dc=[996825010,642813549,513874426,1027748829,705979059];function xi(e){let t=e>>25,r=(e&33554431)<<5;for(let i=0;i<dc.length;i++)(t>>i&1)==1&&(r^=dc[i]);return r}function pc(e,t,r=1){let i=e.length,n=1;for(let o=0;o<i;o++){let a=e.charCodeAt(o);if(a<33||a>126)throw new Error(`Invalid prefix (${e})`);n=xi(n)^a>>5}n=xi(n);for(let o=0;o<i;o++)n=xi(n)^e.charCodeAt(o)&31;for(let o of t)n=xi(n)^o;for(let o=0;o<6;o++)n=xi(n);return n^=r,Xs.encode(Ys([n%2**30],30,5,!1))}function yc(e){let t=e==="bech32"?1:734539939,r=Gr(5),i=r.decode,n=r.encode,o=uc(i);function a(M,P,D=90){if(typeof M!="string")throw new Error(`bech32.encode prefix should be string, not ${typeof M}`);if(!Array.isArray(P)||P.length&&typeof P[0]!="number")throw new Error(`bech32.encode words should be array of numbers, not ${typeof P}`);let H=M.length+7+P.length;if(D!==!1&&H>D)throw new TypeError(`Length ${H} exceeds limit ${D}`);return M=M.toLowerCase(),`${M}1${Xs.encode(P)}${pc(M,P,t)}`}function l(M,P=90){if(typeof M!="string")throw new Error(`bech32.decode input should be string, not ${typeof M}`);if(M.length<8||P!==!1&&M.length>P)throw new TypeError(`Wrong string length: ${M.length} (${M}). Expected (8..${P})`);let D=M.toLowerCase();if(M!==D&&M!==M.toUpperCase())throw new Error("String must be lowercase or uppercase");M=D;let H=M.lastIndexOf("1");if(H===0||H===-1)throw new Error('Letter "1" must be present between prefix and data only');let Y=M.slice(0,H),oe=M.slice(H+1);if(oe.length<6)throw new Error("Data must be at least 6 characters long");let me=Xs.decode(oe).slice(0,-6),te=pc(Y,me,t);if(!oe.endsWith(te))throw new Error(`Invalid checksum in ${M}: expected "${te}"`);return{prefix:Y,words:me}}let d=uc(l);function A(M){let{prefix:P,words:D}=l(M,!1);return{prefix:P,words:D,bytes:i(D)}}return{encode:a,decode:l,decodeToBytes:A,decodeUnsafe:d,fromWords:i,fromWordsUnsafe:o,toWords:n}}Le.bech32=yc("bech32");Le.bech32m=yc("bech32m");Le.utf8={encode:e=>new TextDecoder().decode(e),decode:e=>new TextEncoder().encode(e)};Le.hex=br(Gr(4),Nr("0123456789abcdef"),Rr(""),sc(e=>{if(typeof e!="string"||e.length%2)throw new TypeError(`hex.decode: expected string, got ${typeof e} with length ${e.length}`);return e.toLowerCase()}));var vi={utf8:Le.utf8,hex:Le.hex,base16:Le.base16,base32:Le.base32,base64:Le.base64,base64url:Le.base64url,base58:Le.base58,base58xmr:Le.base58xmr},gc=`Invalid encoding type. Available types: ${Object.keys(vi).join(", ")}`,hd=(e,t)=>{if(typeof e!="string"||!vi.hasOwnProperty(e))throw new TypeError(gc);if(!(t instanceof Uint8Array))throw new TypeError("bytesToString() expects Uint8Array");return vi[e].encode(t)};Le.bytesToString=hd;Le.str=Le.bytesToString;var dd=(e,t)=>{if(!vi.hasOwnProperty(e))throw new TypeError(gc);if(typeof t!="string")throw new TypeError("stringToBytes() expects string");return vi[e].decode(t)};Le.stringToBytes=dd;Le.bytes=Le.stringToBytes});var Mc=De(sr=>{"use strict";Object.defineProperty(sr,"__esModule",{value:!0});sr.mnemonicToSeedSync=sr.mnemonicToSeed=sr.validateMnemonic=sr.entropyToMnemonic=sr.mnemonicToEntropy=sr.generateMnemonic=void 0;var mc=Kn(),wc=Qf(),pd=fo(),xc=uo(),yd=Kr(),ho=Qs(),gd=e=>e[0]==="\u3042\u3044\u3053\u304F\u3057\u3093";function vc(e){if(typeof e!="string")throw new TypeError(`Invalid mnemonic type: ${typeof e}`);return e.normalize("NFKD")}function js(e){let t=vc(e),r=t.split(" ");if(![12,15,18,21,24].includes(r.length))throw new Error("Invalid mnemonic");return{nfkd:t,words:r}}function bc(e){mc.default.bytes(e,16,20,24,28,32)}function md(e,t=128){if(mc.default.number(t),t%32!=0||t>256)throw new TypeError("Invalid entropy");return Ac((0,yd.randomBytes)(t/8),e)}sr.generateMnemonic=md;var wd=e=>{let t=8-e.length/4;return new Uint8Array([(0,pd.sha256)(e)[0]>>t<<t])};function Ec(e){if(!Array.isArray(e)||e.length!==2**11||typeof e[0]!="string")throw new Error("Worlist: expected array of 2048 strings");return e.forEach(t=>{if(typeof t!="string")throw new Error(`Wordlist: non-string element: ${t}`)}),ho.utils.chain(ho.utils.checksum(1,wd),ho.utils.radix2(11,!0),ho.utils.alphabet(e))}function Sc(e,t){let{words:r}=js(e),i=Ec(t).decode(r);return bc(i),i}sr.mnemonicToEntropy=Sc;function Ac(e,t){return bc(e),Ec(t).encode(e).join(gd(t)?"\u3000":" ")}sr.entropyToMnemonic=Ac;function xd(e,t){try{Sc(e,t)}catch(r){return!1}return!0}sr.validateMnemonic=xd;var _c=e=>vc(`mnemonic${e}`);function vd(e,t=""){return(0,wc.pbkdf2Async)(xc.sha512,js(e).nfkd,_c(t),{c:2048,dkLen:64})}sr.mnemonicToSeed=vd;function bd(e,t=""){return(0,wc.pbkdf2)(xc.sha512,js(e).nfkd,_c(t),{c:2048,dkLen:64})}sr.mnemonicToSeedSync=bd});var Lc=De(Qn=>{"use strict";Object.defineProperty(Qn,"__esModule",{value:!0});Qn.ripemd160=Qn.RIPEMD160=void 0;var Pd=so(),Nd=Kr(),Rd=new Uint8Array([7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8]),kc=Uint8Array.from({length:16},(e,t)=>t),kd=kc.map(e=>(9*e+5)%16),oa=[kc],sa=[kd];for(let e=0;e<4;e++)for(let t of[oa,sa])t.push(t[e].map(r=>Rd[r]));var Uc=[[11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8],[12,13,11,15,6,9,9,7,12,15,11,13,7,8,7,7],[13,15,14,11,7,7,6,8,13,14,13,12,5,5,6,9],[14,11,12,14,8,6,5,5,15,12,15,14,9,9,8,6],[15,12,13,13,9,5,8,6,14,11,12,11,8,6,5,5]].map(e=>new Uint8Array(e)),Ud=oa.map((e,t)=>e.map(r=>Uc[t][r])),Dd=sa.map((e,t)=>e.map(r=>Uc[t][r])),Ld=new Uint32Array([0,1518500249,1859775393,2400959708,2840853838]),Wd=new Uint32Array([1352829926,1548603684,1836072691,2053994217,0]),xo=(e,t)=>e<<t|e>>>32-t;function Dc(e,t,r,i){return e===0?t^r^i:e===1?t&r|~t&i:e===2?(t|~r)^i:e===3?t&i|r&~i:t^(r|~i)}var vo=new Uint32Array(16),aa=class extends Pd.SHA2{constructor(){super(64,20,8,!0);this.h0=1732584193|0,this.h1=4023233417|0,this.h2=2562383102|0,this.h3=271733878|0,this.h4=3285377520|0}get(){let{h0:t,h1:r,h2:i,h3:n,h4:o}=this;return[t,r,i,n,o]}set(t,r,i,n,o){this.h0=t|0,this.h1=r|0,this.h2=i|0,this.h3=n|0,this.h4=o|0}process(t,r){for(let H=0;H<16;H++,r+=4)vo[H]=t.getUint32(r,!0);let i=this.h0|0,n=i,o=this.h1|0,a=o,l=this.h2|0,d=l,A=this.h3|0,M=A,P=this.h4|0,D=P;for(let H=0;H<5;H++){let Y=4-H,oe=Ld[H],me=Wd[H],te=oa[H],ge=sa[H],de=Ud[H],Se=Dd[H];for(let ue=0;ue<16;ue++){let he=xo(i+Dc(H,o,l,A)+vo[te[ue]]+oe,de[ue])+P|0;i=P,P=A,A=xo(l,10)|0,l=o,o=he}for(let ue=0;ue<16;ue++){let he=xo(n+Dc(Y,a,d,M)+vo[ge[ue]]+me,Se[ue])+D|0;n=D,D=M,M=xo(d,10)|0,d=a,a=he}}this.set(this.h1+l+M|0,this.h2+A+D|0,this.h3+P+n|0,this.h4+i+a|0,this.h0+o+d|0)}roundClean(){vo.fill(0)}destroy(){this.destroyed=!0,this.buffer.fill(0),this.set(0,0,0,0,0)}};Qn.RIPEMD160=aa;Qn.ripemd160=(0,Nd.wrapConstructor)(()=>new aa)});var ua=De(ca=>{"use strict";Object.defineProperty(ca,"__esModule",{value:!0});ca.default=Gd;var bo,Kd=new Uint8Array(16);function Gd(){if(!bo&&(bo=typeof crypto!="undefined"&&crypto.getRandomValues&&crypto.getRandomValues.bind(crypto)||typeof msCrypto!="undefined"&&typeof msCrypto.getRandomValues=="function"&&msCrypto.getRandomValues.bind(msCrypto),!bo))throw new Error("crypto.getRandomValues() not supported. See https://github.com/uuidjs/uuid#getrandomvalues-not-supported");return bo(Kd)}});var Hc=De(Eo=>{"use strict";Object.defineProperty(Eo,"__esModule",{value:!0});Eo.default=void 0;var Zd=/^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000)$/i;Eo.default=Zd});var Ai=De(So=>{"use strict";Object.defineProperty(So,"__esModule",{value:!0});So.default=void 0;var Yd=Jd(Hc());function Jd(e){return e&&e.__esModule?e:{default:e}}function Xd(e){return typeof e=="string"&&Yd.default.test(e)}var Qd=Xd;So.default=Qd});var _i=De(Ao=>{"use strict";Object.defineProperty(Ao,"__esModule",{value:!0});Ao.default=void 0;var jd=ep(Ai());function ep(e){return e&&e.__esModule?e:{default:e}}var Kt=[];for(let e=0;e<256;++e)Kt.push((e+256).toString(16).substr(1));function tp(e,t=0){let r=(Kt[e[t+0]]+Kt[e[t+1]]+Kt[e[t+2]]+Kt[e[t+3]]+"-"+Kt[e[t+4]]+Kt[e[t+5]]+"-"+Kt[e[t+6]]+Kt[e[t+7]]+"-"+Kt[e[t+8]]+Kt[e[t+9]]+"-"+Kt[e[t+10]]+Kt[e[t+11]]+Kt[e[t+12]]+Kt[e[t+13]]+Kt[e[t+14]]+Kt[e[t+15]]).toLowerCase();if(!(0,jd.default)(r))throw TypeError("Stringified UUID is invalid");return r}var rp=tp;Ao.default=rp});var $c=De(_o=>{"use strict";Object.defineProperty(_o,"__esModule",{value:!0});_o.default=void 0;var np=qc(ua()),ip=qc(_i());function qc(e){return e&&e.__esModule?e:{default:e}}var zc,la,ha=0,da=0;function op(e,t,r){let i=t&&r||0,n=t||new Array(16);e=e||{};let o=e.node||zc,a=e.clockseq!==void 0?e.clockseq:la;if(o==null||a==null){let D=e.random||(e.rng||np.default)();o==null&&(o=zc=[D[0]|1,D[1],D[2],D[3],D[4],D[5]]),a==null&&(a=la=(D[6]<<8|D[7])&16383)}let l=e.msecs!==void 0?e.msecs:Date.now(),d=e.nsecs!==void 0?e.nsecs:da+1,A=l-ha+(d-da)/1e4;if(A<0&&e.clockseq===void 0&&(a=a+1&16383),(A<0||l>ha)&&e.nsecs===void 0&&(d=0),d>=1e4)throw new Error("uuid.v1(): Can't create more than 10M uuids/sec");ha=l,da=d,la=a,l+=122192928e5;let M=((l&268435455)*1e4+d)%4294967296;n[i++]=M>>>24&255,n[i++]=M>>>16&255,n[i++]=M>>>8&255,n[i++]=M&255;let P=l/4294967296*1e4&268435455;n[i++]=P>>>8&255,n[i++]=P&255,n[i++]=P>>>24&15|16,n[i++]=P>>>16&255,n[i++]=a>>>8|128,n[i++]=a&255;for(let D=0;D<6;++D)n[i+D]=o[D];return t||(0,ip.default)(n)}var sp=op;_o.default=sp});var pa=De(Mo=>{"use strict";Object.defineProperty(Mo,"__esModule",{value:!0});Mo.default=void 0;var ap=fp(Ai());function fp(e){return e&&e.__esModule?e:{default:e}}function cp(e){if(!(0,ap.default)(e))throw TypeError("Invalid UUID");let t,r=new Uint8Array(16);return r[0]=(t=parseInt(e.slice(0,8),16))>>>24,r[1]=t>>>16&255,r[2]=t>>>8&255,r[3]=t&255,r[4]=(t=parseInt(e.slice(9,13),16))>>>8,r[5]=t&255,r[6]=(t=parseInt(e.slice(14,18),16))>>>8,r[7]=t&255,r[8]=(t=parseInt(e.slice(19,23),16))>>>8,r[9]=t&255,r[10]=(t=parseInt(e.slice(24,36),16))/1099511627776&255,r[11]=t/4294967296&255,r[12]=t>>>24&255,r[13]=t>>>16&255,r[14]=t>>>8&255,r[15]=t&255,r}var up=cp;Mo.default=up});var ya=De(Bn=>{"use strict";Object.defineProperty(Bn,"__esModule",{value:!0});Bn.default=pp;Bn.URL=Bn.DNS=void 0;var lp=Vc(_i()),hp=Vc(pa());function Vc(e){return e&&e.__esModule?e:{default:e}}function dp(e){e=unescape(encodeURIComponent(e));let t=[];for(let r=0;r<e.length;++r)t.push(e.charCodeAt(r));return t}var Kc="6ba7b810-9dad-11d1-80b4-00c04fd430c8";Bn.DNS=Kc;var Gc="6ba7b811-9dad-11d1-80b4-00c04fd430c8";Bn.URL=Gc;function pp(e,t,r){function i(n,o,a,l){if(typeof n=="string"&&(n=dp(n)),typeof o=="string"&&(o=(0,hp.default)(o)),o.length!==16)throw TypeError("Namespace must be array-like (16 iterable integer values, 0-255)");let d=new Uint8Array(16+n.length);if(d.set(o),d.set(n,o.length),d=r(d),d[6]=d[6]&15|t,d[8]=d[8]&63|128,a){l=l||0;for(let A=0;A<16;++A)a[l+A]=d[A];return a}return(0,lp.default)(d)}try{i.name=e}catch(n){}return i.DNS=Kc,i.URL=Gc,i}});var Yc=De(To=>{"use strict";Object.defineProperty(To,"__esModule",{value:!0});To.default=void 0;function yp(e){if(typeof e=="string"){let t=unescape(encodeURIComponent(e));e=new Uint8Array(t.length);for(let r=0;r<t.length;++r)e[r]=t.charCodeAt(r)}return gp(mp(wp(e),e.length*8))}function gp(e){let t=[],r=e.length*32,i="0123456789abcdef";for(let n=0;n<r;n+=8){let o=e[n>>5]>>>n%32&255,a=parseInt(i.charAt(o>>>4&15)+i.charAt(o&15),16);t.push(a)}return t}function Zc(e){return(e+64>>>9<<4)+14+1}function mp(e,t){e[t>>5]|=128<<t%32,e[Zc(t)-1]=t;let r=1732584193,i=-271733879,n=-1732584194,o=271733878;for(let a=0;a<e.length;a+=16){let l=r,d=i,A=n,M=o;r=Jt(r,i,n,o,e[a],7,-680876936),o=Jt(o,r,i,n,e[a+1],12,-389564586),n=Jt(n,o,r,i,e[a+2],17,606105819),i=Jt(i,n,o,r,e[a+3],22,-1044525330),r=Jt(r,i,n,o,e[a+4],7,-176418897),o=Jt(o,r,i,n,e[a+5],12,1200080426),n=Jt(n,o,r,i,e[a+6],17,-1473231341),i=Jt(i,n,o,r,e[a+7],22,-45705983),r=Jt(r,i,n,o,e[a+8],7,1770035416),o=Jt(o,r,i,n,e[a+9],12,-1958414417),n=Jt(n,o,r,i,e[a+10],17,-42063),i=Jt(i,n,o,r,e[a+11],22,-1990404162),r=Jt(r,i,n,o,e[a+12],7,1804603682),o=Jt(o,r,i,n,e[a+13],12,-40341101),n=Jt(n,o,r,i,e[a+14],17,-1502002290),i=Jt(i,n,o,r,e[a+15],22,1236535329),r=Xt(r,i,n,o,e[a+1],5,-165796510),o=Xt(o,r,i,n,e[a+6],9,-1069501632),n=Xt(n,o,r,i,e[a+11],14,643717713),i=Xt(i,n,o,r,e[a],20,-373897302),r=Xt(r,i,n,o,e[a+5],5,-701558691),o=Xt(o,r,i,n,e[a+10],9,38016083),n=Xt(n,o,r,i,e[a+15],14,-660478335),i=Xt(i,n,o,r,e[a+4],20,-405537848),r=Xt(r,i,n,o,e[a+9],5,568446438),o=Xt(o,r,i,n,e[a+14],9,-1019803690),n=Xt(n,o,r,i,e[a+3],14,-187363961),i=Xt(i,n,o,r,e[a+8],20,1163531501),r=Xt(r,i,n,o,e[a+13],5,-1444681467),o=Xt(o,r,i,n,e[a+2],9,-51403784),n=Xt(n,o,r,i,e[a+7],14,1735328473),i=Xt(i,n,o,r,e[a+12],20,-1926607734),r=Qt(r,i,n,o,e[a+5],4,-378558),o=Qt(o,r,i,n,e[a+8],11,-2022574463),n=Qt(n,o,r,i,e[a+11],16,1839030562),i=Qt(i,n,o,r,e[a+14],23,-35309556),r=Qt(r,i,n,o,e[a+1],4,-1530992060),o=Qt(o,r,i,n,e[a+4],11,1272893353),n=Qt(n,o,r,i,e[a+7],16,-155497632),i=Qt(i,n,o,r,e[a+10],23,-1094730640),r=Qt(r,i,n,o,e[a+13],4,681279174),o=Qt(o,r,i,n,e[a],11,-358537222),n=Qt(n,o,r,i,e[a+3],16,-722521979),i=Qt(i,n,o,r,e[a+6],23,76029189),r=Qt(r,i,n,o,e[a+9],4,-640364487),o=Qt(o,r,i,n,e[a+12],11,-421815835),n=Qt(n,o,r,i,e[a+15],16,530742520),i=Qt(i,n,o,r,e[a+2],23,-995338651),r=jt(r,i,n,o,e[a],6,-198630844),o=jt(o,r,i,n,e[a+7],10,1126891415),n=jt(n,o,r,i,e[a+14],15,-1416354905),i=jt(i,n,o,r,e[a+5],21,-57434055),r=jt(r,i,n,o,e[a+12],6,1700485571),o=jt(o,r,i,n,e[a+3],10,-1894986606),n=jt(n,o,r,i,e[a+10],15,-1051523),i=jt(i,n,o,r,e[a+1],21,-2054922799),r=jt(r,i,n,o,e[a+8],6,1873313359),o=jt(o,r,i,n,e[a+15],10,-30611744),n=jt(n,o,r,i,e[a+6],15,-1560198380),i=jt(i,n,o,r,e[a+13],21,1309151649),r=jt(r,i,n,o,e[a+4],6,-145523070),o=jt(o,r,i,n,e[a+11],10,-1120210379),n=jt(n,o,r,i,e[a+2],15,718787259),i=jt(i,n,o,r,e[a+9],21,-343485551),r=yn(r,l),i=yn(i,d),n=yn(n,A),o=yn(o,M)}return[r,i,n,o]}function wp(e){if(e.length===0)return[];let t=e.length*8,r=new Uint32Array(Zc(t));for(let i=0;i<t;i+=8)r[i>>5]|=(e[i/8]&255)<<i%32;return r}function yn(e,t){let r=(e&65535)+(t&65535);return(e>>16)+(t>>16)+(r>>16)<<16|r&65535}function xp(e,t){return e<<t|e>>>32-t}function Co(e,t,r,i,n,o){return yn(xp(yn(yn(t,e),yn(i,o)),n),r)}function Jt(e,t,r,i,n,o,a){return Co(t&r|~t&i,e,t,n,o,a)}function Xt(e,t,r,i,n,o,a){return Co(t&i|r&~i,e,t,n,o,a)}function Qt(e,t,r,i,n,o,a){return Co(t^r^i,e,t,n,o,a)}function jt(e,t,r,i,n,o,a){return Co(r^(t|~i),e,t,n,o,a)}var vp=yp;To.default=vp});var Xc=De(Io=>{"use strict";Object.defineProperty(Io,"__esModule",{value:!0});Io.default=void 0;var bp=Jc(ya()),Ep=Jc(Yc());function Jc(e){return e&&e.__esModule?e:{default:e}}var Sp=(0,bp.default)("v3",48,Ep.default),Ap=Sp;Io.default=Ap});var jc=De(Bo=>{"use strict";Object.defineProperty(Bo,"__esModule",{value:!0});Bo.default=void 0;var _p=Qc(ua()),Mp=Qc(_i());function Qc(e){return e&&e.__esModule?e:{default:e}}function Cp(e,t,r){e=e||{};let i=e.random||(e.rng||_p.default)();if(i[6]=i[6]&15|64,i[8]=i[8]&63|128,t){r=r||0;for(let n=0;n<16;++n)t[r+n]=i[n];return t}return(0,Mp.default)(i)}var Tp=Cp;Bo.default=Tp});var eu=De(Oo=>{"use strict";Object.defineProperty(Oo,"__esModule",{value:!0});Oo.default=void 0;function Ip(e,t,r,i){switch(e){case 0:return t&r^~t&i;case 1:return t^r^i;case 2:return t&r^t&i^r&i;case 3:return t^r^i}}function ga(e,t){return e<<t|e>>>32-t}function Bp(e){let t=[1518500249,1859775393,2400959708,3395469782],r=[1732584193,4023233417,2562383102,271733878,3285377520];if(typeof e=="string"){let a=unescape(encodeURIComponent(e));e=[];for(let l=0;l<a.length;++l)e.push(a.charCodeAt(l))}else Array.isArray(e)||(e=Array.prototype.slice.call(e));e.push(128);let i=e.length/4+2,n=Math.ceil(i/16),o=new Array(n);for(let a=0;a<n;++a){let l=new Uint32Array(16);for(let d=0;d<16;++d)l[d]=e[a*64+d*4]<<24|e[a*64+d*4+1]<<16|e[a*64+d*4+2]<<8|e[a*64+d*4+3];o[a]=l}o[n-1][14]=(e.length-1)*8/Math.pow(2,32),o[n-1][14]=Math.floor(o[n-1][14]),o[n-1][15]=(e.length-1)*8&4294967295;for(let a=0;a<n;++a){let l=new Uint32Array(80);for(let H=0;H<16;++H)l[H]=o[a][H];for(let H=16;H<80;++H)l[H]=ga(l[H-3]^l[H-8]^l[H-14]^l[H-16],1);let d=r[0],A=r[1],M=r[2],P=r[3],D=r[4];for(let H=0;H<80;++H){let Y=Math.floor(H/20),oe=ga(d,5)+Ip(Y,A,M,P)+D+t[Y]+l[H]>>>0;D=P,P=M,M=ga(A,30)>>>0,A=d,d=oe}r[0]=r[0]+d>>>0,r[1]=r[1]+A>>>0,r[2]=r[2]+M>>>0,r[3]=r[3]+P>>>0,r[4]=r[4]+D>>>0}return[r[0]>>24&255,r[0]>>16&255,r[0]>>8&255,r[0]&255,r[1]>>24&255,r[1]>>16&255,r[1]>>8&255,r[1]&255,r[2]>>24&255,r[2]>>16&255,r[2]>>8&255,r[2]&255,r[3]>>24&255,r[3]>>16&255,r[3]>>8&255,r[3]&255,r[4]>>24&255,r[4]>>16&255,r[4]>>8&255,r[4]&255]}var Op=Bp;Oo.default=Op});var ru=De(Po=>{"use strict";Object.defineProperty(Po,"__esModule",{value:!0});Po.default=void 0;var Pp=tu(ya()),Np=tu(eu());function tu(e){return e&&e.__esModule?e:{default:e}}var Rp=(0,Pp.default)("v5",80,Np.default),kp=Rp;Po.default=kp});var nu=De(No=>{"use strict";Object.defineProperty(No,"__esModule",{value:!0});No.default=void 0;var Up="00000000-0000-0000-0000-000000000000";No.default=Up});var iu=De(Ro=>{"use strict";Object.defineProperty(Ro,"__esModule",{value:!0});Ro.default=void 0;var Dp=Lp(Ai());function Lp(e){return e&&e.__esModule?e:{default:e}}function Wp(e){if(!(0,Dp.default)(e))throw TypeError("Invalid UUID");return parseInt(e.substr(14,1),16)}var Fp=Wp;Ro.default=Fp});var ma=De(Er=>{"use strict";Object.defineProperty(Er,"__esModule",{value:!0});Object.defineProperty(Er,"v1",{enumerable:!0,get:function(){return Hp.default}});Object.defineProperty(Er,"v3",{enumerable:!0,get:function(){return qp.default}});Object.defineProperty(Er,"v4",{enumerable:!0,get:function(){return zp.default}});Object.defineProperty(Er,"v5",{enumerable:!0,get:function(){return $p.default}});Object.defineProperty(Er,"NIL",{enumerable:!0,get:function(){return Vp.default}});Object.defineProperty(Er,"version",{enumerable:!0,get:function(){return Kp.default}});Object.defineProperty(Er,"validate",{enumerable:!0,get:function(){return Gp.default}});Object.defineProperty(Er,"stringify",{enumerable:!0,get:function(){return Zp.default}});Object.defineProperty(Er,"parse",{enumerable:!0,get:function(){return Yp.default}});var Hp=Zr($c()),qp=Zr(Xc()),zp=Zr(jc()),$p=Zr(ru()),Vp=Zr(nu()),Kp=Zr(iu()),Gp=Zr(Ai()),Zp=Zr(_i()),Yp=Zr(pa());function Zr(e){return e&&e.__esModule?e:{default:e}}});var su=De((uw,ou)=>{"use strict";var Jp=ma().v4,Xp=function(e,t,r,i){if(typeof e!="string")throw new TypeError(e+" must be a string");i=i||{};let n=typeof i.version=="number"?i.version:2;if(n!==1&&n!==2)throw new TypeError(n+" must be 1 or 2");let o={method:e};if(n===2&&(o.jsonrpc="2.0"),t){if(typeof t!="object"&&!Array.isArray(t))throw new TypeError(t+" must be an object, array or omitted");o.params=t}if(typeof r=="undefined"){let a=typeof i.generator=="function"?i.generator:function(){return Jp()};o.id=a(o,i)}else n===2&&r===null?i.notificationIdNull&&(o.id=null):o.id=r;return o};ou.exports=Xp});var fu=De((lw,au)=>{"use strict";var Qp=ma().v4,jp=su(),Mi=function(e,t){if(!(this instanceof Mi))return new Mi(e,t);t||(t={}),this.options={reviver:typeof t.reviver!="undefined"?t.reviver:null,replacer:typeof t.replacer!="undefined"?t.replacer:null,generator:typeof t.generator!="undefined"?t.generator:function(){return Qp()},version:typeof t.version!="undefined"?t.version:2,notificationIdNull:typeof t.notificationIdNull=="boolean"?t.notificationIdNull:!1},this.callServer=e};au.exports=Mi;Mi.prototype.request=function(e,t,r,i){let n=this,o=null,a=Array.isArray(e)&&typeof t=="function";if(this.options.version===1&&a)throw new TypeError("JSON-RPC 1.0 does not support batching");let l=!a&&e&&typeof e=="object"&&typeof t=="function";if(a||l)i=t,o=e;else{typeof r=="function"&&(i=r,r=void 0);let A=typeof i=="function";try{o=jp(e,t,r,{generator:this.options.generator,version:this.options.version,notificationIdNull:this.options.notificationIdNull})}catch(M){if(A)return i(M);throw M}if(!A)return o}let d;try{d=JSON.stringify(o,this.options.replacer)}catch(A){return i(A)}return this.callServer(d,function(A,M){n._parseResponse(A,M,i)}),o};Mi.prototype._parseResponse=function(e,t,r){if(e){r(e);return}if(!t)return r();let i;try{i=JSON.parse(t,this.options.reviver)}catch(n){return r(n)}if(r.length===3)if(Array.isArray(i)){let n=function(a){return typeof a.error!="undefined"},o=function(a){return!n(a)};return r(null,i.filter(n),i.filter(o))}else return r(null,i.error,i.result);r(null,i)}});var wa=De((Yr,uu)=>{var cu=typeof self!="undefined"?self:Yr,ko=function(){function e(){this.fetch=!1,this.DOMException=cu.DOMException}return e.prototype=cu,new e}();(function(e){var t=function(r){var i={searchParams:"URLSearchParams"in e,iterable:"Symbol"in e&&"iterator"in Symbol,blob:"FileReader"in e&&"Blob"in e&&function(){try{return new Blob,!0}catch(B){return!1}}(),formData:"FormData"in e,arrayBuffer:"ArrayBuffer"in e};function n(B){return B&&DataView.prototype.isPrototypeOf(B)}if(i.arrayBuffer)var o=["[object Int8Array]","[object Uint8Array]","[object Uint8ClampedArray]","[object Int16Array]","[object Uint16Array]","[object Int32Array]","[object Uint32Array]","[object Float32Array]","[object Float64Array]"],a=ArrayBuffer.isView||function(B){return B&&o.indexOf(Object.prototype.toString.call(B))>-1};function l(B){if(typeof B!="string"&&(B=String(B)),/[^a-z0-9\-#$%&'*+.^_`|~]/i.test(B))throw new TypeError("Invalid character in header field name");return B.toLowerCase()}function d(B){return typeof B!="string"&&(B=String(B)),B}function A(B){var k={next:function(){var j=B.shift();return{done:j===void 0,value:j}}};return i.iterable&&(k[Symbol.iterator]=function(){return k}),k}function M(B){this.map={},B instanceof M?B.forEach(function(k,j){this.append(j,k)},this):Array.isArray(B)?B.forEach(function(k){this.append(k[0],k[1])},this):B&&Object.getOwnPropertyNames(B).forEach(function(k){this.append(k,B[k])},this)}M.prototype.append=function(B,k){B=l(B),k=d(k);var j=this.map[B];this.map[B]=j?j+", "+k:k},M.prototype.delete=function(B){delete this.map[l(B)]},M.prototype.get=function(B){return B=l(B),this.has(B)?this.map[B]:null},M.prototype.has=function(B){return this.map.hasOwnProperty(l(B))},M.prototype.set=function(B,k){this.map[l(B)]=d(k)},M.prototype.forEach=function(B,k){for(var j in this.map)this.map.hasOwnProperty(j)&&B.call(k,this.map[j],j,this)},M.prototype.keys=function(){var B=[];return this.forEach(function(k,j){B.push(j)}),A(B)},M.prototype.values=function(){var B=[];return this.forEach(function(k){B.push(k)}),A(B)},M.prototype.entries=function(){var B=[];return this.forEach(function(k,j){B.push([j,k])}),A(B)},i.iterable&&(M.prototype[Symbol.iterator]=M.prototype.entries);function P(B){if(B.bodyUsed)return Promise.reject(new TypeError("Already read"));B.bodyUsed=!0}function D(B){return new Promise(function(k,j){B.onload=function(){k(B.result)},B.onerror=function(){j(B.error)}})}function H(B){var k=new FileReader,j=D(k);return k.readAsArrayBuffer(B),j}function Y(B){var k=new FileReader,j=D(k);return k.readAsText(B),j}function oe(B){for(var k=new Uint8Array(B),j=new Array(k.length),S=0;S<k.length;S++)j[S]=String.fromCharCode(k[S]);return j.join("")}function me(B){if(B.slice)return B.slice(0);var k=new Uint8Array(B.byteLength);return k.set(new Uint8Array(B)),k.buffer}function te(){return this.bodyUsed=!1,this._initBody=function(B){this._bodyInit=B,B?typeof B=="string"?this._bodyText=B:i.blob&&Blob.prototype.isPrototypeOf(B)?this._bodyBlob=B:i.formData&&FormData.prototype.isPrototypeOf(B)?this._bodyFormData=B:i.searchParams&&URLSearchParams.prototype.isPrototypeOf(B)?this._bodyText=B.toString():i.arrayBuffer&&i.blob&&n(B)?(this._bodyArrayBuffer=me(B.buffer),this._bodyInit=new Blob([this._bodyArrayBuffer])):i.arrayBuffer&&(ArrayBuffer.prototype.isPrototypeOf(B)||a(B))?this._bodyArrayBuffer=me(B):this._bodyText=B=Object.prototype.toString.call(B):this._bodyText="",this.headers.get("content-type")||(typeof B=="string"?this.headers.set("content-type","text/plain;charset=UTF-8"):this._bodyBlob&&this._bodyBlob.type?this.headers.set("content-type",this._bodyBlob.type):i.searchParams&&URLSearchParams.prototype.isPrototypeOf(B)&&this.headers.set("content-type","application/x-www-form-urlencoded;charset=UTF-8"))},i.blob&&(this.blob=function(){var B=P(this);if(B)return B;if(this._bodyBlob)return Promise.resolve(this._bodyBlob);if(this._bodyArrayBuffer)return Promise.resolve(new Blob([this._bodyArrayBuffer]));if(this._bodyFormData)throw new Error("could not read FormData body as blob");return Promise.resolve(new Blob([this._bodyText]))},this.arrayBuffer=function(){return this._bodyArrayBuffer?P(this)||Promise.resolve(this._bodyArrayBuffer):this.blob().then(H)}),this.text=function(){var B=P(this);if(B)return B;if(this._bodyBlob)return Y(this._bodyBlob);if(this._bodyArrayBuffer)return Promise.resolve(oe(this._bodyArrayBuffer));if(this._bodyFormData)throw new Error("could not read FormData body as text");return Promise.resolve(this._bodyText)},i.formData&&(this.formData=function(){return this.text().then(ue)}),this.json=function(){return this.text().then(JSON.parse)},this}var ge=["DELETE","GET","HEAD","OPTIONS","POST","PUT"];function de(B){var k=B.toUpperCase();return ge.indexOf(k)>-1?k:B}function Se(B,k){k=k||{};var j=k.body;if(B instanceof Se){if(B.bodyUsed)throw new TypeError("Already read");this.url=B.url,this.credentials=B.credentials,k.headers||(this.headers=new M(B.headers)),this.method=B.method,this.mode=B.mode,this.signal=B.signal,!j&&B._bodyInit!=null&&(j=B._bodyInit,B.bodyUsed=!0)}else this.url=String(B);if(this.credentials=k.credentials||this.credentials||"same-origin",(k.headers||!this.headers)&&(this.headers=new M(k.headers)),this.method=de(k.method||this.method||"GET"),this.mode=k.mode||this.mode||null,this.signal=k.signal||this.signal,this.referrer=null,(this.method==="GET"||this.method==="HEAD")&&j)throw new TypeError("Body not allowed for GET or HEAD requests");this._initBody(j)}Se.prototype.clone=function(){return new Se(this,{body:this._bodyInit})};function ue(B){var k=new FormData;return B.trim().split("&").forEach(function(j){if(j){var S=j.split("="),s=S.shift().replace(/\+/g," "),u=S.join("=").replace(/\+/g," ");k.append(decodeURIComponent(s),decodeURIComponent(u))}}),k}function he(B){var k=new M,j=B.replace(/\r?\n[\t ]+/g," ");return j.split(/\r?\n/).forEach(function(S){var s=S.split(":"),u=s.shift().trim();if(u){var y=s.join(":").trim();k.append(u,y)}}),k}te.call(Se.prototype);function be(B,k){k||(k={}),this.type="default",this.status=k.status===void 0?200:k.status,this.ok=this.status>=200&&this.status<300,this.statusText="statusText"in k?k.statusText:"OK",this.headers=new M(k.headers),this.url=k.url||"",this._initBody(B)}te.call(be.prototype),be.prototype.clone=function(){return new be(this._bodyInit,{status:this.status,statusText:this.statusText,headers:new M(this.headers),url:this.url})},be.error=function(){var B=new be(null,{status:0,statusText:""});return B.type="error",B};var We=[301,302,303,307,308];be.redirect=function(B,k){if(We.indexOf(k)===-1)throw new RangeError("Invalid status code");return new be(null,{status:k,headers:{location:B}})},r.DOMException=e.DOMException;try{new r.DOMException}catch(B){r.DOMException=function(k,j){this.message=k,this.name=j;var S=Error(k);this.stack=S.stack},r.DOMException.prototype=Object.create(Error.prototype),r.DOMException.prototype.constructor=r.DOMException}function se(B,k){return new Promise(function(j,S){var s=new Se(B,k);if(s.signal&&s.signal.aborted)return S(new r.DOMException("Aborted","AbortError"));var u=new XMLHttpRequest;function y(){u.abort()}u.onload=function(){var v={status:u.status,statusText:u.statusText,headers:he(u.getAllResponseHeaders()||"")};v.url="responseURL"in u?u.responseURL:v.headers.get("X-Request-URL");var C="response"in u?u.response:u.responseText;j(new be(C,v))},u.onerror=function(){S(new TypeError("Network request failed"))},u.ontimeout=function(){S(new TypeError("Network request failed"))},u.onabort=function(){S(new r.DOMException("Aborted","AbortError"))},u.open(s.method,s.url,!0),s.credentials==="include"?u.withCredentials=!0:s.credentials==="omit"&&(u.withCredentials=!1),"responseType"in u&&i.blob&&(u.responseType="blob"),s.headers.forEach(function(v,C){u.setRequestHeader(C,v)}),s.signal&&(s.signal.addEventListener("abort",y),u.onreadystatechange=function(){u.readyState===4&&s.signal.removeEventListener("abort",y)}),u.send(typeof s._bodyInit=="undefined"?null:s._bodyInit)})}return se.polyfill=!0,e.fetch||(e.fetch=se,e.Headers=M,e.Request=Se,e.Response=be),r.Headers=M,r.Request=Se,r.Response=be,r.fetch=se,Object.defineProperty(r,"__esModule",{value:!0}),r}({})})(ko);ko.fetch.ponyfill=!0;delete ko.fetch.polyfill;var ei=ko;Yr=ei.fetch;Yr.default=ei.fetch;Yr.fetch=ei.fetch;Yr.Headers=ei.Headers;Yr.Request=ei.Request;Yr.Response=ei.Response;uu.exports=Yr});var hu=De((Uo,lu)=>{(function(e,t){typeof Uo=="object"&&typeof lu!="undefined"?t(Uo):typeof define=="function"&&define.amd?define(["exports"],t):t((e=typeof globalThis!="undefined"?globalThis:e||self).LosslessJSON={})})(Uo,function(e){"use strict";var t=!0;function r(I){return I&&I.circularRefs!==void 0&&I.circularRefs!==null&&(t=I.circularRefs===!0),{circularRefs:t}}function i(I){return(i=typeof Symbol=="function"&&typeof Symbol.iterator=="symbol"?function(b){return typeof b}:function(b){return b&&typeof Symbol=="function"&&b.constructor===Symbol&&b!==Symbol.prototype?"symbol":typeof b})(I)}function n(I,b){for(var c=0;c<b.length;c++){var m=b[c];m.enumerable=m.enumerable||!1,m.configurable=!0,"value"in m&&(m.writable=!0),Object.defineProperty(I,m.key,m)}}var o=function(){function I(J){(function(p,W){if(!(p instanceof W))throw new TypeError("Cannot call a class as a function")})(this,I),this.value=function p(W){{if(typeof W=="string"){if(!l(W))throw new Error('Invalid number (value: "'+W+'")');return W}if(typeof W!="number")return p(W&&W.valueOf());if(15<a(W+"").length)throw new Error("Invalid number: contains more than 15 digits (value: "+W+")");if(isNaN(W))throw new Error("Invalid number: NaN");if(!isFinite(W))throw new Error("Invalid number: Infinity");return W+""}}(J),this.type="LosslessNumber",this.isLosslessNumber=!0}var b,c,m;return b=I,(c=[{key:"valueOf",value:function(){var J=parseFloat(this.value),p=a(this.value);if(15<p.length)throw new Error("Cannot convert to number: number would be truncated (value: "+this.value+")");if(!isFinite(J))throw new Error("Cannot convert to number: number would overflow (value: "+this.value+")");if(Math.abs(J)<Number.MIN_VALUE&&!/^0*$/.test(p))throw new Error("Cannot convert to number: number would underflow (value: "+this.value+")");return J}},{key:"toString",value:function(){return this.value}}])&&n(b.prototype,c),m&&n(b,m),I}();function a(I){return(typeof I!="string"?I+"":I).replace(/^-/,"").replace(/e.*$/,"").replace(/^0\.?0*|\./,"")}function l(I){return/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(I)}function d(I,b,c,m){return Array.isArray(c)?m.call(I,b,function(J,p){for(var W=[],V=0;V<J.length;V++)W[V]=d(J,V+"",J[V],p);return W}(c,m)):c&&i(c)==="object"&&!c.isLosslessNumber?m.call(I,b,function(J,p){var W,V={};for(W in J)J.hasOwnProperty(W)&&(V[W]=d(J,W,J[W],p));return V}(c,m)):m.call(I,b,c)}function A(I){return encodeURIComponent(I.replace(/\//g,"~1").replace(/~/g,"~0"))}function M(I){return decodeURIComponent(I).replace(/~1/g,"/").replace(/~0/g,"~")}function P(I){return"#/"+I.map(A).join("/")}var D={NULL:0,DELIMITER:1,NUMBER:2,STRING:3,SYMBOL:4,UNKNOWN:5},H={"":!0,"{":!0,"}":!0,"[":!0,"]":!0,":":!0,",":!0},Y={'"':'"',"\\":"\\","/":"/",b:"\b",f:"\f",n:`
+`,r:"\r",t:"	"},oe="",me=0,te="",ge="",de=D.NULL,Se=[],ue=[];function he(){me++,te=oe.charAt(me)}function be(){for(de=D.NULL,ge="";te===" "||te==="	"||te===`
+`||te==="\r";)he();if(H[te])return de=D.DELIMITER,ge=te,void he();if(se(te)||te==="-"){if(de=D.NUMBER,te==="-"){if(ge+=te,he(),!se(te))throw B("Invalid number, digit expected",me)}else te==="0"&&(ge+=te,he());for(;se(te);)ge+=te,he();if(te==="."){if(ge+=te,he(),!se(te))throw B("Invalid number, digit expected",me);for(;se(te);)ge+=te,he()}if(te==="e"||te==="E"){if(ge+=te,he(),te!=="+"&&te!=="-"||(ge+=te,he()),!se(te))throw B("Invalid number, digit expected",me);for(;se(te);)ge+=te,he()}}else if(te!=='"'){if(!We(te)){for(de=D.UNKNOWN;te!=="";)ge+=te,he();throw B('Syntax error in part "'+ge+'"')}for(de=D.SYMBOL;We(te);)ge+=te,he()}else{for(de=D.STRING,he();te!==""&&te!=='"';)if(te==="\\"){he();var I=Y[te];if(I!==void 0)ge+=I,he();else{if(te!=="u")throw B('Invalid escape character "\\'+te+'"',me);he();for(var b="",c=0;c<4;c++){if(!/^[0-9a-fA-F]/.test(te))throw B("Invalid unicode character");b+=te,he()}ge+=String.fromCharCode(parseInt(b,16))}}else ge+=te,he();if(te!=='"')throw B("End of string expected");he()}}function We(I){return/^[a-zA-Z_]/.test(I)}function se(I){return"0"<=I&&I<="9"}function B(I,b){return b===void 0&&(b=me-ge.length),I=new SyntaxError(I+" (char "+b+")"),I.char=b,I}function k(){if(de!==D.DELIMITER||ge!=="{")return function(){if(de!==D.DELIMITER||ge!=="[")return function(){if(de!==D.STRING)return function(){if(de!==D.NUMBER)return function(){if(de!==D.SYMBOL)return function(){throw B(ge===""?"Unexpected end of json string":"Value expected")}();if(ge==="true")return be(),!0;if(ge==="false")return be(),!1;if(ge!=="null")throw B('Unknown symbol "'+ge+'"');return be(),null}();var V=new o(ge);return be(),V}();var W=ge;return be(),W}();be();var J=[];if(de===D.DELIMITER&&ge==="]")return be(),J;var p=ue.length;for(ue[p]=J;Se[p]=J.length+"",J.push(k()),de===D.DELIMITER&&ge===",";)be();if(de===D.DELIMITER&&ge==="]")return be(),ue.length=p,Se.length=p,J;throw B('Comma or end of array "]" expected')}();var I,b;be();var c={};if(de===D.DELIMITER&&ge==="}")return be(),c;var m=ue.length;for(ue[m]=c;;){if(de!==D.STRING)throw B("Object key expected");if(b=ge,be(),de!==D.DELIMITER||ge!==":")throw B("Colon expected");if(be(),c[Se[m]=b]=k(),de!==D.DELIMITER||ge!==",")break;be()}if(de!==D.DELIMITER||ge!=="}")throw B('Comma or end of object "}" expected');return be(),typeof(I=c).$ref=="string"&&Object.keys(I).length===1?function(J){if(!r().circularRefs)return J;for(var p=function(V){if((V=V.split("/").map(M)).shift()!=="#")throw SyntaxError("Cannot parse JSON Pointer: no valid URI fragment");return V[V.length-1]===""&&V.pop(),V}(J.$ref),W=0;W<p.length;W++)if(p[W]!==Se[W])throw new Error('Invalid circular reference "'+J.$ref+'"');return ue[p.length]}(c):(ue.length=m,Se.length=m,c)}var j=[],S=[];function s(I,b,c){S=[],j=[];var m,I=typeof b=="function"?b.call({"":I},"",I):I;return typeof c=="number"?10<c?m=O(" ",10):1<=c&&(m=O(" ",c)):typeof c=="string"&&c!==""&&(m=c),u(I,b,m,"")}function u(I,b,c,m){return typeof I=="boolean"||I instanceof Boolean||I===null||typeof I=="number"||I instanceof Number||typeof I=="string"||I instanceof String||I instanceof Date?JSON.stringify(I):I&&I.isLosslessNumber?I.value:Array.isArray(I)?function(J,p,W,V){var re=W?V+W:void 0,g=W?`[
+`:"[";if(v(J))return C(J,p,W,V);var _=S.length;S[_]=J;for(var T=0;T<J.length;T++){var N=T+"",L=typeof p=="function"?p.call(J,N,J[T]):J[T];W&&(g+=re),L!==void 0&&typeof L!="function"?(j[_]=N,g+=u(L,p,W,re)):g+="null",T<J.length-1&&(g+=W?`,
+`:",")}return S.length=_,j.length=_,g+=W?`
+`+V+"]":"]"}(I,b,c,m):I&&i(I)==="object"?y(I,b,c,m):void 0}function y(I,b,c,m){var J=c?m+c:void 0,p=!0,W=c?`{
+`:"{";if(typeof I.toJSON=="function")return s(I.toJSON(),b,c);if(v(I))return C(I,b,c,m);var V,re,g,_,T,N=S.length;for(V in S[N]=I)I.hasOwnProperty(V)&&(re=typeof b=="function"?b.call(I,V,I[V]):I[V],g=V,T=b,(_=re)===void 0||typeof _=="function"||Array.isArray(T)&&!function(L,U){for(var $=0;$<L.length;$++)if(L[$]==U)return!0;return!1}(T,g)||(p?p=!1:W+=c?`,
+`:",",g=JSON.stringify(V),W+=c?J+g+": ":g+":",j[N]=V,W+=u(re,b,c,J)));return S.length=N,j.length=N,W+=c?`
+`+m+"}":"}"}function v(I){return S.indexOf(I)!==-1}function C(I,b,c,m){if(!r().circularRefs)throw new Error('Circular reference at "'+P(j)+'"');return I=S.indexOf(I),y({$ref:P(j.slice(0,I))},b,c,m)}function O(I,b){for(var c="";0<b--;)c+=I;return c}e.LosslessNumber=o,e.config=r,e.parse=function(I,b){me=0,te=(oe=I).charAt(0),ge="",de=D.NULL,ue=[],Se=[],be();var c=k();if(ge!=="")throw B("Unexpected characters");return b?d({"":I=c},"",I,b):c},e.stringify=s,Object.defineProperty(e,"__esModule",{value:!0})})});var Lo=De((dw,Ci)=>{function o1(e){return e&&e.__esModule?e:{default:e}}Ci.exports=o1,Ci.exports.__esModule=!0,Ci.exports.default=Ci.exports});var Wo=De((pw,Ti)=>{function wu(e,t){for(var r=0;r<t.length;r++){var i=t[r];i.enumerable=i.enumerable||!1,i.configurable=!0,"value"in i&&(i.writable=!0),Object.defineProperty(e,i.key,i)}}function s1(e,t,r){return t&&wu(e.prototype,t),r&&wu(e,r),Object.defineProperty(e,"prototype",{writable:!1}),e}Ti.exports=s1,Ti.exports.__esModule=!0,Ti.exports.default=Ti.exports});var Fo=De((yw,Ii)=>{function a1(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}Ii.exports=a1,Ii.exports.__esModule=!0,Ii.exports.default=Ii.exports});var xu=De((gw,Jr)=>{function Ea(e,t){return Jr.exports=Ea=Object.setPrototypeOf?Object.setPrototypeOf.bind():function(i,n){return i.__proto__=n,i},Jr.exports.__esModule=!0,Jr.exports.default=Jr.exports,Ea(e,t)}Jr.exports=Ea,Jr.exports.__esModule=!0,Jr.exports.default=Jr.exports});var Ho=De((mw,Bi)=>{var f1=xu();function c1(e,t){if(typeof t!="function"&&t!==null)throw new TypeError("Super expression must either be null or a function");e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,writable:!0,configurable:!0}}),Object.defineProperty(e,"prototype",{writable:!1}),t&&f1(e,t)}Bi.exports=c1,Bi.exports.__esModule=!0,Bi.exports.default=Bi.exports});var qo=De((ww,Xr)=>{function Sa(e){return Xr.exports=Sa=typeof Symbol=="function"&&typeof Symbol.iterator=="symbol"?function(t){return typeof t}:function(t){return t&&typeof Symbol=="function"&&t.constructor===Symbol&&t!==Symbol.prototype?"symbol":typeof t},Xr.exports.__esModule=!0,Xr.exports.default=Xr.exports,Sa(e)}Xr.exports=Sa,Xr.exports.__esModule=!0,Xr.exports.default=Xr.exports});var vu=De((xw,Oi)=>{function u1(e){if(e===void 0)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return e}Oi.exports=u1,Oi.exports.__esModule=!0,Oi.exports.default=Oi.exports});var zo=De((vw,Pi)=>{var l1=qo().default,h1=vu();function d1(e,t){if(t&&(l1(t)==="object"||typeof t=="function"))return t;if(t!==void 0)throw new TypeError("Derived constructors may only return object or undefined");return h1(e)}Pi.exports=d1,Pi.exports.__esModule=!0,Pi.exports.default=Pi.exports});var $o=De((bw,Qr)=>{function Aa(e){return Qr.exports=Aa=Object.setPrototypeOf?Object.getPrototypeOf.bind():function(r){return r.__proto__||Object.getPrototypeOf(r)},Qr.exports.__esModule=!0,Qr.exports.default=Qr.exports,Aa(e)}Qr.exports=Aa,Qr.exports.__esModule=!0,Qr.exports.default=Qr.exports});var Ma=De((Ew,_a)=>{"use strict";var p1=Object.prototype.hasOwnProperty,ir="~";function Ni(){}Object.create&&(Ni.prototype=Object.create(null),new Ni().__proto__||(ir=!1));function y1(e,t,r){this.fn=e,this.context=t,this.once=r||!1}function bu(e,t,r,i,n){if(typeof r!="function")throw new TypeError("The listener must be a function");var o=new y1(r,i||e,n),a=ir?ir+t:t;return e._events[a]?e._events[a].fn?e._events[a]=[e._events[a],o]:e._events[a].push(o):(e._events[a]=o,e._eventsCount++),e}function Vo(e,t){--e._eventsCount==0?e._events=new Ni:delete e._events[t]}function er(){this._events=new Ni,this._eventsCount=0}er.prototype.eventNames=function(){var t=[],r,i;if(this._eventsCount===0)return t;for(i in r=this._events)p1.call(r,i)&&t.push(ir?i.slice(1):i);return Object.getOwnPropertySymbols?t.concat(Object.getOwnPropertySymbols(r)):t};er.prototype.listeners=function(t){var r=ir?ir+t:t,i=this._events[r];if(!i)return[];if(i.fn)return[i.fn];for(var n=0,o=i.length,a=new Array(o);n<o;n++)a[n]=i[n].fn;return a};er.prototype.listenerCount=function(t){var r=ir?ir+t:t,i=this._events[r];return i?i.fn?1:i.length:0};er.prototype.emit=function(t,r,i,n,o,a){var l=ir?ir+t:t;if(!this._events[l])return!1;var d=this._events[l],A=arguments.length,M,P;if(d.fn){switch(d.once&&this.removeListener(t,d.fn,void 0,!0),A){case 1:return d.fn.call(d.context),!0;case 2:return d.fn.call(d.context,r),!0;case 3:return d.fn.call(d.context,r,i),!0;case 4:return d.fn.call(d.context,r,i,n),!0;case 5:return d.fn.call(d.context,r,i,n,o),!0;case 6:return d.fn.call(d.context,r,i,n,o,a),!0}for(P=1,M=new Array(A-1);P<A;P++)M[P-1]=arguments[P];d.fn.apply(d.context,M)}else{var D=d.length,H;for(P=0;P<D;P++)switch(d[P].once&&this.removeListener(t,d[P].fn,void 0,!0),A){case 1:d[P].fn.call(d[P].context);break;case 2:d[P].fn.call(d[P].context,r);break;case 3:d[P].fn.call(d[P].context,r,i);break;case 4:d[P].fn.call(d[P].context,r,i,n);break;default:if(!M)for(H=1,M=new Array(A-1);H<A;H++)M[H-1]=arguments[H];d[P].fn.apply(d[P].context,M)}}return!0};er.prototype.on=function(t,r,i){return bu(this,t,r,i,!1)};er.prototype.once=function(t,r,i){return bu(this,t,r,i,!0)};er.prototype.removeListener=function(t,r,i,n){var o=ir?ir+t:t;if(!this._events[o])return this;if(!r)return Vo(this,o),this;var a=this._events[o];if(a.fn)a.fn===r&&(!n||a.once)&&(!i||a.context===i)&&Vo(this,o);else{for(var l=0,d=[],A=a.length;l<A;l++)(a[l].fn!==r||n&&!a[l].once||i&&a[l].context!==i)&&d.push(a[l]);d.length?this._events[o]=d.length===1?d[0]:d:Vo(this,o)}return this};er.prototype.removeAllListeners=function(t){var r;return t?(r=ir?ir+t:t,this._events[r]&&Vo(this,r)):(this._events=new Ni,this._eventsCount=0),this};er.prototype.off=er.prototype.removeListener;er.prototype.addListener=er.prototype.on;er.prefixed=ir;er.EventEmitter=er;typeof _a!="undefined"&&(_a.exports=er)});var Su=De(Ca=>{"use strict";var Ri=Lo();Object.defineProperty(Ca,"__esModule",{value:!0});Ca.default=A1;var g1=Ri(Fo()),m1=Ri(Wo()),w1=Ri(Ho()),x1=Ri(zo()),Eu=Ri($o()),v1=Ma();function b1(e){var t=E1();return function(){var i=(0,Eu.default)(e),n;if(t){var o=(0,Eu.default)(this).constructor;n=Reflect.construct(i,arguments,o)}else n=i.apply(this,arguments);return(0,x1.default)(this,n)}}function E1(){if(typeof Reflect=="undefined"||!Reflect.construct||Reflect.construct.sham)return!1;if(typeof Proxy=="function")return!0;try{return Boolean.prototype.valueOf.call(Reflect.construct(Boolean,[],function(){})),!0}catch(e){return!1}}var S1=function(e){(0,w1.default)(r,e);var t=b1(r);function r(i,n,o){var a;return(0,g1.default)(this,r),a=t.call(this),a.socket=new window.WebSocket(i,o),a.socket.onopen=function(){return a.emit("open")},a.socket.onmessage=function(l){return a.emit("message",l.data)},a.socket.onerror=function(l){return a.emit("error",l)},a.socket.onclose=function(l){a.emit("close",l.code,l.reason)},a}return(0,m1.default)(r,[{key:"send",value:function(n,o,a){var l=a||o;try{this.socket.send(n),l()}catch(d){l(d)}}},{key:"close",value:function(n,o){this.socket.close(n,o)}},{key:"addEventListener",value:function(n,o,a){this.socket.addEventListener(n,o,a)}}]),r}(v1.EventEmitter);function A1(e,t){return new S1(e,t)}});var _u=De((Aw,jr)=>{var _1=qo().default;function Au(){"use strict";jr.exports=Au=function(){return e},jr.exports.__esModule=!0,jr.exports.default=jr.exports;var e={},t=Object.prototype,r=t.hasOwnProperty,i=typeof Symbol=="function"?Symbol:{},n=i.iterator||"@@iterator",o=i.asyncIterator||"@@asyncIterator",a=i.toStringTag||"@@toStringTag";function l(B,k,j){return Object.defineProperty(B,k,{value:j,enumerable:!0,configurable:!0,writable:!0}),B[k]}try{l({},"")}catch(B){l=function(j,S,s){return j[S]=s}}function d(B,k,j,S){var s=k&&k.prototype instanceof P?k:P,u=Object.create(s.prototype),y=new be(S||[]);return u._invoke=function(v,C,O){var I="suspendedStart";return function(b,c){if(I==="executing")throw new Error("Generator is already running");if(I==="completed"){if(b==="throw")throw c;return se()}for(O.method=b,O.arg=c;;){var m=O.delegate;if(m){var J=Se(m,O);if(J){if(J===M)continue;return J}}if(O.method==="next")O.sent=O._sent=O.arg;else if(O.method==="throw"){if(I==="suspendedStart")throw I="completed",O.arg;O.dispatchException(O.arg)}else O.method==="return"&&O.abrupt("return",O.arg);I="executing";var p=A(v,C,O);if(p.type==="normal"){if(I=O.done?"completed":"suspendedYield",p.arg===M)continue;return{value:p.arg,done:O.done}}p.type==="throw"&&(I="completed",O.method="throw",O.arg=p.arg)}}}(B,j,y),u}function A(B,k,j){try{return{type:"normal",arg:B.call(k,j)}}catch(S){return{type:"throw",arg:S}}}e.wrap=d;var M={};function P(){}function D(){}function H(){}var Y={};l(Y,n,function(){return this});var oe=Object.getPrototypeOf,me=oe&&oe(oe(We([])));me&&me!==t&&r.call(me,n)&&(Y=me);var te=H.prototype=P.prototype=Object.create(Y);function ge(B){["next","throw","return"].forEach(function(k){l(B,k,function(j){return this._invoke(k,j)})})}function de(B,k){function j(s,u,y,v){var C=A(B[s],B,u);if(C.type!=="throw"){var O=C.arg,I=O.value;return I&&_1(I)=="object"&&r.call(I,"__await")?k.resolve(I.__await).then(function(b){j("next",b,y,v)},function(b){j("throw",b,y,v)}):k.resolve(I).then(function(b){O.value=b,y(O)},function(b){return j("throw",b,y,v)})}v(C.arg)}var S;this._invoke=function(s,u){function y(){return new k(function(v,C){j(s,u,v,C)})}return S=S?S.then(y,y):y()}}function Se(B,k){var j=B.iterator[k.method];if(j===void 0){if(k.delegate=null,k.method==="throw"){if(B.iterator.return&&(k.method="return",k.arg=void 0,Se(B,k),k.method==="throw"))return M;k.method="throw",k.arg=new TypeError("The iterator does not provide a 'throw' method")}return M}var S=A(j,B.iterator,k.arg);if(S.type==="throw")return k.method="throw",k.arg=S.arg,k.delegate=null,M;var s=S.arg;return s?s.done?(k[B.resultName]=s.value,k.next=B.nextLoc,k.method!=="return"&&(k.method="next",k.arg=void 0),k.delegate=null,M):s:(k.method="throw",k.arg=new TypeError("iterator result is not an object"),k.delegate=null,M)}function ue(B){var k={tryLoc:B[0]};1 in B&&(k.catchLoc=B[1]),2 in B&&(k.finallyLoc=B[2],k.afterLoc=B[3]),this.tryEntries.push(k)}function he(B){var k=B.completion||{};k.type="normal",delete k.arg,B.completion=k}function be(B){this.tryEntries=[{tryLoc:"root"}],B.forEach(ue,this),this.reset(!0)}function We(B){if(B){var k=B[n];if(k)return k.call(B);if(typeof B.next=="function")return B;if(!isNaN(B.length)){var j=-1,S=function s(){for(;++j<B.length;)if(r.call(B,j))return s.value=B[j],s.done=!1,s;return s.value=void 0,s.done=!0,s};return S.next=S}}return{next:se}}function se(){return{value:void 0,done:!0}}return D.prototype=H,l(te,"constructor",H),l(H,"constructor",D),D.displayName=l(H,a,"GeneratorFunction"),e.isGeneratorFunction=function(B){var k=typeof B=="function"&&B.constructor;return!!k&&(k===D||(k.displayName||k.name)==="GeneratorFunction")},e.mark=function(B){return Object.setPrototypeOf?Object.setPrototypeOf(B,H):(B.__proto__=H,l(B,a,"GeneratorFunction")),B.prototype=Object.create(te),B},e.awrap=function(B){return{__await:B}},ge(de.prototype),l(de.prototype,o,function(){return this}),e.AsyncIterator=de,e.async=function(B,k,j,S,s){s===void 0&&(s=Promise);var u=new de(d(B,k,j,S),s);return e.isGeneratorFunction(k)?u:u.next().then(function(y){return y.done?y.value:u.next()})},ge(te),l(te,a,"Generator"),l(te,n,function(){return this}),l(te,"toString",function(){return"[object Generator]"}),e.keys=function(B){var k=[];for(var j in B)k.push(j);return k.reverse(),function S(){for(;k.length;){var s=k.pop();if(s in B)return S.value=s,S.done=!1,S}return S.done=!0,S}},e.values=We,be.prototype={constructor:be,reset:function(k){if(this.prev=0,this.next=0,this.sent=this._sent=void 0,this.done=!1,this.delegate=null,this.method="next",this.arg=void 0,this.tryEntries.forEach(he),!k)for(var j in this)j.charAt(0)==="t"&&r.call(this,j)&&!isNaN(+j.slice(1))&&(this[j]=void 0)},stop:function(){this.done=!0;var k=this.tryEntries[0].completion;if(k.type==="throw")throw k.arg;return this.rval},dispatchException:function(k){if(this.done)throw k;var j=this;function S(O,I){return y.type="throw",y.arg=k,j.next=O,I&&(j.method="next",j.arg=void 0),!!I}for(var s=this.tryEntries.length-1;s>=0;--s){var u=this.tryEntries[s],y=u.completion;if(u.tryLoc==="root")return S("end");if(u.tryLoc<=this.prev){var v=r.call(u,"catchLoc"),C=r.call(u,"finallyLoc");if(v&&C){if(this.prev<u.catchLoc)return S(u.catchLoc,!0);if(this.prev<u.finallyLoc)return S(u.finallyLoc)}else if(v){if(this.prev<u.catchLoc)return S(u.catchLoc,!0)}else{if(!C)throw new Error("try statement without catch or finally");if(this.prev<u.finallyLoc)return S(u.finallyLoc)}}}},abrupt:function(k,j){for(var S=this.tryEntries.length-1;S>=0;--S){var s=this.tryEntries[S];if(s.tryLoc<=this.prev&&r.call(s,"finallyLoc")&&this.prev<s.finallyLoc){var u=s;break}}u&&(k==="break"||k==="continue")&&u.tryLoc<=j&&j<=u.finallyLoc&&(u=null);var y=u?u.completion:{};return y.type=k,y.arg=j,u?(this.method="next",this.next=u.finallyLoc,M):this.complete(y)},complete:function(k,j){if(k.type==="throw")throw k.arg;return k.type==="break"||k.type==="continue"?this.next=k.arg:k.type==="return"?(this.rval=this.arg=k.arg,this.method="return",this.next="end"):k.type==="normal"&&j&&(this.next=j),M},finish:function(k){for(var j=this.tryEntries.length-1;j>=0;--j){var S=this.tryEntries[j];if(S.finallyLoc===k)return this.complete(S.completion,S.afterLoc),he(S),M}},catch:function(k){for(var j=this.tryEntries.length-1;j>=0;--j){var S=this.tryEntries[j];if(S.tryLoc===k){var s=S.completion;if(s.type==="throw"){var u=s.arg;he(S)}return u}}throw new Error("illegal catch attempt")},delegateYield:function(k,j,S){return this.delegate={iterator:We(k),resultName:j,nextLoc:S},this.method==="next"&&(this.arg=void 0),M}},e}jr.exports=Au,jr.exports.__esModule=!0,jr.exports.default=jr.exports});var Cu=De((_w,Mu)=>{var Ko=_u()();Mu.exports=Ko;try{regeneratorRuntime=Ko}catch(e){typeof globalThis=="object"?globalThis.regeneratorRuntime=Ko:Function("r","regeneratorRuntime = r")(Ko)}});var Iu=De((Mw,ki)=>{function Tu(e,t,r,i,n,o,a){try{var l=e[o](a),d=l.value}catch(A){r(A);return}l.done?t(d):Promise.resolve(d).then(i,n)}function M1(e){return function(){var t=this,r=arguments;return new Promise(function(i,n){var o=e.apply(t,r);function a(d){Tu(o,i,n,a,l,"next",d)}function l(d){Tu(o,i,n,a,l,"throw",d)}a(void 0)})}}ki.exports=M1,ki.exports.__esModule=!0,ki.exports.default=ki.exports});var Ou=De(Zo=>{"use strict";var gn=Lo();Object.defineProperty(Zo,"__esModule",{value:!0});Zo.default=void 0;var mn=gn(Cu()),Go=gn(Iu()),C1=gn(qo()),T1=gn(Fo()),I1=gn(Wo()),B1=gn(Ho()),O1=gn(zo()),Bu=gn($o()),P1=Ma();function N1(e){var t=R1();return function(){var i=(0,Bu.default)(e),n;if(t){var o=(0,Bu.default)(this).constructor;n=Reflect.construct(i,arguments,o)}else n=i.apply(this,arguments);return(0,O1.default)(this,n)}}function R1(){if(typeof Reflect=="undefined"||!Reflect.construct||Reflect.construct.sham)return!1;if(typeof Proxy=="function")return!0;try{return Boolean.prototype.valueOf.call(Reflect.construct(Boolean,[],function(){})),!0}catch(e){return!1}}var k1=function(e,t){var r={};for(var i in e)Object.prototype.hasOwnProperty.call(e,i)&&t.indexOf(i)<0&&(r[i]=e[i]);if(e!=null&&typeof Object.getOwnPropertySymbols=="function")for(var n=0,i=Object.getOwnPropertySymbols(e);n<i.length;n++)t.indexOf(i[n])<0&&Object.prototype.propertyIsEnumerable.call(e,i[n])&&(r[i[n]]=e[i[n]]);return r},U1=function(e){(0,B1.default)(r,e);var t=N1(r);function r(i){var n,o=arguments.length>1&&arguments[1]!==void 0?arguments[1]:"ws://localhost:8080",a=arguments.length>2&&arguments[2]!==void 0?arguments[2]:{},l=arguments.length>3?arguments[3]:void 0;(0,T1.default)(this,r);var d=a.autoconnect,A=d===void 0?!0:d,M=a.reconnect,P=M===void 0?!0:M,D=a.reconnect_interval,H=D===void 0?1e3:D,Y=a.max_reconnects,oe=Y===void 0?5:Y,me=k1(a,["autoconnect","reconnect","reconnect_interval","max_reconnects"]);return n=t.call(this),n.webSocketFactory=i,n.queue={},n.rpc_id=0,n.address=o,n.autoconnect=A,n.ready=!1,n.reconnect=P,n.reconnect_interval=H,n.max_reconnects=oe,n.rest_options=me,n.current_reconnects=0,n.generate_request_id=l||function(){return++n.rpc_id},n.autoconnect&&n._connect(n.address,Object.assign({autoconnect:n.autoconnect,reconnect:n.reconnect,reconnect_interval:n.reconnect_interval,max_reconnects:n.max_reconnects},n.rest_options)),n}return(0,I1.default)(r,[{key:"connect",value:function(){this.socket||this._connect(this.address,Object.assign({autoconnect:this.autoconnect,reconnect:this.reconnect,reconnect_interval:this.reconnect_interval,max_reconnects:this.max_reconnects},this.rest_options))}},{key:"call",value:function(n,o,a,l){var d=this;return!l&&(0,C1.default)(a)==="object"&&(l=a,a=null),new Promise(function(A,M){if(!d.ready)return M(new Error("socket not ready"));var P=d.generate_request_id(n,o),D={jsonrpc:"2.0",method:n,params:o||null,id:P};d.socket.send(JSON.stringify(D),l,function(H){if(H)return M(H);d.queue[P]={promise:[A,M]},a&&(d.queue[P].timeout=setTimeout(function(){delete d.queue[P],M(new Error("reply timeout"))},a))})})}},{key:"login",value:function(){var i=(0,Go.default)(mn.default.mark(function o(a){var l;return mn.default.wrap(function(A){for(;;)switch(A.prev=A.next){case 0:return A.next=2,this.call("rpc.login",a);case 2:if(l=A.sent,l){A.next=5;break}throw new Error("authentication failed");case 5:return A.abrupt("return",l);case 6:case"end":return A.stop()}},o,this)}));function n(o){return i.apply(this,arguments)}return n}()},{key:"listMethods",value:function(){var i=(0,Go.default)(mn.default.mark(function o(){return mn.default.wrap(function(l){for(;;)switch(l.prev=l.next){case 0:return l.next=2,this.call("__listMethods");case 2:return l.abrupt("return",l.sent);case 3:case"end":return l.stop()}},o,this)}));function n(){return i.apply(this,arguments)}return n}()},{key:"notify",value:function(n,o){var a=this;return new Promise(function(l,d){if(!a.ready)return d(new Error("socket not ready"));var A={jsonrpc:"2.0",method:n,params:o||null};a.socket.send(JSON.stringify(A),function(M){if(M)return d(M);l()})})}},{key:"subscribe",value:function(){var i=(0,Go.default)(mn.default.mark(function o(a){var l;return mn.default.wrap(function(A){for(;;)switch(A.prev=A.next){case 0:return typeof a=="string"&&(a=[a]),A.next=3,this.call("rpc.on",a);case 3:if(l=A.sent,!(typeof a=="string"&&l[a]!=="ok")){A.next=6;break}throw new Error("Failed subscribing to an event '"+a+"' with: "+l[a]);case 6:return A.abrupt("return",l);case 7:case"end":return A.stop()}},o,this)}));function n(o){return i.apply(this,arguments)}return n}()},{key:"unsubscribe",value:function(){var i=(0,Go.default)(mn.default.mark(function o(a){var l;return mn.default.wrap(function(A){for(;;)switch(A.prev=A.next){case 0:return typeof a=="string"&&(a=[a]),A.next=3,this.call("rpc.off",a);case 3:if(l=A.sent,!(typeof a=="string"&&l[a]!=="ok")){A.next=6;break}throw new Error("Failed unsubscribing from an event with: "+l);case 6:return A.abrupt("return",l);case 7:case"end":return A.stop()}},o,this)}));function n(o){return i.apply(this,arguments)}return n}()},{key:"close",value:function(n,o){this.socket.close(n||1e3,o)}},{key:"_connect",value:function(n,o){var a=this;this.socket=this.webSocketFactory(n,o),this.socket.addEventListener("open",function(){a.ready=!0,a.emit("open"),a.current_reconnects=0}),this.socket.addEventListener("message",function(l){var d=l.data;d instanceof ArrayBuffer&&(d=Buffer.from(d).toString());try{d=JSON.parse(d)}catch(P){return}if(d.notification&&a.listeners(d.notification).length){if(!Object.keys(d.params).length)return a.emit(d.notification);var A=[d.notification];if(d.params.constructor===Object)A.push(d.params);else for(var M=0;M<d.params.length;M++)A.push(d.params[M]);return Promise.resolve().then(function(){a.emit.apply(a,A)})}if(!a.queue[d.id])return d.method&&d.params?Promise.resolve().then(function(){a.emit(d.method,d.params)}):void 0;"error"in d=="result"in d&&a.queue[d.id].promise[1](new Error('Server response malformed. Response must include either "result" or "error", but not both.')),a.queue[d.id].timeout&&clearTimeout(a.queue[d.id].timeout),d.error?a.queue[d.id].promise[1](d.error):a.queue[d.id].promise[0](d.result),delete a.queue[d.id]}),this.socket.addEventListener("error",function(l){return a.emit("error",l)}),this.socket.addEventListener("close",function(l){var d=l.code,A=l.reason;a.ready&&setTimeout(function(){return a.emit("close",d,A)},0),a.ready=!1,a.socket=void 0,d!==1e3&&(a.current_reconnects++,a.reconnect&&(a.max_reconnects>a.current_reconnects||a.max_reconnects===0)&&setTimeout(function(){return a._connect(n,o)},a.reconnect_interval))})}}]),r}(P1.EventEmitter);Zo.default=U1});var Nu=De(Yo=>{"use strict";var Pn=Lo();Object.defineProperty(Yo,"__esModule",{value:!0});Yo.Client=void 0;var D1=Pn(Wo()),L1=Pn(Fo()),W1=Pn(Ho()),F1=Pn(zo()),Pu=Pn($o()),H1=Pn(Su()),q1=Pn(Ou());function z1(e){var t=$1();return function(){var i=(0,Pu.default)(e),n;if(t){var o=(0,Pu.default)(this).constructor;n=Reflect.construct(i,arguments,o)}else n=i.apply(this,arguments);return(0,F1.default)(this,n)}}function $1(){if(typeof Reflect=="undefined"||!Reflect.construct||Reflect.construct.sham)return!1;if(typeof Proxy=="function")return!0;try{return Boolean.prototype.valueOf.call(Reflect.construct(Boolean,[],function(){})),!0}catch(e){return!1}}var V1=function(e){(0,W1.default)(r,e);var t=z1(r);function r(){var i=arguments.length>0&&arguments[0]!==void 0?arguments[0]:"ws://localhost:8080",n=arguments.length>1&&arguments[1]!==void 0?arguments[1]:{},o=n.autoconnect,a=o===void 0?!0:o,l=n.reconnect,d=l===void 0?!0:l,A=n.reconnect_interval,M=A===void 0?1e3:A,P=n.max_reconnects,D=P===void 0?5:P,H=arguments.length>2?arguments[2]:void 0;return(0,L1.default)(this,r),t.call(this,H1.default,i,{autoconnect:a,reconnect:d,reconnect_interval:M,max_reconnects:D},H)}return(0,D1.default)(r)}(q1.default);Yo.Client=V1});var Kl=De((Vl,ps)=>{(function(e){"use strict";var t,r=/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i,i=Math.ceil,n=Math.floor,o="[BigNumber Error] ",a=o+"Number primitive has more than 15 significant digits: ",l=1e14,d=14,A=9007199254740991,M=[1,10,100,1e3,1e4,1e5,1e6,1e7,1e8,1e9,1e10,1e11,1e12,1e13],P=1e7,D=1e9;function H(ue){var he,be,We,se=m.prototype={constructor:m,toString:null,valueOf:null},B=new m(1),k=20,j=4,S=-7,s=21,u=-1e7,y=1e7,v=!1,C=1,O=0,I={prefix:"",groupSize:3,secondaryGroupSize:0,groupSeparator:",",decimalSeparator:".",fractionGroupSize:0,fractionGroupSeparator:"\xA0",suffix:""},b="0123456789abcdefghijklmnopqrstuvwxyz",c=!0;function m(g,_){var T,N,L,U,$,q,z,K,Z=this;if(!(Z instanceof m))return new m(g,_);if(_==null){if(g&&g._isBigNumber===!0){Z.s=g.s,!g.c||g.e>y?Z.c=Z.e=null:g.e<u?Z.c=[Z.e=0]:(Z.e=g.e,Z.c=g.c.slice());return}if((q=typeof g=="number")&&g*0==0){if(Z.s=1/g<0?(g=-g,-1):1,g===~~g){for(U=0,$=g;$>=10;$/=10,U++);U>y?Z.c=Z.e=null:(Z.e=U,Z.c=[g]);return}K=String(g)}else{if(!r.test(K=String(g)))return We(Z,K,q);Z.s=K.charCodeAt(0)==45?(K=K.slice(1),-1):1}(U=K.indexOf("."))>-1&&(K=K.replace(".","")),($=K.search(/e/i))>0?(U<0&&(U=$),U+=+K.slice($+1),K=K.substring(0,$)):U<0&&(U=K.length)}else{if(te(_,2,b.length,"Base"),_==10&&c)return Z=new m(g),V(Z,k+Z.e+1,j);if(K=String(g),q=typeof g=="number"){if(g*0!=0)return We(Z,K,q,_);if(Z.s=1/g<0?(K=K.slice(1),-1):1,m.DEBUG&&K.replace(/^0\.0*|\./,"").length>15)throw Error(a+g)}else Z.s=K.charCodeAt(0)===45?(K=K.slice(1),-1):1;for(T=b.slice(0,_),U=$=0,z=K.length;$<z;$++)if(T.indexOf(N=K.charAt($))<0){if(N=="."){if($>U){U=z;continue}}else if(!L&&(K==K.toUpperCase()&&(K=K.toLowerCase())||K==K.toLowerCase()&&(K=K.toUpperCase()))){L=!0,$=-1,U=0;continue}return We(Z,String(g),q,_)}q=!1,K=be(K,_,10,Z.s),(U=K.indexOf("."))>-1?K=K.replace(".",""):U=K.length}for($=0;K.charCodeAt($)===48;$++);for(z=K.length;K.charCodeAt(--z)===48;);if(K=K.slice($,++z)){if(z-=$,q&&m.DEBUG&&z>15&&(g>A||g!==n(g)))throw Error(a+Z.s*g);if((U=U-$-1)>y)Z.c=Z.e=null;else if(U<u)Z.c=[Z.e=0];else{if(Z.e=U,Z.c=[],$=(U+1)%d,U<0&&($+=d),$<z){for($&&Z.c.push(+K.slice(0,$)),z-=d;$<z;)Z.c.push(+K.slice($,$+=d));$=d-(K=K.slice($)).length}else $-=z;for(;$--;K+="0");Z.c.push(+K)}}else Z.c=[Z.e=0]}m.clone=H,m.ROUND_UP=0,m.ROUND_DOWN=1,m.ROUND_CEIL=2,m.ROUND_FLOOR=3,m.ROUND_HALF_UP=4,m.ROUND_HALF_DOWN=5,m.ROUND_HALF_EVEN=6,m.ROUND_HALF_CEIL=7,m.ROUND_HALF_FLOOR=8,m.EUCLID=9,m.config=m.set=function(g){var _,T;if(g!=null)if(typeof g=="object"){if(g.hasOwnProperty(_="DECIMAL_PLACES")&&(T=g[_],te(T,0,D,_),k=T),g.hasOwnProperty(_="ROUNDING_MODE")&&(T=g[_],te(T,0,8,_),j=T),g.hasOwnProperty(_="EXPONENTIAL_AT")&&(T=g[_],T&&T.pop?(te(T[0],-D,0,_),te(T[1],0,D,_),S=T[0],s=T[1]):(te(T,-D,D,_),S=-(s=T<0?-T:T))),g.hasOwnProperty(_="RANGE"))if(T=g[_],T&&T.pop)te(T[0],-D,-1,_),te(T[1],1,D,_),u=T[0],y=T[1];else if(te(T,-D,D,_),T)u=-(y=T<0?-T:T);else throw Error(o+_+" cannot be zero: "+T);if(g.hasOwnProperty(_="CRYPTO"))if(T=g[_],T===!!T)if(T)if(typeof crypto!="undefined"&&crypto&&(crypto.getRandomValues||crypto.randomBytes))v=T;else throw v=!T,Error(o+"crypto unavailable");else v=T;else throw Error(o+_+" not true or false: "+T);if(g.hasOwnProperty(_="MODULO_MODE")&&(T=g[_],te(T,0,9,_),C=T),g.hasOwnProperty(_="POW_PRECISION")&&(T=g[_],te(T,0,D,_),O=T),g.hasOwnProperty(_="FORMAT"))if(T=g[_],typeof T=="object")I=T;else throw Error(o+_+" not an object: "+T);if(g.hasOwnProperty(_="ALPHABET"))if(T=g[_],typeof T=="string"&&!/^.?$|[+\-.\s]|(.).*\1/.test(T))c=T.slice(0,10)=="0123456789",b=T;else throw Error(o+_+" invalid: "+T)}else throw Error(o+"Object expected: "+g);return{DECIMAL_PLACES:k,ROUNDING_MODE:j,EXPONENTIAL_AT:[S,s],RANGE:[u,y],CRYPTO:v,MODULO_MODE:C,POW_PRECISION:O,FORMAT:I,ALPHABET:b}},m.isBigNumber=function(g){if(!g||g._isBigNumber!==!0)return!1;if(!m.DEBUG)return!0;var _,T,N=g.c,L=g.e,U=g.s;e:if({}.toString.call(N)=="[object Array]"){if((U===1||U===-1)&&L>=-D&&L<=D&&L===n(L)){if(N[0]===0){if(L===0&&N.length===1)return!0;break e}if(_=(L+1)%d,_<1&&(_+=d),String(N[0]).length==_){for(_=0;_<N.length;_++)if(T=N[_],T<0||T>=l||T!==n(T))break e;if(T!==0)return!0}}}else if(N===null&&L===null&&(U===null||U===1||U===-1))return!0;throw Error(o+"Invalid BigNumber: "+g)},m.maximum=m.max=function(){return p(arguments,se.lt)},m.minimum=m.min=function(){return p(arguments,se.gt)},m.random=function(){var g=9007199254740992,_=Math.random()*g&2097151?function(){return n(Math.random()*g)}:function(){return(Math.random()*1073741824|0)*8388608+(Math.random()*8388608|0)};return function(T){var N,L,U,$,q,z=0,K=[],Z=new m(B);if(T==null?T=k:te(T,0,D),$=i(T/d),v)if(crypto.getRandomValues){for(N=crypto.getRandomValues(new Uint32Array($*=2));z<$;)q=N[z]*131072+(N[z+1]>>>11),q>=9e15?(L=crypto.getRandomValues(new Uint32Array(2)),N[z]=L[0],N[z+1]=L[1]):(K.push(q%1e14),z+=2);z=$/2}else if(crypto.randomBytes){for(N=crypto.randomBytes($*=7);z<$;)q=(N[z]&31)*281474976710656+N[z+1]*1099511627776+N[z+2]*4294967296+N[z+3]*16777216+(N[z+4]<<16)+(N[z+5]<<8)+N[z+6],q>=9e15?crypto.randomBytes(7).copy(N,z):(K.push(q%1e14),z+=7);z=$/7}else throw v=!1,Error(o+"crypto unavailable");if(!v)for(;z<$;)q=_(),q<9e15&&(K[z++]=q%1e14);for($=K[--z],T%=d,$&&T&&(q=M[d-T],K[z]=n($/q)*q);K[z]===0;K.pop(),z--);if(z<0)K=[U=0];else{for(U=-1;K[0]===0;K.splice(0,1),U-=d);for(z=1,q=K[0];q>=10;q/=10,z++);z<d&&(U-=d-z)}return Z.e=U,Z.c=K,Z}}(),m.sum=function(){for(var g=1,_=arguments,T=new m(_[0]);g<_.length;)T=T.plus(_[g++]);return T},be=function(){var g="0123456789";function _(T,N,L,U){for(var $,q=[0],z,K=0,Z=T.length;K<Z;){for(z=q.length;z--;q[z]*=N);for(q[0]+=U.indexOf(T.charAt(K++)),$=0;$<q.length;$++)q[$]>L-1&&(q[$+1]==null&&(q[$+1]=0),q[$+1]+=q[$]/L|0,q[$]%=L)}return q.reverse()}return function(T,N,L,U,$){var q,z,K,Z,ne,we,Be,Oe,ze=T.indexOf("."),yt=k,Pe=j;for(ze>=0&&(Z=O,O=0,T=T.replace(".",""),Oe=new m(N),we=Oe.pow(T.length-ze),O=Z,Oe.c=_(Se(oe(we.c),we.e,"0"),10,L,g),Oe.e=Oe.c.length),Be=_(T,N,L,$?(q=b,g):(q=g,b)),K=Z=Be.length;Be[--Z]==0;Be.pop());if(!Be[0])return q.charAt(0);if(ze<0?--K:(we.c=Be,we.e=K,we.s=U,we=he(we,Oe,yt,Pe,L),Be=we.c,ne=we.r,K=we.e),z=K+yt+1,ze=Be[z],Z=L/2,ne=ne||z<0||Be[z+1]!=null,ne=Pe<4?(ze!=null||ne)&&(Pe==0||Pe==(we.s<0?3:2)):ze>Z||ze==Z&&(Pe==4||ne||Pe==6&&Be[z-1]&1||Pe==(we.s<0?8:7)),z<1||!Be[0])T=ne?Se(q.charAt(1),-yt,q.charAt(0)):q.charAt(0);else{if(Be.length=z,ne)for(--L;++Be[--z]>L;)Be[z]=0,z||(++K,Be=[1].concat(Be));for(Z=Be.length;!Be[--Z];);for(ze=0,T="";ze<=Z;T+=q.charAt(Be[ze++]));T=Se(T,K,q.charAt(0))}return T}}(),he=function(){function g(N,L,U){var $,q,z,K,Z=0,ne=N.length,we=L%P,Be=L/P|0;for(N=N.slice();ne--;)z=N[ne]%P,K=N[ne]/P|0,$=Be*z+K*we,q=we*z+$%P*P+Z,Z=(q/U|0)+($/P|0)+Be*K,N[ne]=q%U;return Z&&(N=[Z].concat(N)),N}function _(N,L,U,$){var q,z;if(U!=$)z=U>$?1:-1;else for(q=z=0;q<U;q++)if(N[q]!=L[q]){z=N[q]>L[q]?1:-1;break}return z}function T(N,L,U,$){for(var q=0;U--;)N[U]-=q,q=N[U]<L[U]?1:0,N[U]=q*$+N[U]-L[U];for(;!N[0]&&N.length>1;N.splice(0,1));}return function(N,L,U,$,q){var z,K,Z,ne,we,Be,Oe,ze,yt,Pe,Ue,Mt,gt,lt,rr,et,ft,Ct=N.s==L.s?1:-1,Xe=N.c,qe=L.c;if(!Xe||!Xe[0]||!qe||!qe[0])return new m(!N.s||!L.s||(Xe?qe&&Xe[0]==qe[0]:!qe)?NaN:Xe&&Xe[0]==0||!qe?Ct*0:Ct/0);for(ze=new m(Ct),yt=ze.c=[],K=N.e-L.e,Ct=U+K+1,q||(q=l,K=Y(N.e/d)-Y(L.e/d),Ct=Ct/d|0),Z=0;qe[Z]==(Xe[Z]||0);Z++);if(qe[Z]>(Xe[Z]||0)&&K--,Ct<0)yt.push(1),ne=!0;else{for(lt=Xe.length,et=qe.length,Z=0,Ct+=2,we=n(q/(qe[0]+1)),we>1&&(qe=g(qe,we,q),Xe=g(Xe,we,q),et=qe.length,lt=Xe.length),gt=et,Pe=Xe.slice(0,et),Ue=Pe.length;Ue<et;Pe[Ue++]=0);ft=qe.slice(),ft=[0].concat(ft),rr=qe[0],qe[1]>=q/2&&rr++;do{if(we=0,z=_(qe,Pe,et,Ue),z<0){if(Mt=Pe[0],et!=Ue&&(Mt=Mt*q+(Pe[1]||0)),we=n(Mt/rr),we>1)for(we>=q&&(we=q-1),Be=g(qe,we,q),Oe=Be.length,Ue=Pe.length;_(Be,Pe,Oe,Ue)==1;)we--,T(Be,et<Oe?ft:qe,Oe,q),Oe=Be.length,z=1;else we==0&&(z=we=1),Be=qe.slice(),Oe=Be.length;if(Oe<Ue&&(Be=[0].concat(Be)),T(Pe,Be,Ue,q),Ue=Pe.length,z==-1)for(;_(qe,Pe,et,Ue)<1;)we++,T(Pe,et<Ue?ft:qe,Ue,q),Ue=Pe.length}else z===0&&(we++,Pe=[0]);yt[Z++]=we,Pe[0]?Pe[Ue++]=Xe[gt]||0:(Pe=[Xe[gt]],Ue=1)}while((gt++<lt||Pe[0]!=null)&&Ct--);ne=Pe[0]!=null,yt[0]||yt.splice(0,1)}if(q==l){for(Z=1,Ct=yt[0];Ct>=10;Ct/=10,Z++);V(ze,U+(ze.e=Z+K*d-1)+1,$,ne)}else ze.e=K,ze.r=+ne;return ze}}();function J(g,_,T,N){var L,U,$,q,z;if(T==null?T=j:te(T,0,8),!g.c)return g.toString();if(L=g.c[0],$=g.e,_==null)z=oe(g.c),z=N==1||N==2&&($<=S||$>=s)?de(z,$):Se(z,$,"0");else if(g=V(new m(g),_,T),U=g.e,z=oe(g.c),q=z.length,N==1||N==2&&(_<=U||U<=S)){for(;q<_;z+="0",q++);z=de(z,U)}else if(_-=$,z=Se(z,U,"0"),U+1>q){if(--_>0)for(z+=".";_--;z+="0");}else if(_+=U-q,_>0)for(U+1==q&&(z+=".");_--;z+="0");return g.s<0&&L?"-"+z:z}function p(g,_){for(var T,N=1,L=new m(g[0]);N<g.length;N++)if(T=new m(g[N]),T.s)_.call(L,T)&&(L=T);else{L=T;break}return L}function W(g,_,T){for(var N=1,L=_.length;!_[--L];_.pop());for(L=_[0];L>=10;L/=10,N++);return(T=N+T*d-1)>y?g.c=g.e=null:T<u?g.c=[g.e=0]:(g.e=T,g.c=_),g}We=function(){var g=/^(-?)0([xbo])(?=\w[\w.]*$)/i,_=/^([^.]+)\.$/,T=/^\.([^.]+)$/,N=/^-?(Infinity|NaN)$/,L=/^\s*\+(?=[\w.])|^\s+|\s+$/g;return function(U,$,q,z){var K,Z=q?$:$.replace(L,"");if(N.test(Z))U.s=isNaN(Z)?null:Z<0?-1:1;else{if(!q&&(Z=Z.replace(g,function(ne,we,Be){return K=(Be=Be.toLowerCase())=="x"?16:Be=="b"?2:8,!z||z==K?we:ne}),z&&(K=z,Z=Z.replace(_,"$1").replace(T,"0.$1")),$!=Z))return new m(Z,K);if(m.DEBUG)throw Error(o+"Not a"+(z?" base "+z:"")+" number: "+$);U.s=null}U.c=U.e=null}}();function V(g,_,T,N){var L,U,$,q,z,K,Z,ne=g.c,we=M;if(ne){e:{for(L=1,q=ne[0];q>=10;q/=10,L++);if(U=_-L,U<0)U+=d,$=_,z=ne[K=0],Z=z/we[L-$-1]%10|0;else if(K=i((U+1)/d),K>=ne.length)if(N){for(;ne.length<=K;ne.push(0));z=Z=0,L=1,U%=d,$=U-d+1}else break e;else{for(z=q=ne[K],L=1;q>=10;q/=10,L++);U%=d,$=U-d+L,Z=$<0?0:z/we[L-$-1]%10|0}if(N=N||_<0||ne[K+1]!=null||($<0?z:z%we[L-$-1]),N=T<4?(Z||N)&&(T==0||T==(g.s<0?3:2)):Z>5||Z==5&&(T==4||N||T==6&&(U>0?$>0?z/we[L-$]:0:ne[K-1])%10&1||T==(g.s<0?8:7)),_<1||!ne[0])return ne.length=0,N?(_-=g.e+1,ne[0]=we[(d-_%d)%d],g.e=-_||0):ne[0]=g.e=0,g;if(U==0?(ne.length=K,q=1,K--):(ne.length=K+1,q=we[d-U],ne[K]=$>0?n(z/we[L-$]%we[$])*q:0),N)for(;;)if(K==0){for(U=1,$=ne[0];$>=10;$/=10,U++);for($=ne[0]+=q,q=1;$>=10;$/=10,q++);U!=q&&(g.e++,ne[0]==l&&(ne[0]=1));break}else{if(ne[K]+=q,ne[K]!=l)break;ne[K--]=0,q=1}for(U=ne.length;ne[--U]===0;ne.pop());}g.e>y?g.c=g.e=null:g.e<u&&(g.c=[g.e=0])}return g}function re(g){var _,T=g.e;return T===null?g.toString():(_=oe(g.c),_=T<=S||T>=s?de(_,T):Se(_,T,"0"),g.s<0?"-"+_:_)}return se.absoluteValue=se.abs=function(){var g=new m(this);return g.s<0&&(g.s=1),g},se.comparedTo=function(g,_){return me(this,new m(g,_))},se.decimalPlaces=se.dp=function(g,_){var T,N,L,U=this;if(g!=null)return te(g,0,D),_==null?_=j:te(_,0,8),V(new m(U),g+U.e+1,_);if(!(T=U.c))return null;if(N=((L=T.length-1)-Y(this.e/d))*d,L=T[L])for(;L%10==0;L/=10,N--);return N<0&&(N=0),N},se.dividedBy=se.div=function(g,_){return he(this,new m(g,_),k,j)},se.dividedToIntegerBy=se.idiv=function(g,_){return he(this,new m(g,_),0,1)},se.exponentiatedBy=se.pow=function(g,_){var T,N,L,U,$,q,z,K,Z,ne=this;if(g=new m(g),g.c&&!g.isInteger())throw Error(o+"Exponent not an integer: "+re(g));if(_!=null&&(_=new m(_)),q=g.e>14,!ne.c||!ne.c[0]||ne.c[0]==1&&!ne.e&&ne.c.length==1||!g.c||!g.c[0])return Z=new m(Math.pow(+re(ne),q?2-ge(g):+re(g))),_?Z.mod(_):Z;if(z=g.s<0,_){if(_.c?!_.c[0]:!_.s)return new m(NaN);N=!z&&ne.isInteger()&&_.isInteger(),N&&(ne=ne.mod(_))}else{if(g.e>9&&(ne.e>0||ne.e<-1||(ne.e==0?ne.c[0]>1||q&&ne.c[1]>=24e7:ne.c[0]<8e13||q&&ne.c[0]<=9999975e7)))return U=ne.s<0&&ge(g)?-0:0,ne.e>-1&&(U=1/U),new m(z?1/U:U);O&&(U=i(O/d+2))}for(q?(T=new m(.5),z&&(g.s=1),K=ge(g)):(L=Math.abs(+re(g)),K=L%2),Z=new m(B);;){if(K){if(Z=Z.times(ne),!Z.c)break;U?Z.c.length>U&&(Z.c.length=U):N&&(Z=Z.mod(_))}if(L){if(L=n(L/2),L===0)break;K=L%2}else if(g=g.times(T),V(g,g.e+1,1),g.e>14)K=ge(g);else{if(L=+re(g),L===0)break;K=L%2}ne=ne.times(ne),U?ne.c&&ne.c.length>U&&(ne.c.length=U):N&&(ne=ne.mod(_))}return N?Z:(z&&(Z=B.div(Z)),_?Z.mod(_):U?V(Z,O,j,$):Z)},se.integerValue=function(g){var _=new m(this);return g==null?g=j:te(g,0,8),V(_,_.e+1,g)},se.isEqualTo=se.eq=function(g,_){return me(this,new m(g,_))===0},se.isFinite=function(){return!!this.c},se.isGreaterThan=se.gt=function(g,_){return me(this,new m(g,_))>0},se.isGreaterThanOrEqualTo=se.gte=function(g,_){return(_=me(this,new m(g,_)))===1||_===0},se.isInteger=function(){return!!this.c&&Y(this.e/d)>this.c.length-2},se.isLessThan=se.lt=function(g,_){return me(this,new m(g,_))<0},se.isLessThanOrEqualTo=se.lte=function(g,_){return(_=me(this,new m(g,_)))===-1||_===0},se.isNaN=function(){return!this.s},se.isNegative=function(){return this.s<0},se.isPositive=function(){return this.s>0},se.isZero=function(){return!!this.c&&this.c[0]==0},se.minus=function(g,_){var T,N,L,U,$=this,q=$.s;if(g=new m(g,_),_=g.s,!q||!_)return new m(NaN);if(q!=_)return g.s=-_,$.plus(g);var z=$.e/d,K=g.e/d,Z=$.c,ne=g.c;if(!z||!K){if(!Z||!ne)return Z?(g.s=-_,g):new m(ne?$:NaN);if(!Z[0]||!ne[0])return ne[0]?(g.s=-_,g):new m(Z[0]?$:j==3?-0:0)}if(z=Y(z),K=Y(K),Z=Z.slice(),q=z-K){for((U=q<0)?(q=-q,L=Z):(K=z,L=ne),L.reverse(),_=q;_--;L.push(0));L.reverse()}else for(N=(U=(q=Z.length)<(_=ne.length))?q:_,q=_=0;_<N;_++)if(Z[_]!=ne[_]){U=Z[_]<ne[_];break}if(U&&(L=Z,Z=ne,ne=L,g.s=-g.s),_=(N=ne.length)-(T=Z.length),_>0)for(;_--;Z[T++]=0);for(_=l-1;N>q;){if(Z[--N]<ne[N]){for(T=N;T&&!Z[--T];Z[T]=_);--Z[T],Z[N]+=l}Z[N]-=ne[N]}for(;Z[0]==0;Z.splice(0,1),--K);return Z[0]?W(g,Z,K):(g.s=j==3?-1:1,g.c=[g.e=0],g)},se.modulo=se.mod=function(g,_){var T,N,L=this;return g=new m(g,_),!L.c||!g.s||g.c&&!g.c[0]?new m(NaN):!g.c||L.c&&!L.c[0]?new m(L):(C==9?(N=g.s,g.s=1,T=he(L,g,0,3),g.s=N,T.s*=N):T=he(L,g,0,C),g=L.minus(T.times(g)),!g.c[0]&&C==1&&(g.s=L.s),g)},se.multipliedBy=se.times=function(g,_){var T,N,L,U,$,q,z,K,Z,ne,we,Be,Oe,ze,yt,Pe=this,Ue=Pe.c,Mt=(g=new m(g,_)).c;if(!Ue||!Mt||!Ue[0]||!Mt[0])return!Pe.s||!g.s||Ue&&!Ue[0]&&!Mt||Mt&&!Mt[0]&&!Ue?g.c=g.e=g.s=null:(g.s*=Pe.s,!Ue||!Mt?g.c=g.e=null:(g.c=[0],g.e=0)),g;for(N=Y(Pe.e/d)+Y(g.e/d),g.s*=Pe.s,z=Ue.length,ne=Mt.length,z<ne&&(Oe=Ue,Ue=Mt,Mt=Oe,L=z,z=ne,ne=L),L=z+ne,Oe=[];L--;Oe.push(0));for(ze=l,yt=P,L=ne;--L>=0;){for(T=0,we=Mt[L]%yt,Be=Mt[L]/yt|0,$=z,U=L+$;U>L;)K=Ue[--$]%yt,Z=Ue[$]/yt|0,q=Be*K+Z*we,K=we*K+q%yt*yt+Oe[U]+T,T=(K/ze|0)+(q/yt|0)+Be*Z,Oe[U--]=K%ze;Oe[U]=T}return T?++N:Oe.splice(0,1),W(g,Oe,N)},se.negated=function(){var g=new m(this);return g.s=-g.s||null,g},se.plus=function(g,_){var T,N=this,L=N.s;if(g=new m(g,_),_=g.s,!L||!_)return new m(NaN);if(L!=_)return g.s=-_,N.minus(g);var U=N.e/d,$=g.e/d,q=N.c,z=g.c;if(!U||!$){if(!q||!z)return new m(L/0);if(!q[0]||!z[0])return z[0]?g:new m(q[0]?N:L*0)}if(U=Y(U),$=Y($),q=q.slice(),L=U-$){for(L>0?($=U,T=z):(L=-L,T=q),T.reverse();L--;T.push(0));T.reverse()}for(L=q.length,_=z.length,L-_<0&&(T=z,z=q,q=T,_=L),L=0;_;)L=(q[--_]=q[_]+z[_]+L)/l|0,q[_]=l===q[_]?0:q[_]%l;return L&&(q=[L].concat(q),++$),W(g,q,$)},se.precision=se.sd=function(g,_){var T,N,L,U=this;if(g!=null&&g!==!!g)return te(g,1,D),_==null?_=j:te(_,0,8),V(new m(U),g,_);if(!(T=U.c))return null;if(L=T.length-1,N=L*d+1,L=T[L]){for(;L%10==0;L/=10,N--);for(L=T[0];L>=10;L/=10,N++);}return g&&U.e+1>N&&(N=U.e+1),N},se.shiftedBy=function(g){return te(g,-A,A),this.times("1e"+g)},se.squareRoot=se.sqrt=function(){var g,_,T,N,L,U=this,$=U.c,q=U.s,z=U.e,K=k+4,Z=new m("0.5");if(q!==1||!$||!$[0])return new m(!q||q<0&&(!$||$[0])?NaN:$?U:1/0);if(q=Math.sqrt(+re(U)),q==0||q==1/0?(_=oe($),(_.length+z)%2==0&&(_+="0"),q=Math.sqrt(+_),z=Y((z+1)/2)-(z<0||z%2),q==1/0?_="5e"+z:(_=q.toExponential(),_=_.slice(0,_.indexOf("e")+1)+z),T=new m(_)):T=new m(q+""),T.c[0]){for(z=T.e,q=z+K,q<3&&(q=0);;)if(L=T,T=Z.times(L.plus(he(U,L,K,1))),oe(L.c).slice(0,q)===(_=oe(T.c)).slice(0,q))if(T.e<z&&--q,_=_.slice(q-3,q+1),_=="9999"||!N&&_=="4999"){if(!N&&(V(L,L.e+k+2,0),L.times(L).eq(U))){T=L;break}K+=4,q+=4,N=1}else{(!+_||!+_.slice(1)&&_.charAt(0)=="5")&&(V(T,T.e+k+2,1),g=!T.times(T).eq(U));break}}return V(T,T.e+k+1,j,g)},se.toExponential=function(g,_){return g!=null&&(te(g,0,D),g++),J(this,g,_,1)},se.toFixed=function(g,_){return g!=null&&(te(g,0,D),g=g+this.e+1),J(this,g,_)},se.toFormat=function(g,_,T){var N,L=this;if(T==null)g!=null&&_&&typeof _=="object"?(T=_,_=null):g&&typeof g=="object"?(T=g,g=_=null):T=I;else if(typeof T!="object")throw Error(o+"Argument not an object: "+T);if(N=L.toFixed(g,_),L.c){var U,$=N.split("."),q=+T.groupSize,z=+T.secondaryGroupSize,K=T.groupSeparator||"",Z=$[0],ne=$[1],we=L.s<0,Be=we?Z.slice(1):Z,Oe=Be.length;if(z&&(U=q,q=z,z=U,Oe-=U),q>0&&Oe>0){for(U=Oe%q||q,Z=Be.substr(0,U);U<Oe;U+=q)Z+=K+Be.substr(U,q);z>0&&(Z+=K+Be.slice(U)),we&&(Z="-"+Z)}N=ne?Z+(T.decimalSeparator||"")+((z=+T.fractionGroupSize)?ne.replace(new RegExp("\\d{"+z+"}\\B","g"),"$&"+(T.fractionGroupSeparator||"")):ne):Z}return(T.prefix||"")+N+(T.suffix||"")},se.toFraction=function(g){var _,T,N,L,U,$,q,z,K,Z,ne,we,Be=this,Oe=Be.c;if(g!=null&&(q=new m(g),!q.isInteger()&&(q.c||q.s!==1)||q.lt(B)))throw Error(o+"Argument "+(q.isInteger()?"out of range: ":"not an integer: ")+re(q));if(!Oe)return new m(Be);for(_=new m(B),K=T=new m(B),N=z=new m(B),we=oe(Oe),U=_.e=we.length-Be.e-1,_.c[0]=M[($=U%d)<0?d+$:$],g=!g||q.comparedTo(_)>0?U>0?_:K:q,$=y,y=1/0,q=new m(we),z.c[0]=0;Z=he(q,_,0,1),L=T.plus(Z.times(N)),L.comparedTo(g)!=1;)T=N,N=L,K=z.plus(Z.times(L=K)),z=L,_=q.minus(Z.times(L=_)),q=L;return L=he(g.minus(T),N,0,1),z=z.plus(L.times(K)),T=T.plus(L.times(N)),z.s=K.s=Be.s,U=U*2,ne=he(K,N,U,j).minus(Be).abs().comparedTo(he(z,T,U,j).minus(Be).abs())<1?[K,N]:[z,T],y=$,ne},se.toNumber=function(){return+re(this)},se.toPrecision=function(g,_){return g!=null&&te(g,1,D),J(this,g,_,2)},se.toString=function(g){var _,T=this,N=T.s,L=T.e;return L===null?N?(_="Infinity",N<0&&(_="-"+_)):_="NaN":(g==null?_=L<=S||L>=s?de(oe(T.c),L):Se(oe(T.c),L,"0"):g===10&&c?(T=V(new m(T),k+L+1,j),_=Se(oe(T.c),T.e,"0")):(te(g,2,b.length,"Base"),_=be(Se(oe(T.c),L,"0"),10,g,N,!0)),N<0&&T.c[0]&&(_="-"+_)),_},se.valueOf=se.toJSON=function(){return re(this)},se._isBigNumber=!0,ue!=null&&m.set(ue),m}function Y(ue){var he=ue|0;return ue>0||ue===he?he:he-1}function oe(ue){for(var he,be,We=1,se=ue.length,B=ue[0]+"";We<se;){for(he=ue[We++]+"",be=d-he.length;be--;he="0"+he);B+=he}for(se=B.length;B.charCodeAt(--se)===48;);return B.slice(0,se+1||1)}function me(ue,he){var be,We,se=ue.c,B=he.c,k=ue.s,j=he.s,S=ue.e,s=he.e;if(!k||!j)return null;if(be=se&&!se[0],We=B&&!B[0],be||We)return be?We?0:-j:k;if(k!=j)return k;if(be=k<0,We=S==s,!se||!B)return We?0:!se^be?1:-1;if(!We)return S>s^be?1:-1;for(j=(S=se.length)<(s=B.length)?S:s,k=0;k<j;k++)if(se[k]!=B[k])return se[k]>B[k]^be?1:-1;return S==s?0:S>s^be?1:-1}function te(ue,he,be,We){if(ue<he||ue>be||ue!==n(ue))throw Error(o+(We||"Argument")+(typeof ue=="number"?ue<he||ue>be?" out of range: ":" not an integer: ":" not a primitive number: ")+String(ue))}function ge(ue){var he=ue.c.length-1;return Y(ue.e/d)==he&&ue.c[he]%2!=0}function de(ue,he){return(ue.length>1?ue.charAt(0)+"."+ue.slice(1):ue)+(he<0?"e":"e+")+he}function Se(ue,he,be){var We,se;if(he<0){for(se=be+".";++he;se+=be);ue=se+ue}else if(We=ue.length,++he>We){for(se=be,he-=We;--he;se+=be);ue+=se}else he<We&&(ue=ue.slice(0,he)+"."+ue.slice(he));return ue}t=H(),t.default=t.BigNumber=t,typeof define=="function"&&define.amd?define(function(){return t}):typeof ps!="undefined"&&ps.exports?ps.exports=t:(e||(e=typeof self!="undefined"&&self?self:window),e.BigNumber=t)})(Vl)});$a(exports);x0(exports,{EthosConnectProvider:()=>$l,EthosConnectProviderForVue:()=>d0,EthosConnectStatus:()=>Hr,SignInButton:()=>ds,ethos:()=>Fm});var qa=xe(require("react"));var Ke=xe(require("react"));var nn=xe(require("react")),b0=({width:e=100,color:t="#333"})=>nn.default.createElement("svg",{version:"1.1",id:"L4",xmlns:"http://www.w3.org/2000/svg",x:"0px",y:"0px",viewBox:"0 0 54 20",width:e,height:e*(20/54),enableBackground:"new 0 0 0 0"},nn.default.createElement("circle",{fill:t,stroke:"none",cx:"6",cy:"10",r:"6"},nn.default.createElement("animate",{attributeName:"opacity",dur:"1.5s",values:"0;1;0",repeatCount:"indefinite",begin:"0.1"})),nn.default.createElement("circle",{fill:t,stroke:"none",cx:"26",cy:"10",r:"6"},nn.default.createElement("animate",{attributeName:"opacity",dur:"1.5s",values:"0;1;0",repeatCount:"indefinite",begin:"0.5"})),nn.default.createElement("circle",{fill:t,stroke:"none",cx:"46",cy:"10",r:"6"},nn.default.createElement("animate",{attributeName:"opacity",dur:"1.5s",values:"0;1;0",repeatCount:"indefinite",begin:"1.0"}))),Fi=b0;var Va=xe(require("react")),E0=({width:e=32})=>Va.default.createElement("img",{src:S0,width:e,height:e}),Ss=E0,S0="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAeGVYSWZNTQAqAAAACAAFARIAAwAAAAEAAQAAARoABQAAAAEAAABKARsABQAAAAEAAABSASgAAwAAAAEAAgAAh2kABAAAAAEAAABaAAAAAAAAAEgAAAABAAAASAAAAAEAAqACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAAAQdIdCAAAACXBIWXMAAAsTAAALEwEAmpwYAAACZmlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNS40LjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyIKICAgICAgICAgICAgeG1sbnM6ZXhpZj0iaHR0cDovL25zLmFkb2JlLmNvbS9leGlmLzEuMC8iPgogICAgICAgICA8dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPgogICAgICAgICA8dGlmZjpSZXNvbHV0aW9uVW5pdD4yPC90aWZmOlJlc29sdXRpb25Vbml0PgogICAgICAgICA8ZXhpZjpDb2xvclNwYWNlPjE8L2V4aWY6Q29sb3JTcGFjZT4KICAgICAgICAgPGV4aWY6UGl4ZWxYRGltZW5zaW9uPjU2PC9leGlmOlBpeGVsWERpbWVuc2lvbj4KICAgICAgICAgPGV4aWY6UGl4ZWxZRGltZW5zaW9uPjU2PC9leGlmOlBpeGVsWURpbWVuc2lvbj4KICAgICAgPC9yZGY6RGVzY3JpcHRpb24+CiAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+CiB3yYcAAAgwSURBVFgJrZddiJ1HGcefmXfe9z3n7G42yTYamy9sklZT0XilAeuFdwXxQrD4gVKwF6IXohdS8CYXJWJFwQvprXhTaOhVFakFjbGWioqItKYXprVda0OaNNnd8/F+jr//nN1k16RCwLM778w8M2f+//k/zzzzHme3+Zw+/Zuw+94TK7mvDucxHCws3h2ie19u9p68d3vy3kaFuYG3diH4We/9dJaF2SzLKG58xWfTyz4b/zvPJqsun6zW9eS1j2785ap76Gz333Buu+H0M2+OwrQ5Wzj/YBbNhWiWR2eAG+CxiJ6+WeijK5KNMWssy6YGCdWR4pwbWwgTbGNsam9QxtH5jSfqS6vfuv+hs/UW7g0C33l69WARu38GMx/Mxaw3l5uAXQypPScjQihgxSY51cE3mwQmAApY9Rx8Xs8JZNm6y/z6uCjHRw5+7GdXRMLr8bmnYtZZe6Hx0TdQalUYaVy02qKTjfpGUb/xLjbeotpdn1uMZey60vp+sFlKm/dxYJRddR77mC+0bfZyjKcTNhs221e89khjbhTZTc+DDbrAwmgWIx0sUMGgj6MbkQE3yOY8hTnWFy74HlB1OnOuTaXvW8BZ3eUOEtE5EQn73njxwleY+FMRcJ23M1BL6wQWjJDQ4n3sXX+TiAMSQoBDTNj84SAm43XYQqSkyZS+x9IB1lJvEaghUtOvWB8Sff6DRODrT720UFm717uMfTrWnxPp5VuBg8KSLnrUoEMcYmQO+8eDPMRHIokWoduVLkge1yXwmwTkkgqCBTVh7sPKhec/sxTqpeye2MKSBWPEsS5jB2wGcJFgYzBXu8MGCW1Wam0S2VJLdqbyBUK4G9CUC+SKDkAFacPUGn2IpjgDo3QL+cL7Q9O3xwnF6NmlAc6IdgtgFg/sLu3LJ1fcgeVCS+uTMObN2z53jM/GtV144YJV641IMFZBpKZdooACM9wXWl8fz5JgWfSA9z7AFAlQ5Esn73YXrkztr29xtFAjFThkYCM2tUs29jzvy0ZRX8d3tOjcoRNH7JUX1llPKtSclArwASoUwJTHyTHN0R4JCDnAgQDcm1c02PdffD1WtUAUIT7mSB9UEwvzXOBSPiixFXBWTijx2QAxKW5A0AyH5Jx+gd12gDeAb5EYupDNjobeNUcURYouoOZuYEGcZSujwj1y6qAd2lVK7y15t+rtPridzaYbnf3t3FWbrin4dCIatK6oZxAiX8TyMATa/TEpAAGCjJ0TTiLU2Vc/csxevrJmf740D3+FmcY0C0QiZu4WuUJp+0ZNWxlz12Kwwx9espfP1wQmIU1K0zH0viJTzmLXTvZLgZUEmBbPmCAAojLL4mN//LubNQJnaSnU4wg8zHFjVsAluAIg+bsg4AesgQtSe8isAbbdRWBmsEG3IAWso2RZzcGb4o7RXaHz7aLETwBKe0CwbgJZGZX2tQ/da0eWRtvltrcnjT3661f5SmYd5Fpi49EHD9reUUqsW+5wG+PWfnv+HZtWMCFdu3YXB4yk39aAJwUW2G49FKuOC2WzxN63Ue1vn/zALeBictcot6JouTMq7oTaFtnCJvgOoosLwT5+atnGxPaEUsXSte0ujuEuFFgiNS+XvnUtV3zDGaAA2rua01CTnmvbNxzsWHB75wv3v9f2LMRE5NP3LW8f2tFe2V0kAmOO9QTPVt3QmmY5EWm7xSKwW6U7PImL0pNZ8rfy/c3I37GoOg8cWEnlloHbGDa0lBJLRzzpr1s03yovVBbKjszEaJ/h+5TUcS2HheeWL2+z5J2Z1nRLEictSyrLKF35djdx0MQwaGrdXSRBT4Q6FXI+9wH1ncG8++w13VESgA2S7ri5kKHjZNV72jDqmoqoJxB1oyYCUoIY+N8ueHe4W0fGWU3A5rzgoIRncyDo7vTdoAnDtpr20Q+VfuZF11Jq/98UaMIYF5Sx4RqucUUdUJvXUw79LAyb9hqS7NXZl9vlfmKCE+Hj6vXL7uDyvlu3dAeWy7OpVdm6Zb7idJXWdgOrRQYNeO275kdVdWnU1kaJo7oylYWmjov1zD39p1/atcnaHcDtnHpx4x0789IfrM7XrQprbPe6zYprcZJfd1fyqb0Z2kth2NcX0fyUAkMxoIPCoZASce3tVffjZ35CctTdKGWQDWWSSvhQth7VFFyKGQq+9lw7ngSVWRMCL668H2WB3Sqd58R/4ZqsjDnvBE278I8wqGbnvPdf1GKQSGBC2GzLTyI1J5cIklXlrnRSAYXuZuyk+gYZEfEqEMnmZQaZJuSxznJXe37a+Py5EKb1s2WZ6fbV4dAjPclJMuEphkDTmKaIkKZIKeWt+Ty1PQTS24RebrFLFdRhXg8JyEglq7MM8GD8lLK1xp8XsHvyiW+us+ZIgHMeetObExGHBK7BTRLCTqQSmTkx2cQwqYUdYonknKyIY9h0JW7D6378jYfP7ArazJM/XPvgMC9f1wJbsFpbfX2SCKigQyLkZEqDEkZC6V/jtJMkvGGk9uZyvNUq/2HizYpET32tqk5gSotRm/388YcfKDN/PnW0fxoq+iCiFhbXTTt1wo2WycjZVl9trjjJqJd8ARF0OANb1ne8pDCgV+wufvKe7/3id/O1E8T88exjnz+0lGWvADwUqAIg1VKG72q3XFWprcX17qzzke4aEjpgAqSvObKnLwlUDX1/YzKLJ4796FdvbMFubXKrr9r9/rufPTwo4icG0T5F/yjy7WeHe1iIG94VLM7VlX6qCEgy8g9i1M9FXvzMJkhyFa5vMXiRS/D5qqueO/b4uX9p4naw/wDv1ZplvOGRpgAAAABJRU5ErkJggg==";var An;(function(n){n[n.sm=640]="sm",n[n.md=768]="md",n[n.lg=1024]="lg",n[n.xl=1280]="xl",n[n["2xl"]=1536]="2xl"})(An||(An={}));var As="#74777C",Ka=()=>({fontSize:"18px",lineHeight:"24px",fontWeight:"600",marginLeft:"10px"});var Ga=()=>({color:"#6B7280",fontSize:"0.875rem",lineHeight:"1.25rem",padding:"24px",display:"flex",flexDirection:"column",gap:"12px"});var Za=e=>({visibility:e?"":"hidden",position:"relative",zIndex:"100"}),Ya=e=>({position:"fixed",top:"0px",right:"0px",bottom:"0px",left:"0px",backgroundColor:"rgb(107 114 128)",opacity:e?".75":"0",transition:"all 300ms ease-in-out"}),Ja=()=>({color:"#6D28D9"});var Xa=e=>({position:"fixed",zIndex:"99",top:"0px",right:"0px",bottom:"0px",left:"0px",overflowY:"auto",opacity:e?"1":"0",scale:e?"1":".95",transition:"all 300ms ease-in-out"}),Qa=e=>{let t={display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100%",padding:"1rem",textAlign:"center"},r={padding:"0",alignItems:"center"};return e<An.sm?t:{...t,...r}},ja=e=>{let t={overflow:"hidden",position:"relative",backgroundColor:"#ffffff",transitionProperty:"all",borderRadius:"0.5rem",boxShadow:"0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"},r={width:"360px"};return e<An.sm?t:{...t,...r}},ef=()=>({padding:"24px 24px 0px",display:"flex",flexDirection:"row",justifyContent:"space-between",alignItems:"center"}),tf=()=>({width:"24px",height:"24px",color:"#A0AEBA",cursor:"pointer"}),rf=()=>({color:As,cursor:"pointer",display:"flex",gap:"6px",alignItems:"center"}),nf=()=>({fontSize:"16px",lineHeight:"24px"}),of=(e=!1)=>({padding:e?"24px 24px 32px":"0 24px 32px",display:"flex",flexDirection:"column",justifyContent:"center",gap:"12px"}),sf=()=>({display:"flex",justifyContent:"center",gap:"-6px"}),af=()=>({fontSize:"24px",fontWeight:"600",lineHeight:"32px",margin:"0"}),ff=()=>({fontSize:"16px",fontWeight:"400",lineHeight:"24px",margin:"0",color:As});var cf=()=>({padding:"0px 24px 24px",display:"flex",flexDirection:"row",gap:"12px",justifyContent:"space-between",alignItems:"center",color:As}),_s=()=>({height:"1px",width:"100%",background:"rgba(0, 0, 0, 0.12)",borderRadius:"16px"}),uf=()=>({boxSizing:"border-box",border:"1px solid rgba(0, 0, 0, 0.08)",borderRadius:"16px",background:"#F2F2F2",padding:"20px",width:"100%"});var Wn=e=>{let t={padding:"0px 24px 24px",display:"flex",flexDirection:"column",alignItems:"center",gap:"12px"},r={};return e<An.sm?t:{...t,...r}},Hi=(e,t=!1,r=!1,i=!1)=>{let n={textDecoration:"none",fontWeight:r?"500":"400",boxSizing:"border-box",display:"flex",flexDirection:"row",justifyContent:i?"center":"space-between",alignItems:"center",padding:r?"20px 20px":"16px 16px 16px 20px",width:"100%",background:r?"#6D28D9":"#F2F2F2",color:r?"white":"black",opacity:t?.5:1,cursor:t?"not-allowed":"pointer",borderRadius:"16px",flex:"none",order:"0",flexGrow:"0",boxShadow:"0px 1px 2px rgba(0, 0, 0, 0.05)",border:"none",fontSize:"inherit"},o={};return e<An.sm?n:{...n,...o}},Ms=()=>({padding:"0px 24px 24px"});var lf=()=>({display:"flex",justifyContent:"center",padding:"45px 0"});var hf=()=>({padding:"6px 0",color:"#666",width:"100%",fontSize:"smaller",marginBottom:"12px"});var df=xe(require("react"));function Cs(e,t){(0,df.useEffect)(()=>{function r(i){i.target.id===e&&t()}return document.addEventListener("mousedown",r),()=>{document.removeEventListener("mousedown",r)}},[])}var Mn=xe(require("react"));var Mr=xe(require("react")),A0=({width:e=24,color:t="#6D28D9"})=>Mr.default.createElement("svg",{width:e,height:e,viewBox:"0 0 56 56",fill:"none",xmlns:"http://www.w3.org/2000/svg"},Mr.default.createElement("rect",{width:"56",height:"56",rx:"16",fill:t}),Mr.default.createElement("path",{opacity:"0.8",d:"M17.9631 13H36.9268C37.7997 13 38.5073 13.7076 38.5073 14.5805V35.9802C38.5073 36.8531 37.7997 37.5607 36.9268 37.5607H17.9631C17.0902 37.5607 16.3826 36.8531 16.3826 35.9802V14.5805C16.3826 13.7076 17.0902 13 17.9631 13Z",stroke:"url(#paint0_linear_514_2169)",strokeOpacity:"0.9",strokeWidth:"0.790251"}),Mr.default.createElement("path",{d:"M17.2471 14.0457L30.1651 20.0566C30.7225 20.316 31.0789 20.8749 31.0789 21.4896V42.6676C31.0789 43.8113 29.9018 44.5763 28.8566 44.112L15.9386 38.3725C15.3677 38.1189 14.9998 37.5528 14.9998 36.9281V15.4787C14.9998 14.3231 16.1994 13.5582 17.2471 14.0457Z",fill:"white",fillOpacity:"0.9"}),Mr.default.createElement("path",{d:"M42.9117 27.9093C43.0029 27.4813 43.219 27.0901 43.5329 26.7851C43.8467 26.4801 44.2441 26.2753 44.6746 26.1965L45.8205 25.9872L44.6745 25.7779H44.6746C44.2441 25.6991 43.8467 25.4943 43.5329 25.1893C43.219 24.8843 43.0029 24.4931 42.9117 24.0651L42.6596 22.8774L42.4074 24.0651C42.3162 24.4931 42.1001 24.8843 41.7862 25.1893C41.4724 25.4943 41.075 25.6992 40.6445 25.7779L39.4985 25.9872L40.6446 26.1965H40.6445C41.075 26.2753 41.4724 26.4801 41.7861 26.7851C42.1 27.0901 42.3162 27.4813 42.4073 27.9093L42.6595 29.097L42.9117 27.9093Z",fill:"white",fillOpacity:"0.9"}),Mr.default.createElement("defs",null,Mr.default.createElement("linearGradient",{id:"paint0_linear_514_2169",x1:"38.5073",y1:"19.5371",x2:"27.4445",y2:"25.0685",gradientUnits:"userSpaceOnUse"},Mr.default.createElement("stop",{stopColor:"white"}),Mr.default.createElement("stop",{offset:"1",stopColor:"white",stopOpacity:"0"})))),pf=A0;var qi=xe(require("react")),_0=({width:e=24,color:t="#1e293b"})=>qi.default.createElement("svg",{width:e,height:e*65/47,viewBox:"0 0 47 65",fill:"none",xmlns:"http://www.w3.org/2000/svg"},qi.default.createElement("path",{d:"M6.00471 1H40.0029C42.7644 1 45.0029 3.23858 45.0029 6V44.8425C45.0029 47.604 42.7643 49.8425 40.0029 49.8425H6.0047C3.24328 49.8425 1.0047 47.604 1.0047 44.8425V6C1.0047 3.23858 3.24329 1 6.00471 1Z",stroke:t,strokeWidth:"2"}),qi.default.createElement("path",{d:"M6.68764 3.64648L30.6631 14.8026C32.0736 15.4589 32.9756 16.8735 32.9756 18.4292V58.6799C32.9756 61.5743 29.9966 63.5105 27.3515 62.3353L3.37601 51.683C1.93126 51.0411 1.00013 49.6085 1.00013 48.0276V7.27309C1.00013 4.34854 4.03609 2.41268 6.68764 3.64648Z",fill:t})),yf=_0;var on=xe(require("react"));var M0=({title:e,subTitle:t,dappIcon:r,showEthos:i=!1,children:n})=>on.default.createElement("div",null,on.default.createElement("div",{style:of(!!r)},on.default.createElement("div",{style:sf()},r&&(typeof r=="string"?on.default.createElement("img",{src:r}):r),i&&on.default.createElement(yf,null)),e&&on.default.createElement("div",{style:af()},e),t&&on.default.createElement("div",{style:ff()},t)),n),_n=M0;var C0=()=>Mn.default.createElement(_n,{title:"Ethos sent you an email",dappIcon:Mn.default.createElement(pf,{width:60})},Mn.default.createElement("div",{style:Ga()},Mn.default.createElement("p",null,"An email has been sent to you with a link to login."),Mn.default.createElement("p",null,"If you don't receive it, please check your spam folder or contact us at:"),Mn.default.createElement("p",null,"support@ethoswallet.xyz"))),gf=C0;var an=xe(require("react"));var Ts=xe(require("react"));var T0=e=>{let{text:t,icon:r,width:i,disabled:n,primary:o,type:a,...l}=e;return Ts.default.createElement("button",{style:Hi(i,n,o,!r),...l,type:a},Ts.default.createElement("div",null,t),r)},sn=T0;var I0=({wallets:e,selectWallet:t,width:r})=>{let i=(0,an.useCallback)(o=>{if(!t)return;let a=o.target,l;for(;!l&&a.parentNode;)l=a.dataset.name,a=a.parentNode;t(l)},[]),n=(0,an.useCallback)(o=>{let a=o.name==="Sui Wallet"?"https://sui.io/favicon.png":o.icon;return an.default.createElement("img",{src:a,height:32,width:32})},[]);return an.default.createElement("div",{role:"wallet-sign-in"},an.default.createElement("div",{style:Wn(r)},e==null?void 0:e.map((o,a)=>an.default.createElement(sn,{key:`select-wallet-${a}`,icon:n(o),"data-name":o.name,text:o.name,onClick:i,width:r}))))},mf=I0;var ur=xe(require("react"));var wf=xe(Cr()),B0=()=>wf.default.namespace("ethos")("configuration")||{},pr=B0;var xf=xe(Cr());var Ki=xe(Cr());var Vi=xe(Cr()),O0=e=>{let t=Vi.default.namespace("log"),r=t("allowed")||[];if(!r.includes(e))return t("allowed",[...r,e]),`Logging enabled for ${e}. Call ethos.clearAllowLog() to turn off this logging.`},P0=()=>{Vi.default.namespace("log")("allowed",[])},N0=(e,...t)=>{let i=Vi.default.namespace("log")("allowed");!i||!(i.includes(e)||i.includes("all"))||console.log(e,...t)};typeof window!="undefined"&&(window.ethos={allowLog:O0,clearAllowLog:P0});var st=N0;var R0=e=>{let{apiKey:t,walletAppUrl:r}=pr();if(st("getIframe","getIframe",t,r),!t||!r)return;let i="ethos-wallet-iframe",n=0,o=document.getElementById(i),a=()=>{!o||(o.style.width="1px",o.style.height="1px")};if(!o){let l=new URLSearchParams(window.location.search),d=l.get("auth"),A=r+`/wallet?apiKey=${t}`;if(d){A+=`&auth=${d}`,l.delete("auth");let M=location.protocol+"//"+location.host+location.pathname;l.toString().length>0&&(M+="?"+l.toString()),Ki.default.namespace("auth")("access_token",d),window.history.pushState({},"",M)}else{let M=Ki.default.namespace("auth")("access_token");M&&(A+=`&auth=${M}`)}st("getIframe","Load Iframe",A),o=document.createElement("IFRAME"),o.src=A,o.id=i,o.style.border="none",o.style.position="absolute",o.style.top=n-1+"px",o.style.right="60px",o.style.width="1px",o.style.height="1px",o.style.zIndex="99",o.setAttribute("allow","payment; clipboard-read; clipboard-write"),document.body.appendChild(o),window.addEventListener("message",M=>{if(M.origin===r){let{action:P}=M.data;switch(P){case"close":a();break;case"ready":o.setAttribute("readyToReceiveMessages","true");let D=Ki.default.namespace("iframeMessages"),H=D("messages")||[];for(let Y of H)Ir(Y);D("messages",null);break}}}),window.addEventListener("scroll",()=>{n=window.scrollY,o.style.top=n+"px"})}return e?(o.style.width="360px",o.style.height="600px"):e!==void 0&&a(),o},Tr=R0;var k0=e=>{var r;let t=Tr();if(!(t==null?void 0:t.getAttribute("readyToReceiveMessages"))){let i=xf.default.namespace("iframeMessages"),n=i("messages")||[],o=i("messages",[...n,e]);st("iframe","Storing iframe message",o);return}(r=t==null?void 0:t.contentWindow)==null||r.postMessage(e,"*")},Ir=k0;var U0=async e=>{Ir({action:"event",data:e})},vf=U0;var gl=xe(Cr());var K1=xe(Is()),G1=xe(Vn()),Z1=xe(Qi()),Y1=xe(Vn()),J1=xe(Hs()),X1=xe(Mc()),Q1=xe(uo()),j1=xe(yi()),ey=xe(Is());var Ed=xe(Gi());var xt=BigInt(0),Pt=BigInt(1),pn=BigInt(2),bi=BigInt(3),Sd=BigInt(8),Ut=Object.freeze({a:xt,b:BigInt(7),P:BigInt("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f"),n:BigInt("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"),h:Pt,Gx:BigInt("55066263022277343669578718895168534326250603453777594175500187360389116729240"),Gy:BigInt("32670510020758816978083085130507043184471273380659243275938904335757337482424"),beta:BigInt("0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee")});function Cc(e){let{a:t,b:r}=Ut,i=Re(e*e),n=Re(i*e);return Re(n+t*e+r)}var po=Ut.a===xt,Tc=class extends Error{constructor(t){super(t)}},vt=class{constructor(t,r,i){this.x=t,this.y=r,this.z=i}static fromAffine(t){if(!(t instanceof Lt))throw new TypeError("JacobianPoint#fromAffine: expected Point");return new vt(t.x,t.y,Pt)}static toAffineBatch(t){let r=Td(t.map(i=>i.z));return t.map((i,n)=>i.toAffine(r[n]))}static normalizeZ(t){return vt.toAffineBatch(t).map(vt.fromAffine)}equals(t){if(!(t instanceof vt))throw new TypeError("JacobianPoint expected");let{x:r,y:i,z:n}=this,{x:o,y:a,z:l}=t,d=Re(n*n),A=Re(l*l),M=Re(r*A),P=Re(o*d),D=Re(Re(i*l)*A),H=Re(Re(a*n)*d);return M===P&&D===H}negate(){return new vt(this.x,Re(-this.y),this.z)}double(){let{x:t,y:r,z:i}=this,n=Re(t*t),o=Re(r*r),a=Re(o*o),l=t+o,d=Re(pn*(Re(l*l)-n-a)),A=Re(bi*n),M=Re(A*A),P=Re(M-pn*d),D=Re(A*(d-P)-Sd*a),H=Re(pn*r*i);return new vt(P,D,H)}add(t){if(!(t instanceof vt))throw new TypeError("JacobianPoint expected");let{x:r,y:i,z:n}=this,{x:o,y:a,z:l}=t;if(o===xt||a===xt)return this;if(r===xt||i===xt)return t;let d=Re(n*n),A=Re(l*l),M=Re(r*A),P=Re(o*d),D=Re(Re(i*l)*A),H=Re(Re(a*n)*d),Y=Re(P-M),oe=Re(H-D);if(Y===xt)return oe===xt?this.double():vt.ZERO;let me=Re(Y*Y),te=Re(Y*me),ge=Re(M*me),de=Re(oe*oe-te-pn*ge),Se=Re(oe*(ge-de)-D*te),ue=Re(n*l*Y);return new vt(de,Se,ue)}subtract(t){return this.add(t.negate())}multiplyUnsafe(t){let r=vt.ZERO;if(typeof t=="bigint"&&t===xt)return r;let i=Pc(t);if(i===Pt)return this;if(!po){let P=r,D=this;for(;i>xt;)i&Pt&&(P=P.add(D)),D=D.double(),i>>=Pt;return P}let{k1neg:n,k1:o,k2neg:a,k2:l}=Rc(i),d=r,A=r,M=this;for(;o>xt||l>xt;)o&Pt&&(d=d.add(M)),l&Pt&&(A=A.add(M)),M=M.double(),o>>=Pt,l>>=Pt;return n&&(d=d.negate()),a&&(A=A.negate()),A=new vt(Re(A.x*Ut.beta),A.y,A.z),d.add(A)}precomputeWindow(t){let r=po?128/t+1:256/t+1,i=[],n=this,o=n;for(let a=0;a<r;a++){o=n,i.push(o);for(let l=1;l<2**(t-1);l++)o=o.add(n),i.push(o);n=o.double()}return i}wNAF(t,r){!r&&this.equals(vt.BASE)&&(r=Lt.BASE);let i=r&&r._WINDOW_SIZE||1;if(256%i)throw new Error("Point#wNAF: Invalid precomputation window, must be power of 2");let n=r&&ea.get(r);n||(n=this.precomputeWindow(i),r&&i!==1&&(n=vt.normalizeZ(n),ea.set(r,n)));let o=vt.ZERO,a=vt.ZERO,l=1+(po?128/i:256/i),d=2**(i-1),A=BigInt(2**i-1),M=2**i,P=BigInt(i);for(let D=0;D<l;D++){let H=D*d,Y=Number(t&A);if(t>>=P,Y>d&&(Y-=M,t+=Pt),Y===0){let oe=n[H];D%2&&(oe=oe.negate()),a=a.add(oe)}else{let oe=n[H+Math.abs(Y)-1];Y<0&&(oe=oe.negate()),o=o.add(oe)}}return{p:o,f:a}}multiply(t,r){let i=Pc(t),n,o;if(po){let{k1neg:a,k1:l,k2neg:d,k2:A}=Rc(i),{p:M,f:P}=this.wNAF(l,r),{p:D,f:H}=this.wNAF(A,r);a&&(M=M.negate()),d&&(D=D.negate()),D=new vt(Re(D.x*Ut.beta),D.y,D.z),n=M.add(D),o=P.add(H)}else{let{p:a,f:l}=this.wNAF(i,r);n=a,o=l}return vt.normalizeZ([n,o])[0]}toAffine(t=go(this.z)){let{x:r,y:i,z:n}=this,o=t,a=Re(o*o),l=Re(a*o),d=Re(r*a),A=Re(i*l);if(Re(n*o)!==Pt)throw new Error("invZ was invalid");return new Lt(d,A)}};vt.BASE=new vt(Ut.Gx,Ut.Gy,Pt);vt.ZERO=new vt(xt,Pt,xt);var ea=new WeakMap,Lt=class{constructor(t,r){this.x=t,this.y=r}_setWindowSize(t){this._WINDOW_SIZE=t,ea.delete(this)}hasEvenY(){return this.y%pn===xt}static fromCompressedHex(t){let r=t.length===32,i=In(r?t:t.subarray(1));if(!na(i))throw new Error("Point is not on curve");let n=Cc(i),o=Cd(n),a=(o&Pt)===Pt;r?a&&(o=Re(-o)):(t[0]&1)==1!==a&&(o=Re(-o));let l=new Lt(i,o);return l.assertValidity(),l}static fromUncompressedHex(t){let r=In(t.subarray(1,33)),i=In(t.subarray(33,65)),n=new Lt(r,i);return n.assertValidity(),n}static fromHex(t){let r=ta(t),i=r.length,n=r[0];if(i===32||i===33&&(n===2||n===3))return this.fromCompressedHex(r);if(i===65&&n===4)return this.fromUncompressedHex(r);throw new Error(`Point.fromHex: received invalid point. Expected 32-33 compressed bytes or 65 uncompressed bytes, not ${i}`)}static fromPrivateKey(t){return Lt.BASE.multiply(ia(t))}static fromSignature(t,r,i){t=ta(t);let n=Bd(t),{r:o,s:a}=Od(r);if(i!==0&&i!==1)throw new Error("Cannot recover signature: invalid recovery bit");let l=i&1?"03":"02",d=Lt.fromHex(l+Jn(o)),{n:A}=Ut,M=go(o,A),P=Re(-n*M,A),D=Re(a*M,A),H=Lt.BASE.multiplyAndAddUnsafe(d,P,D);if(!H)throw new Error("Cannot recover signature: point at infinify");return H.assertValidity(),H}toRawBytes(t=!1){return Tn(this.toHex(t))}toHex(t=!1){let r=Jn(this.x);return t?`${this.hasEvenY()?"02":"03"}${r}`:`04${r}${Jn(this.y)}`}toHexX(){return this.toHex(!0).slice(2)}toRawX(){return this.toRawBytes(!0).slice(1)}assertValidity(){let t="Point is not on elliptic curve",{x:r,y:i}=this;if(!na(r)||!na(i))throw new Error(t);let n=Re(i*i),o=Cc(r);if(Re(n-o)!==xt)throw new Error(t)}equals(t){return this.x===t.x&&this.y===t.y}negate(){return new Lt(this.x,Re(-this.y))}double(){return vt.fromAffine(this).double().toAffine()}add(t){return vt.fromAffine(this).add(vt.fromAffine(t)).toAffine()}subtract(t){return this.add(t.negate())}multiply(t){return vt.fromAffine(this).multiply(t,this).toAffine()}multiplyAndAddUnsafe(t,r,i){let n=vt.fromAffine(this),o=r===xt||r===Pt||this!==Lt.BASE?n.multiplyUnsafe(r):n.multiply(r),a=vt.fromAffine(t).multiplyUnsafe(i),l=o.add(a);return l.equals(vt.ZERO)?void 0:l.toAffine()}};Lt.BASE=new Lt(Ut.Gx,Ut.Gy);Lt.ZERO=new Lt(xt,xt);function Ic(e){return Number.parseInt(e[0],16)>=8?"00"+e:e}function Bc(e){if(e.length<2||e[0]!==2)throw new Error(`Invalid signature integer tag: ${Yn(e)}`);let t=e[1],r=e.subarray(2,t+2);if(!t||r.length!==t)throw new Error("Invalid signature integer: wrong length");if(r[0]===0&&r[1]<=127)throw new Error("Invalid signature integer: trailing length");return{data:In(r),left:e.subarray(t+2)}}function Ad(e){if(e.length<2||e[0]!=48)throw new Error(`Invalid signature tag: ${Yn(e)}`);if(e[1]!==e.length-2)throw new Error("Invalid signature: incorrect length");let{data:t,left:r}=Bc(e.subarray(2)),{data:i,left:n}=Bc(r);if(n.length)throw new Error(`Invalid signature: left bytes after parsing: ${Yn(n)}`);return{r:t,s:i}}var kr=class{constructor(t,r){this.r=t,this.s=r,this.assertValidity()}static fromCompact(t){let r=t instanceof Uint8Array,i="Signature.fromCompact";if(typeof t!="string"&&!r)throw new TypeError(`${i}: Expected string or Uint8Array`);let n=r?Yn(t):t;if(n.length!==128)throw new Error(`${i}: Expected 64-byte hex`);return new kr(yo(n.slice(0,64)),yo(n.slice(64,128)))}static fromDER(t){let r=t instanceof Uint8Array;if(typeof t!="string"&&!r)throw new TypeError("Signature.fromDER: Expected string or Uint8Array");let{r:i,s:n}=Ad(r?t:Tn(t));return new kr(i,n)}static fromHex(t){return this.fromDER(t)}assertValidity(){let{r:t,s:r}=this;if(!mo(t))throw new Error("Invalid Signature: r must be 0 < r < n");if(!mo(r))throw new Error("Invalid Signature: s must be 0 < s < n")}hasHighS(){let t=Ut.n>>Pt;return this.s>t}normalizeS(){return this.hasHighS()?new kr(this.r,Ut.n-this.s):this}toDERRawBytes(t=!1){return Tn(this.toDERHex(t))}toDERHex(t=!1){let r=Ic(Si(this.s));if(t)return r;let i=Ic(Si(this.r)),n=Si(i.length/2),o=Si(r.length/2);return`30${Si(i.length/2+r.length/2+4)}02${n}${i}02${o}${r}`}toRawBytes(){return this.toDERRawBytes()}toHex(){return this.toDERHex()}toCompactRawBytes(){return Tn(this.toCompactHex())}toCompactHex(){return Jn(this.r)+Jn(this.s)}};function Ei(...e){if(!e.every(i=>i instanceof Uint8Array))throw new Error("Uint8Array list expected");if(e.length===1)return e[0];let t=e.reduce((i,n)=>i+n.length,0),r=new Uint8Array(t);for(let i=0,n=0;i<e.length;i++){let o=e[i];r.set(o,n),n+=o.length}return r}var _d=Array.from({length:256},(e,t)=>t.toString(16).padStart(2,"0"));function Yn(e){if(!(e instanceof Uint8Array))throw new Error("Expected Uint8Array");let t="";for(let r=0;r<e.length;r++)t+=_d[e[r]];return t}var Md=BigInt("0x10000000000000000000000000000000000000000000000000000000000000000");function Jn(e){if(typeof e!="bigint")throw new Error("Expected bigint");if(!(xt<=e&&e<Md))throw new Error("Expected number < 2^256");return e.toString(16).padStart(64,"0")}function Oc(e){let t=Tn(Jn(e));if(t.length!==32)throw new Error("Error: expected 32 bytes");return t}function Si(e){let t=e.toString(16);return t.length&1?`0${t}`:t}function yo(e){if(typeof e!="string")throw new TypeError("hexToNumber: expected string, got "+typeof e);return BigInt(`0x${e}`)}function Tn(e){if(typeof e!="string")throw new TypeError("hexToBytes: expected string, got "+typeof e);if(e.length%2)throw new Error("hexToBytes: received invalid unpadded hex"+e.length);let t=new Uint8Array(e.length/2);for(let r=0;r<t.length;r++){let i=r*2,n=e.slice(i,i+2),o=Number.parseInt(n,16);if(Number.isNaN(o)||o<0)throw new Error("Invalid byte sequence");t[r]=o}return t}function In(e){return yo(Yn(e))}function ta(e){return e instanceof Uint8Array?Uint8Array.from(e):Tn(e)}function Pc(e){if(typeof e=="number"&&Number.isSafeInteger(e)&&e>0)return BigInt(e);if(typeof e=="bigint"&&mo(e))return e;throw new TypeError("Expected valid private scalar: 0 < scalar < curve.n")}function Re(e,t=Ut.P){let r=e%t;return r>=xt?r:t+r}function mr(e,t){let{P:r}=Ut,i=e;for(;t-- >xt;)i*=i,i%=r;return i}function Cd(e){let{P:t}=Ut,r=BigInt(6),i=BigInt(11),n=BigInt(22),o=BigInt(23),a=BigInt(44),l=BigInt(88),d=e*e*e%t,A=d*d*e%t,M=mr(A,bi)*A%t,P=mr(M,bi)*A%t,D=mr(P,pn)*d%t,H=mr(D,i)*D%t,Y=mr(H,n)*H%t,oe=mr(Y,a)*Y%t,me=mr(oe,l)*oe%t,te=mr(me,a)*Y%t,ge=mr(te,bi)*A%t,de=mr(ge,o)*H%t,Se=mr(de,r)*d%t;return mr(Se,pn)}function go(e,t=Ut.P){if(e===xt||t<=xt)throw new Error(`invert: expected positive integers, got n=${e} mod=${t}`);let r=Re(e,t),i=t,n=xt,o=Pt,a=Pt,l=xt;for(;r!==xt;){let A=i/r,M=i%r,P=n-a*A,D=o-l*A;i=r,r=M,n=a,o=l,a=P,l=D}if(i!==Pt)throw new Error("invert: does not exist");return Re(n,t)}function Td(e,t=Ut.P){let r=new Array(e.length),i=e.reduce((o,a,l)=>a===xt?o:(r[l]=o,Re(o*a,t)),Pt),n=go(i,t);return e.reduceRight((o,a,l)=>a===xt?o:(r[l]=Re(o*r[l],t),Re(o*a,t)),n),r}var Nc=(e,t)=>(e+t/pn)/t,Id={a1:BigInt("0x3086d221a7d46bcde86c90e49284eb15"),b1:-Pt*BigInt("0xe4437ed6010e88286f547fa90abfe4c3"),a2:BigInt("0x114ca50f7a8e2f3f657c1108d9d44cfd8"),b2:BigInt("0x3086d221a7d46bcde86c90e49284eb15"),POW_2_128:BigInt("0x100000000000000000000000000000000")};function Rc(e){let{n:t}=Ut,{a1:r,b1:i,a2:n,b2:o,POW_2_128:a}=Id,l=Nc(o*e,t),d=Nc(-i*e,t),A=Re(e-l*r-d*n,t),M=Re(-l*i-d*o,t),P=A>a,D=M>a;if(P&&(A=t-A),D&&(M=t-M),A>a||M>a)throw new Error("splitScalarEndo: Endomorphism failed, k="+e);return{k1neg:P,k1:A,k2neg:D,k2:M}}function Bd(e){let{n:t}=Ut,i=e.length*8-256,n=In(e);return i>0&&(n=n>>BigInt(i)),n>=t&&(n-=t),n}var Xn,ra;function mo(e){return xt<e&&e<Ut.n}function na(e){return xt<e&&e<Ut.P}function ia(e){let t;if(typeof e=="bigint")t=e;else if(typeof e=="number"&&Number.isSafeInteger(e)&&e>0)t=BigInt(e);else if(typeof e=="string"){if(e.length!==64)throw new Error("Expected 32 bytes of private key");t=yo(e)}else if(e instanceof Uint8Array){if(e.length!==32)throw new Error("Expected 32 bytes of private key");t=In(e)}else throw new TypeError("Expected valid private key");if(!mo(t))throw new Error("Expected private key: 0 < key < n");return t}function Od(e){if(e instanceof kr)return e.assertValidity(),e;try{return kr.fromDER(e)}catch(t){return kr.fromCompact(e)}}Lt.BASE._setWindowSize(8);var fr={node:Ed,web:typeof self=="object"&&"crypto"in self?self.crypto:void 0};var wo={},Ur={bytesToHex:Yn,hexToBytes:Tn,concatBytes:Ei,mod:Re,invert:go,isValidPrivateKey(e){try{return ia(e),!0}catch(t){return!1}},_bigintTo32Bytes:Oc,_normalizePrivateKey:ia,hashToPrivateKey:e=>{if(e=ta(e),e.length<40||e.length>1024)throw new Error("Expected 40-1024 bytes of private key as per FIPS 186");let t=Re(In(e),Ut.n-Pt)+Pt;return Oc(t)},randomBytes:(e=32)=>{if(fr.web)return fr.web.getRandomValues(new Uint8Array(e));if(fr.node){let{randomBytes:t}=fr.node;return Uint8Array.from(t(e))}else throw new Error("The environment doesn't have randomBytes function")},randomPrivateKey:()=>Ur.hashToPrivateKey(Ur.randomBytes(40)),sha256:async(...e)=>{if(fr.web){let t=await fr.web.subtle.digest("SHA-256",Ei(...e));return new Uint8Array(t)}else if(fr.node){let{createHash:t}=fr.node,r=t("sha256");return e.forEach(i=>r.update(i)),Uint8Array.from(r.digest())}else throw new Error("The environment doesn't have sha256 function")},hmacSha256:async(e,...t)=>{if(fr.web){let r=await fr.web.subtle.importKey("raw",e,{name:"HMAC",hash:{name:"SHA-256"}},!1,["sign"]),i=Ei(...t),n=await fr.web.subtle.sign("HMAC",r,i);return new Uint8Array(n)}else if(fr.node){let{createHmac:r}=fr.node,i=r("sha256",e);return t.forEach(n=>i.update(n)),Uint8Array.from(i.digest())}else throw new Error("The environment doesn't have hmac-sha256 function")},sha256Sync:void 0,hmacSha256Sync:void 0,taggedHash:async(e,...t)=>{let r=wo[e];if(r===void 0){let i=await Ur.sha256(Uint8Array.from(e,n=>n.charCodeAt(0)));r=Ei(i,i),wo[e]=r}return Ur.sha256(r,...t)},taggedHashSync:(e,...t)=>{if(typeof Xn!="function")throw new Tc("sha256Sync is undefined, you need to set it");let r=wo[e];if(r===void 0){let i=Xn(Uint8Array.from(e,n=>n.charCodeAt(0)));r=Ei(i,i),wo[e]=r}return Xn(r,...t)},precompute(e=8,t=Lt.BASE){let r=t===Lt.BASE?t:new Lt(t.x,t.y);return r._setWindowSize(e),r.multiply(bi),r}};Object.defineProperties(Ur,{sha256Sync:{configurable:!1,get(){return Xn},set(e){Xn||(Xn=e)}},hmacSha256Sync:{configurable:!1,get(){return ra},set(e){ra||(ra=e)}}});var Ru=xe(yi()),ku=xe(fo()),ty=xe(Qi()),ry=xe(Vn()),ny=xe(Hs());var Wc=xe(yi()),zd=xe(Lc()),fa=xe(fo()),$d=xe(uo()),Vd=xe(Kn()),jn=xe(Kr());var Fc=xe(Qs());Ur.hmacSha256Sync=(e,...t)=>(0,Wc.hmac)(fa.sha256,e,Ur.concatBytes(...t));var K2=(0,Fc.base58check)(fa.sha256);var G2=(0,jn.utf8ToBytes)("Bitcoin seed");var Uu=xe(fu()),Du=xe(wa()),Lu=xe(hu());var Dr=xe(Qi());function e1(e){return e>64&&e<91?e-65:e>96&&e<123?e-71:e>47&&e<58?e+4:e===43?62:e===47?63:0}function du(e,t){for(var r=e.replace(/[^A-Za-z0-9+/]/g,""),i=r.length,n=t?Math.ceil((i*3+1>>2)/t)*t:i*3+1>>2,o=new Uint8Array(n),a,l,d=0,A=0,M=0;M<i;M++)if(l=M&3,d|=e1(r.charCodeAt(M))<<6*(3-l),l===3||i-M==1){for(a=0;a<3&&A<n;a++,A++)o[A]=d>>>(16>>>a&24)&255;d=0}return o}function Do(e){return e<26?e+65:e<52?e+71:e<62?e-4:e===62?43:e===63?47:65}function pu(e){for(var t=2,r="",i=e.length,n=0,o=0;o<i;o++)t=o%3,o>0&&o*4/3%76==0&&(r+=""),n|=e[o]<<(16>>>t&24),(t===2||e.length-o==1)&&(r+=String.fromCodePoint(Do(n>>>18&63),Do(n>>>12&63),Do(n>>>6&63),Do(n&63)),n=0);return r.slice(0,r.length-2+t)+(t===2?"":t===1?"=":"==")}function yu(e){let t=e.replace("0x","").match(/.{1,2}/g).map(r=>parseInt(r,16));if(t===null)throw new Error(`Unable to parse HEX: ${e}`);return Uint8Array.from(t)}function gu(e){return e.reduce((t,r)=>t+r.toString(16).padStart(2,"0"),"")}var t1=class{constructor(e){this.bytePosition=0,this.dataView=new DataView(e.buffer)}shift(e){return this.bytePosition+=e,this}read8(){let e=this.dataView.getUint8(this.bytePosition);return this.shift(1),new Dr.BN(e,10)}read16(){let e=this.dataView.getUint16(this.bytePosition,!0);return this.shift(2),new Dr.BN(e,10)}read32(){let e=this.dataView.getUint32(this.bytePosition,!0);return this.shift(4),new Dr.BN(e,10)}read64(){let e=this.read32(),r=this.read32().toString(16)+e.toString(16).padStart(8,"0");return new Dr.BN(r,16)}read128(){let e=this.read64(),r=this.read64().toString(16)+e.toString(16).padStart(8,"0");return new Dr.BN(r,16)}read256(){let e=this.read128(),r=this.read128().toString(16)+e.toString(16).padStart(16,"0");return new Dr.BN(r,16)}readBytes(e){let t=this.bytePosition+this.dataView.byteOffset,r=new Uint8Array(this.dataView.buffer,t,e);return this.shift(e),r}readULEB(){let e=this.bytePosition+this.dataView.byteOffset,t=new Uint8Array(this.dataView.buffer,e),{value:r,length:i}=n1(t);return this.shift(i),r}readVec(e){let t=this.readULEB(),r=[];for(let i=0;i<t;i++)r.push(e(this,i,t));return r}},On=class{constructor(e=1024){this.bytePosition=0,this.dataView=new DataView(new ArrayBuffer(e))}static toBN(e){switch(typeof e){case"boolean":return e=+e,new Dr.BN(e.toString());case"bigint":return new Dr.BN(e.toString());default:return new Dr.BN(e)}}shift(e){return this.bytePosition+=e,this}write8(e){return this.dataView.setUint8(this.bytePosition,+On.toBN(e)),this.shift(1)}write16(e){return this.dataView.setUint16(this.bytePosition,+On.toBN(e),!0),this.shift(2)}write32(e){return this.dataView.setUint32(this.bytePosition,+On.toBN(e),!0),this.shift(4)}write64(e){return On.toBN(e).toArray("le",8).forEach(t=>this.write8(t)),this}write128(e){return On.toBN(e).toArray("le",16).forEach(t=>this.write8(t)),this}write256(e){return On.toBN(e).toArray("le",32).forEach(t=>this.write8(t)),this}writeULEB(e){return r1(e).forEach(t=>this.write8(t)),this}writeVec(e,t){return this.writeULEB(e.length),Array.from(e).forEach((r,i)=>t(this,r,i,e.length)),this}*[Symbol.iterator](){for(let e=0;e<this.bytePosition;e++)yield this.dataView.getUint8(e);return this.toBytes()}toBytes(){return new Uint8Array(this.dataView.buffer.slice(0,this.bytePosition))}toString(e){return va(this.toBytes(),e)}};function r1(e){let t=[],r=0;if(e===0)return[0];for(;e>0;)t[r]=e&127,(e>>=7)&&(t[r]|=128),r+=1;return t}function n1(e){let t=0,r=0,i=0;for(;;){let n=e[i];if(i+=1,t|=(n&127)<<r,(n&128)==0)break;r+=7}return{value:t,length:i}}var xa=class{constructor(e){if(this.types=new Map,e instanceof xa){this.schema=e.schema,this.types=new Map(e.types);return}if(this.schema=e,this.registerAddressType(xa.ADDRESS,e.addressLength,e.addressEncoding),this.registerVectorType(e.vectorType),e.types&&e.types.structs)for(let t of Object.keys(e.types.structs))this.registerStructType(t,e.types.structs[t]);if(e.types&&e.types.enums)for(let t of Object.keys(e.types.enums))this.registerEnumType(t,e.types.enums[t]);e.withPrimitives!==!1&&i1(this)}ser(e,t,r=1024){let{typeName:i,typeParams:n}=this.parseTypeName(e);return this.getTypeInterface(i).encode(t,r,n)}de(e,t,r){if(typeof t=="string")if(r)t=ba(t,r);else throw new Error("To pass a string to `bcs.de`, specify encoding");let{typeName:i,typeParams:n}=this.parseTypeName(e);return this.getTypeInterface(i).decode(t,n)}hasType(e){return this.types.has(e)}registerType(e,t,r,i=()=>!0){return this.types.set(e,{encode(n,o=1024,a){return this._encodeRaw(new On(o),n,a)},decode(n,o){return this._decodeRaw(new t1(n),o)},_encodeRaw(n,o,a){if(i(o))return t(n,o,a);throw new Error(`Validation failed for type ${e}, data: ${o}`)},_decodeRaw(n,o){return r(n,o)}}),this}registerAddressType(e,t,r="hex"){switch(r){case"base64":return this.registerType(e,(i,n)=>du(n).reduce((o,a)=>o.write8(a),i),i=>pu(i.readBytes(t)));case"hex":return this.registerType(e,(i,n)=>yu(n).reduce((o,a)=>o.write8(a),i),i=>gu(i.readBytes(t)));default:throw new Error("Unsupported encoding! Use either hex or base64")}}registerVectorType(e,t){let{typeName:r,typeParams:i}=this.parseTypeName(e);if(i.length>1)throw new Error("Vector can have only one type parameter; got "+e);return this.registerType(r,(n,o,a)=>n.writeVec(o,(l,d)=>{let A=t||a[0];if(A){let{typeName:M,typeParams:P}=this.parseTypeName(A);return this.getTypeInterface(t||M)._encodeRaw(l,d,P)}else throw new Error(`Incorrect number of type parameters passed to vector '${r}'`)}),(n,o)=>n.readVec(a=>{let l=t||o[0];if(l){let{typeName:d,typeParams:A}=this.parseTypeName(l);return this.getTypeInterface(t||d)._decodeRaw(a,A)}else throw new Error(`Incorrect number of type parameters passed to vector '${r}'`)}))}registerStructType(e,t){let r=Object.freeze(t),i=Object.keys(r),{typeName:n,typeParams:o}=this.parseTypeName(e);return this.registerType(n,(a,l,d)=>{if(!l||l.constructor!==Object)throw new Error(`Expected ${e} to be an Object, got: ${l}`);for(let A of i)if(A in l){let M=o.indexOf(r[A]),P=M===-1?r[A]:d[M];{let{typeName:D,typeParams:H}=this.parseTypeName(P);this.getTypeInterface(D)._encodeRaw(a,l[A],H)}}else throw new Error(`Struct ${e} requires field ${A}:${r[A]}`);return a},(a,l)=>{let d={};for(let A of i){let M=o.indexOf(r[A]),P=M===-1?r[A]:l[M];{let{typeName:D,typeParams:H}=this.parseTypeName(P);d[A]=this.getTypeInterface(D)._decodeRaw(a,H)}}return d})}registerEnumType(e,t){let r=Object.freeze(t),i=Object.keys(r),{typeName:n,typeParams:o}=this.parseTypeName(e);return this.registerType(n,(a,l,d)=>{if(l===void 0)throw new Error(`Unable to write enum ${e}, missing data`);let A=Object.keys(l)[0];if(A===void 0)throw new Error(`Unknown invariant of the enum ${e}`);let M=i.indexOf(A);if(M===-1)throw new Error(`Unknown invariant of the enum ${e}, allowed values: ${i}`);let P=i[M],D=r[P];if(a.write8(M),D===null)return a;let H=o.indexOf(D),Y=H===-1?D:d[H];{let{typeName:oe,typeParams:me}=this.parseTypeName(Y);return this.getTypeInterface(oe)._encodeRaw(a,l[A],me)}},(a,l)=>{let d=a.readULEB(),A=i[d],M=r[A];if(d===-1)throw new Error(`Decoding type mismatch, expected enum ${e} invariant index, received ${d}`);if(M===null)return{[A]:!0};let P=o.indexOf(M),D=P===-1?M:l[P];{let{typeName:H,typeParams:Y}=this.parseTypeName(D);return{[A]:this.getTypeInterface(H)._decodeRaw(a,Y)}}})}getTypeInterface(e){let t=this.types.get(e);if(t===void 0)throw new Error(`Type ${e} is not registered`);return t}parseTypeName(e){let[t,r]=this.schema.genericSeparators||["<",">"],i=e.indexOf(t),n=Array.from(e).reverse().indexOf(r);if(i===-1&&n===-1)return{typeName:e,typeParams:[]};if(i===-1||n===-1)throw new Error(`Unclosed generic in name '${e}'`);let o=e.slice(0,i),a=e.slice(i+1,e.length-n-1).split(",").map(l=>l.trim());return{typeName:o,typeParams:a}}},Wt=xa;Wt.U8="u8";Wt.U16="u16";Wt.U32="u32";Wt.U64="u64";Wt.U128="u128";Wt.U256="u256";Wt.BOOL="bool";Wt.VECTOR="vector";Wt.ADDRESS="address";Wt.STRING="string";function va(e,t){switch(t){case"base64":return pu(e);case"hex":return gu(e);default:throw new Error("Unsupported encoding, supported values are: base64, hex")}}function ba(e,t){switch(t){case"base64":return du(e);case"hex":return yu(e);default:throw new Error("Unsupported encoding, supported values are: base64, hex")}}function i1(e){e.registerType(Wt.U8,(t,r)=>t.write8(r),t=>t.read8(),t=>t<256),e.registerType(Wt.U16,(t,r)=>t.write16(r),t=>t.read16(),t=>t<65536),e.registerType(Wt.U32,(t,r)=>t.write32(r),t=>t.read32(),t=>t<=4294967296),e.registerType(Wt.U64,(t,r)=>t.write64(r),t=>t.read64(),t=>!0),e.registerType(Wt.U128,(t,r)=>t.write128(r),t=>t.read128(),t=>!0),e.registerType(Wt.U256,(t,r)=>t.write256(r),t=>t.read256(),t=>!0),e.registerType(Wt.BOOL,(t,r)=>t.write8(r),t=>t.read8().toString(10)==="1",t=>!0),e.registerType(Wt.STRING,(t,r)=>t.writeVec(Array.from(r),(i,n)=>i.write8(n.charCodeAt(0))),t=>t.readVec(r=>r.read8()).map(r=>String.fromCharCode(r)).join(""),t=>!0)}function mu(){return{genericSeparators:["<",">"],vectorType:"vector",addressLength:20,addressEncoding:"hex"}}var Ra=xe(Vn()),ol=xe(Nu()),fl=xe(wa()),mg=xe(Vn());var Bw=new RegExp("^m(\\/[0-9]+')+$");Ur.hmacSha256Sync=(e,...t)=>{let r=Ru.hmac.create(ku.sha256,e);return t.forEach(i=>r.update(i)),r.digest()};var iy=class{};function Ta(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&e.jsonrpc==="2.0"&&typeof e.id=="string"}function oy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&e.jsonrpc==="2.0"&&typeof e.id=="string"&&(e.error!==null&&typeof e.error=="object"||typeof e.error=="function")&&typeof e.error.message=="string"}var Wu="The response returned from RPC server does not match the TypeScript definition. This is likely because the SDK version is not compatible with the RPC server. Please update your SDK version to the latest. ",sy=class{constructor(e,t){this.rpcClient=this.createRpcClient(e,t)}createRpcClient(e,t){return new Uu.default(async(i,n)=>{let o={method:"POST",body:i,headers:Object.assign({"Content-Type":"application/json"},t||{})};try{let a=await(0,Du.default)(e,o),l=await a.text(),d;try{d=JSON.stringify(Lu.parse(l,(A,M)=>{if(M==null)return M;if(A==="balance"&&typeof M=="number")return M.toString();try{if(M.isLosslessNumber)return M.valueOf()}catch{return M.toString()}return M}))}catch(A){d=l}a.ok?n(null,d):n(new Error(`${a.status} ${a.statusText}: ${l}`))}catch(a){a instanceof Error&&n(a)}},{})}async requestWithType(e,t,r,i=!1){let n=await this.request(e,t);if(oy(n))throw new Error(`RPC Error: ${n.error.message}`);if(Ta(n)){let o=r(n.result),a=Wu+`Result received was: ${JSON.stringify(n.result)}`;if(i&&!o)return console.warn(a),n.result;if(!o)throw new Error(`RPC Error: ${a}`);return n.result}throw new Error(`Unexpected RPC Response: ${n}`)}async request(e,t){return new Promise((r,i)=>{this.rpcClient.request(e,t,(n,o)=>{if(n){i(n);return}r(o)})})}async batchRequestWithType(e,t,r=!1){let i=await this.batchRequest(e),n=i.filter(o=>Ta(o)&&(r||t(o.result)));if(i.length>n.length){console.warn(`Batch request contains invalid responses. ${i.length-n.length} of the ${i.length} requests has invalid schema.`);let o=i.find(l=>!t(l.result)),a=i.findIndex(l=>!Ta(l));o&&console.warn(Wu+`One example mismatch is: ${JSON.stringify(o.result)}`),a!==-1&&console.warn(`The request ${JSON.stringify(e[a])} within a batch request returns an invalid response ${JSON.stringify(i[a])}`)}return n.map(o=>o.result)}async batchRequest(e){return new Promise((t,r)=>{e.length===0&&t([]);let i=e.map(n=>this.rpcClient.request(n.method,n.args));this.rpcClient.request(i,(n,o)=>{if(n){r(n);return}t(o)})})}};function ve(e,t){return typeof e=="string"}function ti(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.AddressOwner)||(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.ObjectOwner)||(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.SingleOwner)||(e!==null&&typeof e=="object"||typeof e=="function")&&(e.Shared!==null&&typeof e.Shared=="object"||typeof e.Shared=="function")&&Bt(e.Shared.initial_shared_version)||e==="Shared"||e==="Immutable"}function cr(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.digest)&&ve(e.objectId)&&Bt(e.version)}function ay(e,t){return cr(e)&&(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.type)&&ti(e.owner)&&ve(e.previousTransaction)}function fy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Object.entries(e).every(([r,i])=>ve(r))}function cy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Object.entries(e).every(([r,i])=>ve(i)&&ve(r))}function uy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Vu(e.dataType)&&Fu(e)||(e!==null&&typeof e=="object"||typeof e=="function")&&Vu(e.dataType)&&Hu(e)}function Fu(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.type)&&fy(e.fields)&&(typeof e.has_public_transfer=="undefined"||e.has_public_transfer===!1||e.has_public_transfer===!0)}function Hu(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&cy(e.disassembled)}function ly(e,t){return ve(e)||(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.Object)}function hy(e,t){return Array.isArray(e)&&e.every(r=>ly(r))}function dy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Object.entries(e).every(([r,i])=>qu(i)&&ve(r))}function qu(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Bt(e.file_format_version)&&ve(e.address)&&ve(e.name)&&Array.isArray(e.friends)&&e.friends.every(r=>py(r))&&(e.structs!==null&&typeof e.structs=="object"||typeof e.structs=="function")&&Object.entries(e.structs).every(([r,i])=>zu(i)&&ve(r))&&(e.exposed_functions!==null&&typeof e.exposed_functions=="object"||typeof e.exposed_functions=="function")&&Object.entries(e.exposed_functions).every(([r,i])=>$u(i)&&ve(r))}function py(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.address)&&ve(e.name)}function zu(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Ia(e.abilities)&&Array.isArray(e.type_parameters)&&e.type_parameters.every(r=>yy(r))&&Array.isArray(e.fields)&&e.fields.every(r=>gy(r))}function yy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Ia(e.constraints)&&typeof e.is_phantom=="boolean"}function gy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.name)&&Nn(e.type_)}function $u(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&my(e.visibility)&&typeof e.is_entry=="boolean"&&Array.isArray(e.type_parameters)&&e.type_parameters.every(r=>Ia(r))&&Array.isArray(e.parameters)&&e.parameters.every(r=>Nn(r))&&Array.isArray(e.return_)&&e.return_.every(r=>Nn(r))}function my(e,t){return e==="Private"||e==="Public"||e==="Friend"}function Bt(e,t){return typeof e=="number"}function Ia(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Array.isArray(e.abilities)&&e.abilities.every(r=>ve(r))}function Nn(e,t){return ve(e)||wy(e)||(e!==null&&typeof e=="object"||typeof e=="function")&&Nn(e.Reference)||(e!==null&&typeof e=="object"||typeof e=="function")&&Nn(e.MutableReference)||(e!==null&&typeof e=="object"||typeof e=="function")&&Nn(e.Vector)||xy(e)}function wy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Bt(e.TypeParameter)}function xy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&(e.Struct!==null&&typeof e.Struct=="object"||typeof e.Struct=="function")&&ve(e.Struct.address)&&ve(e.Struct.module)&&ve(e.Struct.name)&&Array.isArray(e.Struct.type_arguments)&&e.Struct.type_arguments.every(r=>Nn(r))}function wn(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&uy(e.data)&&ti(e.owner)&&ve(e.previousTransaction)&&Bt(e.storageRebate)&&cr(e.reference)}function vy(e,t){return e==="Exists"||e==="NotExists"||e==="Deleted"}function Vu(e,t){return e==="moveObject"||e==="package"}function Ku(e,t){return Array.isArray(e)&&e.every(r=>ay(r))}function Gu(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&vy(e.status)&&(ve(e.details)||cr(e.details)||wn(e.details))}function by(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.packageId)&&ve(e.transactionModule)&&ve(e.sender)&&ve(e.type)&&(typeof e.fields=="undefined"||e.fields!==null&&typeof e.fields=="object"||typeof e.fields=="function")&&ve(e.bcs)}function Ey(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.sender)&&ve(e.packageId)}function Sy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.packageId)&&ve(e.transactionModule)&&ve(e.sender)&&ti(e.owner)&&Iy(e.changeType)&&ve(e.coinType)&&ve(e.coinObjectId)&&Bt(e.version)&&Bt(e.amount)}function Ay(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.packageId)&&ve(e.transactionModule)&&ve(e.sender)&&ti(e.recipient)&&ve(e.objectType)&&ve(e.objectId)&&Bt(e.version)}function _y(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.packageId)&&ve(e.transactionModule)&&ve(e.sender)&&ve(e.objectType)&&ve(e.objectId)&&Bt(e.version)}function My(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.packageId)&&ve(e.transactionModule)&&ve(e.sender)&&ve(e.objectId)&&Bt(e.version)}function Cy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.packageId)&&ve(e.transactionModule)&&ve(e.sender)&&ti(e.recipient)&&ve(e.objectType)&&ve(e.objectId)&&Bt(e.version)}function Ty(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&by(e.moveEvent)||(e!==null&&typeof e=="object"||typeof e=="function")&&Ey(e.publish)||(e!==null&&typeof e=="object"||typeof e=="function")&&Sy(e.coinBalanceChange)||(e!==null&&typeof e=="object"||typeof e=="function")&&Ay(e.transferObject)||(e!==null&&typeof e=="object"||typeof e=="function")&&_y(e.mutateObject)||(e!==null&&typeof e=="object"||typeof e=="function")&&My(e.deleteObject)||(e!==null&&typeof e=="object"||typeof e=="function")&&Cy(e.newObject)||(e!==null&&typeof e=="object"||typeof e=="function")&&typeof e.epochChange=="bigint"||(e!==null&&typeof e=="object"||typeof e=="function")&&typeof e.checkpoint=="bigint"}function Iy(e,t){return e==="Gas"||e==="Pay"||e==="Receive"}function Zu(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Bt(e.timestamp)&&ve(e.txDigest)&&Ty(e.event)}function Rn(e,t){return Array.isArray(e)&&e.every(r=>Zu(r))}function By(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Bt(e.subscription)&&Zu(e.result)}function Oy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.recipient)&&cr(e.objectRef)}function Py(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.recipient)&&(e.amount===null||Bt(e.amount))}function Ny(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Bt(e.epoch)&&Bt(e.storage_charge)&&Bt(e.computation_charge)}function Ry(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Array.isArray(e.coins)&&e.coins.every(r=>cr(r))&&Array.isArray(e.recipients)&&e.recipients.every(r=>ve(r))&&Array.isArray(e.amounts)&&e.amounts.every(r=>Bt(r))}function ky(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Array.isArray(e.coins)&&e.coins.every(r=>cr(r))&&Array.isArray(e.recipients)&&e.recipients.every(r=>ve(r))&&Array.isArray(e.amounts)&&e.amounts.every(r=>Bt(r))}function Uy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Array.isArray(e.coins)&&e.coins.every(r=>cr(r))&&ve(e.recipient)}function Dy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Oy(e.TransferObject)||(e!==null&&typeof e=="object"||typeof e=="function")&&Hu(e.Publish)||(e!==null&&typeof e=="object"||typeof e=="function")&&Gy(e.Call)||(e!==null&&typeof e=="object"||typeof e=="function")&&Py(e.TransferSui)||(e!==null&&typeof e=="object"||typeof e=="function")&&Ny(e.ChangeEpoch)||(e!==null&&typeof e=="object"||typeof e=="function")&&Ry(e.Pay)||(e!==null&&typeof e=="object"||typeof e=="function")&&ky(e.PaySui)||(e!==null&&typeof e=="object"||typeof e=="function")&&Uy(e.PayAllSui)}function Ly(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Array.isArray(e.transactions)&&e.transactions.every(r=>Dy(r))&&ve(e.sender)&&cr(e.gasPayment)&&Bt(e.gasBudget)}function Wy(e,t){return ve(e)||Array.isArray(e)&&e.every(r=>ve(r))}function Fy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Bt(e.epoch)&&Wy(e.signature)}function Ba(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.transactionDigest)&&Ly(e.data)&&ve(e.txSignature)&&Fy(e.authSignInfo)}function Hy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Bt(e.computationCost)&&Bt(e.storageCost)&&Bt(e.storageRebate)}function qy(e,t){return e==="success"||e==="failure"}function zy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&qy(e.status)&&(typeof e.error=="undefined"||ve(e.error))}function Jo(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ti(e.owner)&&cr(e.reference)}function Yu(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&zy(e.status)&&Hy(e.gasUsed)&&(typeof e.sharedObjects=="undefined"||Array.isArray(e.sharedObjects)&&e.sharedObjects.every(r=>cr(r)))&&ve(e.transactionDigest)&&(typeof e.created=="undefined"||Array.isArray(e.created)&&e.created.every(r=>Jo(r)))&&(typeof e.mutated=="undefined"||Array.isArray(e.mutated)&&e.mutated.every(r=>Jo(r)))&&(typeof e.unwrapped=="undefined"||Array.isArray(e.unwrapped)&&e.unwrapped.every(r=>Jo(r)))&&(typeof e.deleted=="undefined"||Array.isArray(e.deleted)&&e.deleted.every(r=>cr(r)))&&(typeof e.wrapped=="undefined"||Array.isArray(e.wrapped)&&e.wrapped.every(r=>cr(r)))&&Jo(e.gasObject)&&(typeof e.events=="undefined"||Array.isArray(e.events))&&(typeof e.dependencies=="undefined"||Array.isArray(e.dependencies)&&e.dependencies.every(r=>ve(r)))}function Ju(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Ba(e.certificate)&&Yu(e.effects)&&(e.timestamp_ms===null||Bt(e.timestamp_ms))&&(e.parsed_data===null||(e.parsed_data!==null&&typeof e.parsed_data=="object"||typeof e.parsed_data=="function")&&Yy(e.parsed_data.SplitCoin)||(e.parsed_data!==null&&typeof e.parsed_data=="object"||typeof e.parsed_data=="function")&&Zy(e.parsed_data.MergeCoin)||(e.parsed_data!==null&&typeof e.parsed_data=="object"||typeof e.parsed_data=="function")&&Jy(e.parsed_data.Publish))}function $y(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Yu(e.effects)}function Vy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&(e.ImmediateReturn!==null&&typeof e.ImmediateReturn=="object"||typeof e.ImmediateReturn=="function")&&ve(e.ImmediateReturn.tx_digest)||(e!==null&&typeof e=="object"||typeof e=="function")&&(e.TxCert!==null&&typeof e.TxCert=="object"||typeof e.TxCert=="function")&&Ba(e.TxCert.certificate)||(e!==null&&typeof e=="object"||typeof e=="function")&&(e.EffectsCert!==null&&typeof e.EffectsCert=="object"||typeof e.EffectsCert=="function")&&Ba(e.EffectsCert.certificate)&&$y(e.EffectsCert.effects)}function Ky(e,t){return Array.isArray(e)&&e.every(r=>ve(r))}function Oa(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Array.isArray(e.data)&&e.data.every(r=>ve(r))&&(e.nextCursor===null||ve(e.nextCursor))}function Gy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&cr(e.package)&&ve(e.module)&&ve(e.function)&&(typeof e.typeArguments=="undefined"||Array.isArray(e.typeArguments)&&e.typeArguments.every(r=>ve(r)))&&(typeof e.arguments=="undefined"||Array.isArray(e.arguments)&&e.arguments.every(r=>Xu(r)))}function Xu(e,t){return ve(e)||Bt(e)||e===!1||e===!0||Array.isArray(e)&&e.every(r=>Xu(r))}function Zy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&wn(e.updatedCoin)&&wn(e.updatedGas)}function Yy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&wn(e.updatedCoin)&&Array.isArray(e.newCoins)&&e.newCoins.every(r=>wn(r))&&wn(e.updatedGas)}function Jy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&Array.isArray(e.createdObjects)&&e.createdObjects.every(r=>wn(r))&&Xy(e.package)&&wn(e.updatedGas)}function Xy(e,t){return(e!==null&&typeof e=="object"||typeof e=="function")&&ve(e.digest)&&ve(e.objectId)&&Bt(e.version)}var Qy=20;function Pa(e,t=!1){let r=e.toLowerCase();return!t&&r.startsWith("0x")&&(r=r.slice(2)),`0x${r.padStart(Qy*2,"0")}`}function jy(e,t=!1){return Pa(e,t)}var Rw=BigInt(1e9);function Qu(e){return e.status!=="Exists"?void 0:e.details}function eg(e){return e.status!=="Deleted"?void 0:e.details}function tg(e){return e.status!=="NotExists"?void 0:e.details}function Na(e){var t;return((t=Qu(e))==null?void 0:t.reference)||eg(e)}function rg(e){var r;var t;return"objectId"in e?e.objectId:(r=(t=Na(e))==null?void 0:t.objectId)!=null?r:tg(e)}function ju(e){var t;return"version"in e?e.version:(t=Na(e))==null?void 0:t.version}function ng(e){var t;return(t=el(e))==null?void 0:t.type}function ig(e){var t;return"fields"in e?e.fields:(t=el(e))==null?void 0:t.fields}function el(e){let t="data"in e?e:Qu(e);if((t==null?void 0:t.data.dataType)==="moveObject")return t.data}var kn=100,ri=0,ni=Number.MAX_SAFE_INTEGER;function tl(e){if(!(typeof e=="object"&&e!==null&&"type"in e&&e.type.startsWith("0x1::option::Option<")))return e}var rl="0x2";var nl=`${rl}::sui::SUI`,og=`${rl}::coin::Coin`;var sg=/^0x2::coin::Coin<(.+)>$/,Ot=class{static isCoin(e){var r;var t;return(r=(t=Ot.getType(e))==null?void 0:t.startsWith(og))!=null?r:!1}static getCoinTypeArg(e){var t;let r=(t=Ot.getType(e))==null?void 0:t.match(sg);return r?r[1]:null}static isSUI(e){let t=Ot.getCoinTypeArg(e);return t?Ot.getCoinSymbol(t)==="SUI":!1}static getCoinSymbol(e){return e.substring(e.lastIndexOf(":")+1)}static getCoinStructTag(e){return{address:jy(e.split("::")[0]),module:e.split("::")[1],name:e.split("::")[2],typeParams:[]}}static getID(e){return Fu(e)?e.fields.id.id:rg(e)}static selectCoinsWithBalanceGreaterThanOrEqual(e,t,r=[]){return Ot.sortByBalance(e.filter(i=>!r.includes(Ot.getID(i))&&Ot.getBalance(i)>=t))}static selectCoinWithBalanceGreaterThanOrEqual(e,t,r=[]){return e.find(i=>!r.includes(Ot.getID(i))&&Ot.getBalance(i)>=t)}static selectCoinSetWithCombinedBalanceGreaterThanOrEqual(e,t,r=[]){let i=Ot.sortByBalance(e.filter(l=>!r.includes(Ot.getID(l)))),n=Ot.totalBalance(i);if(n<t)return[];if(n===t)return i;let o=BigInt(0),a=[];for(;o<n;){let l=t-o,d=i.find(M=>Ot.getBalance(M)>=l);if(d){a.push(d);break}let A=i.pop();a.push(A),o+=Ot.getBalance(A)}return Ot.sortByBalance(a)}static totalBalance(e){return e.reduce((t,r)=>t+Ot.getBalance(r),BigInt(0))}static sortByBalance(e){return e.sort((t,r)=>Ot.getBalance(t)<Ot.getBalance(r)?-1:Ot.getBalance(t)>Ot.getBalance(r)?1:0)}static getBalance(e){var t;if(!Ot.isCoin(e))return;let r=(t=ig(e))==null?void 0:t.balance;return BigInt(r)}static getZero(){return BigInt(0)}static getType(e){return"status"in e?ng(e):e.type}},il=class{static isDelegationSuiObject(e){return"type"in e.data&&e.data.type===il.SUI_OBJECT_TYPE}constructor(e){this.suiObject=e}nextRewardUnclaimedEpoch(){return this.suiObject.data.fields.next_reward_unclaimed_epoch}activeDelegation(){return BigInt(tl(this.suiObject.data.fields.active_delegation)||0)}delegateAmount(){return this.suiObject.data.fields.delegate_amount}endingEpoch(){return tl(this.suiObject.data.fields.ending_epoch)}validatorAddress(){return this.suiObject.data.fields.validator_address}isActive(){return this.activeDelegation()>0&&!this.endingEpoch()}hasUnclaimedRewards(e){return this.nextRewardUnclaimedEpoch()<=e&&(this.isActive()||(this.endingEpoch()||0)>e)}},ag=il;ag.SUI_OBJECT_TYPE="0x2::delegation::Delegation";var tr=new Wt(mu());tr.registerType("utf8string",(e,t)=>{let r=Array.from(Ra.Buffer.from(t));return e.writeVec(r,(i,n)=>i.write8(n))},e=>{let t=e.readVec(r=>r.read8());return Ra.Buffer.from(t).toString("utf-8")}).registerType("ObjectDigest",(e,t)=>{let r=Array.from(ba(t,"base64"));return e.writeVec(r,(i,n)=>i.write8(n))},e=>{let t=e.readVec(r=>r.read8());return va(new Uint8Array(t),"base64")});tr.registerStructType("SuiObjectRef",{objectId:"address",version:"u64",digest:"ObjectDigest"});tr.registerStructType("TransferObjectTx",{recipient:"address",object_ref:"SuiObjectRef"});tr.registerStructType("PayTx",{coins:"vector<SuiObjectRef>",recipients:"vector<address>",amounts:"vector<u64>"});tr.registerStructType("PaySuiTx",{coins:"vector<SuiObjectRef>",recipients:"vector<address>",amounts:"vector<u64>"});tr.registerStructType("PayAllSuiTx",{coins:"vector<SuiObjectRef>",recipient:"address"});tr.registerEnumType("Option<T>",{None:null,Some:"T"});tr.registerStructType("TransferSuiTx",{recipient:"address",amount:"Option<u64>"});tr.registerStructType("PublishTx",{modules:"vector<vector<u8>>"});tr.registerStructType("SharedObjectRef",{objectId:"address",initialSharedVersion:"u64"}).registerEnumType("ObjectArg",{ImmOrOwned:"SuiObjectRef",Shared:"SharedObjectRef"}).registerEnumType("CallArg",{Pure:"vector<u8>",Object:"ObjectArg",ObjVec:"vector<ObjectArg>"});tr.registerEnumType("TypeTag",{bool:null,u8:null,u64:null,u128:null,address:null,signer:null,vector:"TypeTag",struct:"StructTag",u16:null,u32:null,u256:null}).registerStructType("StructTag",{address:"address",module:"string",name:"string",typeParams:"vector<TypeTag>"});tr.registerStructType("MoveCallTx",{package:"SuiObjectRef",module:"string",function:"string",typeArguments:"vector<TypeTag>",arguments:"vector<CallArg>"});tr.registerEnumType("Transaction",{TransferObject:"TransferObjectTx",Publish:"PublishTx",Call:"MoveCallTx",TransferSui:"TransferSuiTx",Pay:"PayTx",PaySui:"PaySuiTx",PayAllSui:"PayAllSuiTx"});tr.registerEnumType("TransactionKind",{Single:"Transaction",Batch:"vector<Transaction>"});tr.registerStructType("TransactionData",{kind:"TransactionKind",sender:"address",gasPayment:"SuiObjectRef",gasPrice:"u64",gasBudget:"u64"});tr.registerEnumType("ObjectArg_Deprecated",{ImmOrOwned:"SuiObjectRef",Shared_Deprecated:"address"}).registerEnumType("CallArg_Deprecated",{Pure:"vector<u8>",Object:"ObjectArg_Deprecated",ObjVec:"vector<ObjectArg_Deprecated>"}).registerStructType("MoveCallTx_Deprecated",{package:"SuiObjectRef",module:"string",function:"string",typeArguments:"vector<TypeTag>",arguments:"vector<CallArg_Deprecated>"}).registerEnumType("Transaction_Deprecated",{TransferObject:"TransferObjectTx",Publish:"PublishTx",Call:"MoveCallTx_Deprecated",TransferSui:"TransferSuiTx",Pay:"PayTx",PaySui:"PaySuiTx",PayAllSui:"PayAllSuiTx"}).registerEnumType("TransactionKind_Deprecated",{Single:"Transaction_Deprecated",Batch:"vector<Transaction_Deprecated>"}).registerStructType("TransactionData_Deprecated",{kind:"TransactionKind_Deprecated",sender:"address",gasPayment:"SuiObjectRef",gasPrice:"u64",gasBudget:"u64"});function fg(e){let t=e.split(".");return{major:parseInt(t[0],10),minor:parseInt(t[1],10),patch:parseInt(t[2],10)}}var cg=(e,t)=>{let r=new URL(e);return r.protocol=r.protocol.replace("http","ws"),r.port=(t!=null?t:9001).toString(),r.toString()},ug=e=>e&&"subscription"in e&&typeof e.subscription=="number"&&"result"in e&&typeof e.result=="object",sl={connectTimeout:15e3,callTimeout:3e4,reconnectInterval:3e3,maxReconnects:5},al="sui_subscribeEvent",lg="sui_unsubscribeEvent",hg=class{constructor(e,t,r=sl){this.endpoint=e,this.skipValidation=t,this.options=r,this.connectionState=0,this.connectionTimeout=null,this.isSetup=!1,this.connectionPromise=null,this.eventSubscriptions=new Map,this.endpoint.startsWith("http")&&(this.endpoint=cg(this.endpoint)),this.rpcClient=new ol.Client(this.endpoint,{reconnect_interval:this.options.reconnectInterval,max_reconnects:this.options.maxReconnects,autoconnect:!1})}setupSocket(){this.isSetup||(this.rpcClient.on("open",()=>{this.connectionTimeout&&(clearTimeout(this.connectionTimeout),this.connectionTimeout=null),this.connectionState=2,this.rpcClient.socket.on("message",this.onSocketMessage.bind(this))}),this.rpcClient.on("close",()=>{this.connectionState=0}),this.rpcClient.on("error",console.error),this.isSetup=!0)}onSocketMessage(e){let t=JSON.parse(e),r=t.params;if(t.method===al){if(this.skipValidation&&ug(r)){let i=this.eventSubscriptions.get(r.subscription);i&&i.onMessage(r.result)}else if(By(r)){let i=this.eventSubscriptions.get(r.subscription);i&&i.onMessage(r.result)}}}async connect(){return this.connectionPromise?this.connectionPromise:this.connectionState===2?Promise.resolve():(this.setupSocket(),this.rpcClient.connect(),this.connectionState=1,this.connectionPromise=new Promise((e,t)=>{this.connectionTimeout=setTimeout(()=>t(new Error("timeout")),this.options.connectTimeout),this.rpcClient.once("open",()=>{this.refreshSubscriptions(),this.connectionPromise=null,e()}),this.rpcClient.once("error",r=>{this.connectionPromise=null,t(r)})}),this.connectionPromise)}async refreshSubscriptions(){if(this.eventSubscriptions.size!==0)try{let e=new Map;(await Promise.all(Array.from(this.eventSubscriptions.values()).map(async r=>{let i=r.onMessage,n=r.filter;return!n||!i?Promise.resolve(null):{id:await this.subscribeEvent(n,i),onMessage:i,filter:n}}))).forEach(r=>{if(r===null)return;let i=r.filter,n=r.onMessage;e.set(r.id,{filter:i,onMessage:n})}),this.eventSubscriptions=e}catch(e){throw new Error(`error refreshing event subscriptions: ${e}`)}}async subscribeEvent(e,t){try{this.connectionState!=2&&await this.connect();let r=await this.rpcClient.call(al,[e],this.options.callTimeout);return this.eventSubscriptions.set(r,{filter:e,onMessage:t}),r}catch(r){throw new Error(`Error subscribing to event: ${r}, filter: ${JSON.stringify(e)}`)}}async unsubscribeEvent(e){try{this.connectionState!=2&&await this.connect();let t=await this.rpcClient.call(lg,[e],this.options.callTimeout);return this.eventSubscriptions.delete(e)||t}catch(t){throw new Error(`Error unsubscribing from event: ${t}, subscription: ${e}}`)}}},Sr=(e=>(e.LOCAL="LOCAL",e.DEVNET="DEVNET",e))(Sr||{}),dg={LOCAL:{fullNode:"http://127.0.0.1:9000",faucet:"http://127.0.0.1:9123/gas"},DEVNET:{fullNode:"https://fullnode.devnet.sui.io/",faucet:"https://faucet.devnet.sui.io/gas"}};async function pg(e,t,r){let n=await(await(0,fl.default)(e,{method:"POST",body:JSON.stringify({FixedAmountRequest:{recipient:t}}),headers:{"Content-Type":"application/json",...r||{}}})).json();if(n.error)throw new Error(`Faucet returns error: ${n.error}`);return n}var yg=e=>typeof e=="number",gg=e=>!0,cl={skipDataValidation:!0,socketOptions:sl,versionCacheTimoutInSeconds:600},en=class extends iy{constructor(e="DEVNET",t=cl){super();this.options=t,Object.values(Sr).includes(e)?this.endpoints=dg[e]:this.endpoints={fullNode:e,faucet:t.faucetURL};let r={...cl,...t};this.client=new sy(this.endpoints.fullNode),this.wsClient=new hg(this.endpoints.fullNode,r.skipDataValidation,r.socketOptions)}async getRpcApiVersion(){var e;if(this.rpcApiVersion&&this.cacheExpiry&&this.cacheExpiry<=Date.now())return this.rpcApiVersion;try{let t=await this.client.requestWithType("rpc.discover",[],gg,this.options.skipDataValidation);return this.rpcApiVersion=fg(t.info.version),this.cacheExpiry=Date.now()+((e=this.options.versionCacheTimoutInSeconds)!=null?e:0),this.rpcApiVersion}catch(t){console.warn("Error fetching version number of the RPC API",t)}}async requestSuiFromFaucet(e,t){if(!this.endpoints.faucet)throw new Error("Faucet URL is not specified");return pg(this.endpoints.faucet,e,t)}async getMoveFunctionArgTypes(e,t,r){try{return await this.client.requestWithType("sui_getMoveFunctionArgTypes",[e,t,r],hy,this.options.skipDataValidation)}catch(i){throw new Error(`Error fetching Move function arg types with package object ID: ${e}, module name: ${t}, function name: ${r}`)}}async getNormalizedMoveModulesByPackage(e){try{return await this.client.requestWithType("sui_getNormalizedMoveModulesByPackage",[e],dy,this.options.skipDataValidation)}catch(t){throw new Error(`Error fetching package: ${t} for package ${e}`)}}async getNormalizedMoveModule(e,t){try{return await this.client.requestWithType("sui_getNormalizedMoveModule",[e,t],qu,this.options.skipDataValidation)}catch(r){throw new Error(`Error fetching module: ${r} for package ${e}, module ${t}}`)}}async getNormalizedMoveFunction(e,t,r){try{return await this.client.requestWithType("sui_getNormalizedMoveFunction",[e,t,r],$u,this.options.skipDataValidation)}catch(i){throw new Error(`Error fetching function: ${i} for package ${e}, module ${t} and function ${r}}`)}}async getNormalizedMoveStruct(e,t,r){try{return await this.client.requestWithType("sui_getNormalizedMoveStruct",[e,t,r],zu,this.options.skipDataValidation)}catch(i){throw new Error(`Error fetching struct: ${i} for package ${e}, module ${t} and struct ${r}}`)}}async getObjectsOwnedByAddress(e){try{return await this.client.requestWithType("sui_getObjectsOwnedByAddress",[e],Ku,this.options.skipDataValidation)}catch(t){throw new Error(`Error fetching owned object: ${t} for address ${e}`)}}async getGasObjectsOwnedByAddress(e){return(await this.getObjectsOwnedByAddress(e)).filter(r=>Ot.isSUI(r))}getCoinDenominationInfo(e){let[t,r,i]=e.split("::");if(Pa(t)!==Pa("0x2")||r!="sui"||i!=="SUI")throw new Error("only SUI coin is supported in getCoinDenominationInfo for now.");return{coinType:e,basicUnit:"MIST",decimalNumber:9}}async getCoinBalancesOwnedByAddress(e,t){let i=(await this.getObjectsOwnedByAddress(e)).filter(n=>Ot.isCoin(n)&&(t===void 0||t===Ot.getCoinTypeArg(n))).map(n=>n.objectId);return await this.getObjectBatch(i)}async selectCoinsWithBalanceGreaterThanOrEqual(e,t,r=nl,i=[]){let n=await this.getCoinBalancesOwnedByAddress(e,r);return await Ot.selectCoinsWithBalanceGreaterThanOrEqual(n,t,i)}async selectCoinSetWithCombinedBalanceGreaterThanOrEqual(e,t,r=nl,i=[]){let n=await this.getCoinBalancesOwnedByAddress(e,r);return await Ot.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(n,t,i)}async getObjectsOwnedByObject(e){try{return await this.client.requestWithType("sui_getObjectsOwnedByObject",[e],Ku,this.options.skipDataValidation)}catch(t){throw new Error(`Error fetching owned object: ${t} for objectId ${e}`)}}async getObject(e){try{return await this.client.requestWithType("sui_getObject",[e],Gu,this.options.skipDataValidation)}catch(t){throw new Error(`Error fetching object info: ${t} for id ${e}`)}}async getObjectRef(e){let t=await this.getObject(e);return Na(t)}async getObjectBatch(e){let t=e.map(r=>({method:"sui_getObject",args:[r]}));try{return await this.client.batchRequestWithType(t,Gu,this.options.skipDataValidation)}catch(r){throw new Error(`Error fetching object info: ${r} for id ${e}`)}}async getTransactions(e,t=null,r=null,i="Descending"){try{return await this.client.requestWithType("sui_getTransactions",[e,t,r,i],Oa,this.options.skipDataValidation)}catch(n){throw new Error(`Error getting transactions for query: ${n} for query ${e}`)}}async getTransactionsForObject(e,t="Descending"){let r=[{method:"sui_getTransactions",args:[{InputObject:e},null,null,t]},{method:"sui_getTransactions",args:[{MutatedObject:e},null,null,t]}];try{let i=await this.client.batchRequestWithType(r,Oa,this.options.skipDataValidation);return[...i[0].data,...i[1].data]}catch(i){throw new Error(`Error getting transactions for object: ${i} for id ${e}`)}}async getTransactionsForAddress(e,t="Descending"){let r=[{method:"sui_getTransactions",args:[{ToAddress:e},null,null,t]},{method:"sui_getTransactions",args:[{FromAddress:e},null,null,t]}];try{let i=await this.client.batchRequestWithType(r,Oa,this.options.skipDataValidation);return[...i[0].data,...i[1].data]}catch(i){throw new Error(`Error getting transactions for address: ${i} for id ${e}`)}}async getTransactionWithEffects(e){try{return await this.client.requestWithType("sui_getTransaction",[e],Ju,this.options.skipDataValidation)}catch(t){throw new Error(`Error getting transaction with effects: ${t} for digest ${e}`)}}async getTransactionWithEffectsBatch(e){let t=e.map(r=>({method:"sui_getTransaction",args:[r]}));try{return await this.client.batchRequestWithType(t,Ju,this.options.skipDataValidation)}catch(r){let i=e.join(", ").substring(0,-2);throw new Error(`Error getting transaction effects: ${r} for digests [${i}]`)}}async executeTransactionWithRequestType(e,t,r,i,n="WaitForEffectsCert"){try{return await this.client.requestWithType("sui_executeTransaction",[e,t,r,i,n],Vy,this.options.skipDataValidation)}catch(o){throw new Error(`Error executing transaction with request type: ${o}}`)}}async getTotalTransactionNumber(){try{return await this.client.requestWithType("sui_getTotalTransactionNumber",[],yg,this.options.skipDataValidation)}catch(e){throw new Error(`Error fetching total transaction number: ${e}`)}}async getTransactionDigestsInRange(e,t){try{return await this.client.requestWithType("sui_getTransactionsInRange",[e,t],Ky,this.options.skipDataValidation)}catch(r){throw new Error(`Error fetching transaction digests in range: ${r} for range ${e}-${t}`)}}async getEventsByTransaction(e,t=kn){try{return await this.client.requestWithType("sui_getEventsByTransaction",[e,t],Rn,this.options.skipDataValidation)}catch(r){throw new Error(`Error getting events by transaction: ${e}, with error: ${r}`)}}async getEventsByModule(e,t,r=kn,i=ri,n=ni){try{return await this.client.requestWithType("sui_getEventsByModule",[e,t,r,i,n],Rn,this.options.skipDataValidation)}catch(o){throw new Error(`Error getting events by transaction module: ${e}::${t}, with error: ${o}`)}}async getEventsByMoveEventStructName(e,t=kn,r=ri,i=ni){try{return await this.client.requestWithType("sui_getEventsByMoveEventStructName",[e,t,r,i],Rn,this.options.skipDataValidation)}catch(n){throw new Error(`Error getting events by move event struct name: ${e}, with error: ${n}`)}}async getEventsBySender(e,t=kn,r=ri,i=ni){try{return await this.client.requestWithType("sui_getEventsBySender",[e,t,r,i],Rn,this.options.skipDataValidation)}catch(n){throw new Error(`Error getting events by sender: ${e}, with error: ${n}`)}}async getEventsByRecipient(e,t=kn,r=ri,i=ni){try{return await this.client.requestWithType("sui_getEventsByRecipient",[e,t,r,i],Rn,this.options.skipDataValidation)}catch(n){throw new Error(`Error getting events by receipient: ${e}, with error: ${n}`)}}async getEventsByObject(e,t=kn,r=ri,i=ni){try{return await this.client.requestWithType("sui_getEventsByObject",[e,t,r,i],Rn,this.options.skipDataValidation)}catch(n){throw new Error(`Error getting events by object: ${e}, with error: ${n}`)}}async getEventsByTimeRange(e=kn,t=ri,r=ni){try{return await this.client.requestWithType("sui_getEventsByTimeRange",[e,t,r],Rn,this.options.skipDataValidation)}catch(i){throw new Error(`Error getting events by time range: ${t} thru ${r}, with error: ${i}`)}}async subscribeEvent(e,t){return this.wsClient.subscribeEvent(e,t)}async unsubscribeEvent(e){return this.wsClient.unsubscribeEvent(e)}};var Uw=Array.from("TransactionData::").map(e=>e.charCodeAt(0));var ul=e=>e?(e.indexOf("ipfs")===0&&(e=`https://ipfs.io/ipfs/${e.substring(5)}`),e):"",ka={suiBalance:0,nfts:[],tokens:[],objects:[]},wg=async({address:e,existingContents:t=ka})=>{let r=new en(Sr.DEVNET);if(!e)return ka;let i=await r.getObjectsOwnedByAddress(e);if(i.length===0)return ka;let n=H=>typeof H.details=="string"||!("reference"in H.details)?{}:H.details,o=[],a=[];if((t==null?void 0:t.objects)&&t.objects.length>0)for(let H of i){let Y=t==null?void 0:t.objects.find(oe=>{let{reference:me}=n(oe);return(me==null?void 0:me.objectId)===H.objectId&&(me==null?void 0:me.version)===H.version});Y?o.push(Y):a.push(H)}else a=i;if(a.length===0)return null;let l=a.map(H=>H.objectId),d=await r.getObjectBatch(l),A=o.concat(d),M=0,P=[],D={};for(let H of A)try{let{reference:Y,data:oe}=n(H);if(!Y)continue;let me=(oe.type||"").split("<"),te=(me[1]||"").replace(/>/,""),ge=me[0].split("::"),de=ge[ge.length-1];if(de==="DevNetNFT"){let{url:Se}=oe.fields,ue=ul(Se);P.push({chain:"Sui",address:Y==null?void 0:Y.objectId,objectId:Y==null?void 0:Y.objectId,name:oe.fields.name,description:oe.fields.description,imageUri:ue,previewUri:ue,thumbnailUri:ue,collection:{name:"DevNetNFT",type:oe==null?void 0:oe.type},links:{"DevNet Explorer":`https://explorer.devnet.sui.io/objects/${Y==null?void 0:Y.objectId}`}})}else if(de==="Coin")te==="0x2::sui::SUI"&&(M+=oe.fields.balance),D[te]||(D[te]={balance:0,coins:[]}),D[te].balance+=oe.fields.balance,D[te].coins.push({objectId:Y==null?void 0:Y.objectId,type:oe.type,balance:oe.fields.balance});else{let{name:Se,description:ue,url:he,image_url:be,image:We,...se}=oe.fields||{},B=ul(he||be||We);P.push({type:oe==null?void 0:oe.type,package:ge[0],chain:"Sui",address:Y==null?void 0:Y.objectId,objectId:Y==null?void 0:Y.objectId,name:Se,description:ue,imageUri:B,previewUri:B,thumbnailUri:B,extraFields:se,module:ge[1],links:{"DevNet Explorer":`https://explorer.devnet.sui.io/objects/${Y==null?void 0:Y.objectId}`}})}}catch(Y){console.log("Error retrieving object",H,Y)}return{suiBalance:M,tokens:D,nfts:P,objects:A}},ii=wg;var hl=xe(Cr());var oi;(function(t){t.Sui="sui"})(oi||(oi={}));var Lr;(function(r){r.Extension="extension",r.Hosted="hosted"})(Lr||(Lr={}));var xg=()=>{st("activeUser","Calling Active User");let{walletAppUrl:e,apiKey:t}=pr(),r=i=>{let n=a=>{if(st("activeUser","Message Origin: ",a.origin,e,a),a.origin===e){let{action:l,data:d}=a.data;st("MESSAGE2: ",l,d),l==="user"&&d.apiKey===t&&(window.removeEventListener("message",n),i(d==null?void 0:d.user))}};window.addEventListener("message",n);let o={action:"activeUser"};Tr(),st('activeUser", "Post message to the iframe',o),Ir(o)};return new Promise(r)},ll=xg;var vg=({id:e,action:t,data:r,onResponse:i,showWallet:n=!1})=>{let{walletAppUrl:o}=pr(),a=l=>{if(st("hostedInteraction","response: ",l),l.origin===o){let{approved:d,action:A,data:M}=l.data;if(A!==t)return;i({approved:d,data:M}),window.removeEventListener("message",a)}};window.addEventListener("message",a),st("hostedInteraction","Posting interaction",e,t,r),Ir({id:e,action:t,data:r}),Tr(n)},Xo=vg;var bg=async()=>{let e=await ll(),t=async()=>e?e.accounts.filter(d=>d.chain===oi.Sui):[],r=async()=>{var A;return(A=(await t())[0])==null?void 0:A.address},i=d=>new Promise((A,M)=>{Xo({action:"transaction",data:{details:d},onResponse:({approved:D,data:H})=>{var Y;D?A(H.response):M({error:((Y=H==null?void 0:H.response)==null?void 0:Y.error)||"User rejected transaction."})},showWallet:!0})}),n=()=>Promise.resolve(!0),o=d=>new Promise((A,M)=>{Xo({action:"sign",data:{signData:d},onResponse:({approved:D,data:H})=>{var Y;D?A(H.response):M({error:((Y=H==null?void 0:H.response)==null?void 0:Y.error)||"User rejected signing."})},showWallet:!0})}),a=(d=!1)=>new Promise(A=>{Xo({action:"logout",data:{fromWallet:d},onResponse:()=>{A(!0)}}),hl.default.namespace("auth")("access_token",null)}),l=()=>a(!0);return e?{type:Lr.Hosted,name:"Ethos",icon:Eg,email:e.email,getAccounts:t,getAddress:r,signAndExecuteTransaction:i,requestPreapproval:n,sign:o,disconnect:a,logout:l}:null},dl=bg,Eg="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzZEMjhEOSIvPgo8cGF0aCBvcGFjaXR5PSIwLjgiIGQ9Ik05LjEyMTg3IDYuODU3MDZIMTkuOTU4M0MyMC40NTcxIDYuODU3MDYgMjAuODYxNCA3LjI2MTQxIDIwLjg2MTQgNy43NjAyVjE5Ljk4ODZDMjAuODYxNCAyMC40ODc0IDIwLjQ1NzEgMjAuODkxOCAxOS45NTgzIDIwLjg5MThIOS4xMjE4N0M4LjYyMzA4IDIwLjg5MTggOC4yMTg3MiAyMC40ODc0IDguMjE4NzIgMTkuOTg4NlY3Ljc2MDJDOC4yMTg3MiA3LjI2MTQxIDguNjIzMDggNi44NTcwNiA5LjEyMTg3IDYuODU3MDZaIiBzdHJva2U9InVybCgjcGFpbnQwX2xpbmVhcl82OTlfMjY5OCkiIHN0cm9rZS13aWR0aD0iMC40NTE1NzIiLz4KPHBhdGggZD0iTTguNzEyNzQgNy40NTQ1OUwxNi4wOTQ1IDEwLjg4OTRDMTYuNDEyOSAxMS4wMzc2IDE2LjYxNjYgMTEuMzU3IDE2LjYxNjYgMTEuNzA4M1YyMy44MUMxNi42MTY2IDI0LjQ2MzUgMTUuOTQ0IDI0LjkwMDcgMTUuMzQ2OCAyNC42MzUzTDcuOTY1MDIgMjEuMzU1NkM3LjYzODgyIDIxLjIxMDcgNy40Mjg1OCAyMC44ODcyIDcuNDI4NTggMjAuNTMwM1Y4LjI3MzQzQzcuNDI4NTggNy42MTMxMSA4LjExNDA2IDcuMTc2MDIgOC43MTI3NCA3LjQ1NDU5WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTIzLjM3ODIgMTUuMzc2N0MyMy40MzAzIDE1LjEzMjEgMjMuNTUzOCAxNC45MDg2IDIzLjczMzIgMTQuNzM0M0MyMy45MTI1IDE0LjU2IDI0LjEzOTYgMTQuNDQzIDI0LjM4NTYgMTQuMzk3OUwyNS4wNDA0IDE0LjI3ODRMMjQuMzg1NSAxNC4xNTg4SDI0LjM4NTZDMjQuMTM5NiAxNC4xMTM3IDIzLjkxMjUgMTMuOTk2NyAyMy43MzMyIDEzLjgyMjRDMjMuNTUzOCAxMy42NDgxIDIzLjQzMDMgMTMuNDI0NiAyMy4zNzgyIDEzLjE4TDIzLjIzNDEgMTIuNTAxM0wyMy4wOSAxMy4xOEMyMy4wMzc5IDEzLjQyNDYgMjIuOTE0NCAxMy42NDgxIDIyLjczNTEgMTMuODIyNEMyMi41NTU4IDEzLjk5NjcgMjIuMzI4NyAxNC4xMTM4IDIyLjA4MjcgMTQuMTU4OEwyMS40Mjc4IDE0LjI3ODRMMjIuMDgyNyAxNC4zOTc5SDIyLjA4MjdDMjIuMzI4NyAxNC40NDMgMjIuNTU1NyAxNC41NiAyMi43MzUgMTQuNzM0M0MyMi45MTQ0IDE0LjkwODYgMjMuMDM3OSAxNS4xMzIxIDIzLjA5IDE1LjM3NjdMMjMuMjM0MSAxNi4wNTU0TDIzLjM3ODIgMTUuMzc2N1oiIGZpbGw9IndoaXRlIi8+CjxkZWZzPgo8bGluZWFyR3JhZGllbnQgaWQ9InBhaW50MF9saW5lYXJfNjk5XzI2OTgiIHgxPSIyMC44NjE0IiB5MT0iMTAuNTkyNiIgeDI9IjE0LjUzOTgiIHkyPSIxMy43NTM0IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IndoaXRlIi8+CjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0id2hpdGUiIHN0b3Atb3BhY2l0eT0iMCIvPgo8L2xpbmVhckdyYWRpZW50Pgo8L2RlZnM+Cjwvc3ZnPgo=";var pl=xe(Cr());var Sg=e=>{let t=pl.default.namespace("ethos");st("initialize","Ethos Configuration",e),t("configuration",e)},yl=Sg;var Ag=async e=>{let{walletAppUrl:t}=pr(),r=i=>{if(i.origin===t){let{action:n,data:o}=i.data;if(n!=="connect")return;if(!o.address){e({provider:{},signer:null});return}window.removeEventListener("message",r);let a={getAddress:()=>o.address},l={getSigner:a};st("mobile","Mobile connection established",l,a),e({provider:l,signer:a})}};window.removeEventListener("message",r),window.addEventListener("message",r)},Qo=Ag;var _g={getWalletContents:ii,postIFrameMessage:Ir,getEthosSigner:dl,getConfiguration:pr,initializeEthos:yl,listenForMobileConnection:Qo},Un=_g;var Mg=async({email:e,provider:t,apiKey:r})=>{let{walletAppUrl:i}=Un.getConfiguration(),n=gl.default.namespace("users");if(t){let o=location.href,a=`${i}/auth?apiKey=${r}&returnTo=${encodeURIComponent(o)}`;location.href=`${i}/socialauth?provider=${t}&redirectTo=${encodeURIComponent(a)}`;return}return new Promise((o,a)=>{let l=d=>{if(d.origin===i){let{action:A,data:M}=d.data;if(A!=="login")return;window.removeEventListener("message",l),n("current",M),o(M)}};window.addEventListener("message",l),Un.postIFrameMessage({action:"login",data:{email:e,provider:t,returnTo:window.location.href,apiKey:r}})})},Ui=Mg;var Cg=({setSigningIn:e,setEmailSent:t,width:r})=>{let{apiKey:i}=pr(),[n,o]=(0,ur.useState)(""),a=(0,ur.useMemo)(()=>!n||n.length===0?!1:!!n.match(/(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])/),[n]),l=(0,ur.useCallback)(async()=>{!a||(await Ui({email:n,apiKey:i}),o(""),e(!1),t(!0),vf({action:"send_email",category:"sign_in",label:n,value:1}))},[a,Ui,n,i]),d=(0,ur.useCallback)(M=>{o(M.target.value)},[]),A=(0,ur.useCallback)(async M=>{if(!a){M.preventDefault();return}e(!0),l()},[l]);return ur.default.createElement("div",{role:"email-sign-in"},ur.default.createElement("form",{onSubmit:A,style:Wn(r)},ur.default.createElement("input",{style:uf(),type:"email",placeholder:"Enter your email address...",value:n,onChange:d}),ur.default.createElement(sn,{text:"Sign In With Email",type:"submit",width:r,disabled:!a,primary:!0})))},Ua=Cg;var jo=xe(require("react"));var si=xe(require("react")),Tg=({children:e})=>si.createElement(si.Fragment,null,si.createElement("link",{href:"https://rsms.me/inter/inter.css",rel:"stylesheet"}),si.createElement("div",{style:(()=>({fontFamily:"'Inter', sans-serif",color:"black",lineHeight:"1.5",fontSize:"16px"}))()},e)),ml=Tg;var Ig=({isOpenAll:e,children:t})=>jo.default.createElement(ml,null,jo.default.createElement("div",{style:Za(e),role:"dialog"},jo.default.createElement("div",{style:Ya(e)}),t)),wl=Ig;var Ar=xe(require("react"));var Bg=({closeOnClickId:e,onClose:t,isOpenAll:r,width:i,back:n,children:o})=>Ar.default.createElement("div",{style:Xa(r)},Ar.default.createElement("div",{id:e,style:Qa(i)},Ar.default.createElement("div",{style:ja(i)},Ar.default.createElement("div",{style:ef()},Ar.default.createElement("span",null,n&&Ar.default.createElement("span",{style:rf(),onClick:n},"\u2190",Ar.default.createElement("span",{style:nf()},"Back"))),Ar.default.createElement("span",{style:tf(),onClick:t},Ar.default.createElement("svg",{xmlns:"http://www.w3.org/2000/svg",fill:"none",viewBox:"0 0 24 24",strokeWidth:1.5,stroke:"currentColor"},Ar.default.createElement("path",{strokeLinecap:"round",strokeLinejoin:"round",d:"M6 18L18 6M6 6l12 12"})))),o))),xl=Bg;var Di=xe(require("react")),Og=({width:e=60})=>Di.default.createElement("svg",{width:e,height:e,viewBox:"0 0 60 60",fill:"none",xmlns:"http://www.w3.org/2000/svg"},Di.default.createElement("rect",{x:"1",y:"1",width:"58",height:"58",rx:"17",fill:"#1A1C26"}),Di.default.createElement("path",{d:"M17.0307 21.5C18.1258 20.5314 19.538 19.9977 21 20H39C40.5213 20 41.9107 20.5667 42.9693 21.5C42.8475 20.5332 42.377 19.6442 41.6462 18.9998C40.9153 18.3553 39.9744 17.9998 39 18H21C20.0256 17.9998 19.0847 18.3553 18.3538 18.9998C17.623 19.6442 17.1525 20.5332 17.0307 21.5ZM17.0307 25.5C18.1258 24.5314 19.538 23.9977 21 24H39C40.5213 24 41.9107 24.5667 42.9693 25.5C42.8475 24.5332 42.377 23.6442 41.6462 22.9998C40.9153 22.3553 39.9744 21.9998 39 22H21C20.0256 21.9998 19.0847 22.3553 18.3538 22.9998C17.623 23.6442 17.1525 24.5332 17.0307 25.5ZM21 26C19.9391 26 18.9217 26.4214 18.1716 27.1716C17.4214 27.9217 17 28.9391 17 30V38C17 39.0609 17.4214 40.0783 18.1716 40.8284C18.9217 41.5786 19.9391 42 21 42H39C40.0609 42 41.0783 41.5786 41.8284 40.8284C42.5786 40.0783 43 39.0609 43 38V30C43 28.9391 42.5786 27.9217 41.8284 27.1716C41.0783 26.4214 40.0609 26 39 26H34C33.7348 26 33.4804 26.1054 33.2929 26.2929C33.1054 26.4804 33 26.7348 33 27C33 27.7956 32.6839 28.5587 32.1213 29.1213C31.5587 29.6839 30.7956 30 30 30C29.2044 30 28.4413 29.6839 27.8787 29.1213C27.3161 28.5587 27 27.7956 27 27C27 26.7348 26.8946 26.4804 26.7071 26.2929C26.5196 26.1054 26.2652 26 26 26H21Z",fill:"white"}),Di.default.createElement("rect",{x:"1",y:"1",width:"58",height:"58",rx:"17",stroke:"#060914",strokeWidth:"2"})),vl=Og;var wr=xe(require("react"));var xn=xe(require("react")),Pg=({width:e=32})=>xn.default.createElement("svg",{width:e,height:e,viewBox:"0 0 32 32",fill:"none",xmlns:"http://www.w3.org/2000/svg"},xn.default.createElement("rect",{width:"32",height:"32",rx:"8",fill:"#81BAEB"}),xn.default.createElement("g",{clipPath:"url(#clip0_315_6756)"},xn.default.createElement("path",{fillRule:"evenodd",clipRule:"evenodd",d:"M10.4932 22.2659C11.0635 23.2776 11.8925 24.1195 12.8953 24.7053C13.898 25.2912 15.0385 25.5999 16.1999 25.5999C17.3613 25.5999 18.5017 25.2912 19.5045 24.7053C20.5073 24.1195 21.3363 23.2776 21.9066 22.2659C22.4918 21.2523 22.7999 20.1025 22.7999 18.932C22.7999 17.7616 22.4918 16.6118 21.9066 15.5982L16.8874 6.80155C16.8187 6.67967 16.7188 6.57825 16.598 6.50767C16.4772 6.4371 16.3398 6.3999 16.1999 6.3999C16.06 6.3999 15.9226 6.4371 15.8018 6.50767C15.6809 6.57825 15.5811 6.67967 15.5123 6.80155L10.4932 15.5982C9.90796 16.6118 9.59985 17.7616 9.59985 18.932C9.59985 20.1025 9.90796 21.2523 10.4932 22.2659ZM14.786 10.9865L15.8561 9.11092C15.8905 9.04998 15.9404 8.99927 16.0008 8.96399C16.0612 8.9287 16.1299 8.9101 16.1999 8.9101C16.2698 8.9101 16.3385 8.9287 16.399 8.96399C16.4594 8.99927 16.5093 9.04998 16.5437 9.11092L20.6605 16.3263C21.0301 16.966 21.2592 17.6771 21.3326 18.4123C21.4061 19.1475 21.3221 19.8898 21.0864 20.59C21.0352 20.3514 20.9648 20.1172 20.8758 19.8899C20.3072 18.4377 19.0214 17.3171 17.0534 16.559C15.7004 16.0397 14.8368 15.276 14.4859 14.2886C14.0339 13.0166 14.506 11.6291 14.786 10.9865ZM12.9612 14.1847L11.7392 16.3263C11.2817 17.1186 11.0409 18.0174 11.0409 18.9323C11.0409 19.8472 11.2817 20.7459 11.7392 21.5382C12.1091 22.1934 12.6186 22.7591 13.2316 23.1952C13.8447 23.6312 14.5462 23.927 15.2864 24.0615C16.0266 24.1959 16.7874 24.1658 17.5146 23.9732C18.2419 23.7806 18.9178 23.4302 19.4944 22.947C19.8131 22.1324 19.8244 21.2296 19.5264 20.4072C19.1088 19.358 18.1034 18.5204 16.5383 17.9172C14.7692 17.2381 13.6199 16.178 13.1228 14.7672C13.0558 14.5769 13.0019 14.3823 12.9612 14.1847Z",fill:"white"})),xn.default.createElement("defs",null,xn.default.createElement("clipPath",{id:"clip0_315_6756"},xn.default.createElement("rect",{width:"19.2",height:"19.2",fill:"white",transform:"translate(6.3999 6.3999)"})))),bl=Pg;var Wr=xe(require("react")),Ng=()=>Wr.default.createElement("svg",{width:"32",height:"32",viewBox:"0 0 32 32",fill:"none",xmlns:"http://www.w3.org/2000/svg"},Wr.default.createElement("rect",{width:"32",height:"32",rx:"8",fill:"#6D28D9"}),Wr.default.createElement("path",{opacity:"0.8",d:"M9.12187 6.85706H19.9583C20.4571 6.85706 20.8614 7.26141 20.8614 7.7602V19.9886C20.8614 20.4874 20.4571 20.8918 19.9583 20.8918H9.12187C8.62308 20.8918 8.21872 20.4874 8.21872 19.9886V7.7602C8.21872 7.26141 8.62308 6.85706 9.12187 6.85706Z",stroke:"url(#paint0_linear_699_2698)","stroke-width":"0.451572"}),Wr.default.createElement("path",{d:"M8.71274 7.45459L16.0945 10.8894C16.4129 11.0376 16.6166 11.357 16.6166 11.7083V23.81C16.6166 24.4635 15.944 24.9007 15.3468 24.6353L7.96502 21.3556C7.63882 21.2107 7.42858 20.8872 7.42858 20.5303V8.27343C7.42858 7.61311 8.11406 7.17602 8.71274 7.45459Z",fill:"white"}),Wr.default.createElement("path",{d:"M23.3782 15.3767C23.4303 15.1321 23.5538 14.9086 23.7332 14.7343C23.9125 14.56 24.1396 14.443 24.3856 14.3979L25.0404 14.2784L24.3855 14.1588H24.3856C24.1396 14.1137 23.9125 13.9967 23.7332 13.8224C23.5538 13.6481 23.4303 13.4246 23.3782 13.18L23.2341 12.5013L23.09 13.18C23.0379 13.4246 22.9144 13.6481 22.7351 13.8224C22.5558 13.9967 22.3287 14.1138 22.0827 14.1588L21.4278 14.2784L22.0827 14.3979H22.0827C22.3287 14.443 22.5557 14.56 22.735 14.7343C22.9144 14.9086 23.0379 15.1321 23.09 15.3767L23.2341 16.0554L23.3782 15.3767Z",fill:"white"}),Wr.default.createElement("defs",null,Wr.default.createElement("linearGradient",{id:"paint0_linear_699_2698",x1:"20.8614",y1:"10.5926",x2:"14.5398",y2:"13.7534",gradientUnits:"userSpaceOnUse"},Wr.default.createElement("stop",{"stop-color":"white"}),Wr.default.createElement("stop",{offset:"1",stopColor:"white",stopOpacity:"0"})))),El=Ng;var Rg=({walletInfos:e,width:t})=>{let r=n=>n?typeof n=="string"?wr.default.createElement("img",{src:n,height:32,width:32}):n:wr.default.createElement(wr.default.Fragment,null),i=[{name:"Ethos Wallet",icon:wr.default.createElement(El,null),link:"https://chrome.google.com/webstore/detail/ethos-wallet/mcbigmjiafegjnnogedioegffbooigli"},{name:"Sui Wallet",icon:wr.default.createElement(bl,null),link:"https://chrome.google.com/webstore/detail/sui-wallet/opcgpfmipidbgpenhmajoajpbobppdil"},...e||[]];return wr.default.createElement(_n,{dappIcon:wr.default.createElement(vl,null),title:"Install A Wallet",subTitle:"Wallets allow you to interact with, store, send, and receive digital assets."},wr.default.createElement("div",{role:"wallet-sign-in"},wr.default.createElement("div",{style:Wn(t)},i==null?void 0:i.map((n,o)=>wr.default.createElement("a",{key:`install-wallet-${o}`,style:Hi(t),href:n.link,target:"_blank"},n.name,wr.default.createElement("div",null,r(n.icon)))))))},Sl=Rg;var _l=xe(require("react"));var Al=xe(require("react")),kg={ethosConfiguration:{}},Ug=(0,Al.createContext)(kg),Fr=Ug;var Dg=()=>{let{modal:e}=(0,_l.useContext)(Fr);return e},es=Dg;var Ml=xe(require("react"));var Hr;(function(i){i.Loading="loading",i.NoConnection="no_connection",i.Connected="connected"})(Hr||(Hr={}));var Lg=()=>{let{wallet:e}=(0,Ml.useContext)(Fr);return e||{status:Hr.Loading,provider:null}},qr=Lg;var ts=xe(require("react"));function Cl(){if(typeof window=="undefined")return{width:0,height:0};let{innerWidth:e,innerHeight:t}=window;return{width:e,height:t}}function Da(){let[e,t]=(0,ts.useState)(Cl());return(0,ts.useEffect)(()=>{function r(){t(Cl())}return window.addEventListener("resize",r),()=>window.removeEventListener("resize",r)},[]),e}var Wg={useModal:es,useWallet:qr,useWindowDimensions:Da},rs=Wg;var Li=xe(require("react"));var Fg=()=>Li.default.createElement("div",{role:"wallet-sign-in"},Li.default.createElement("span",{style:Ka()},"Connect A Mobile Wallet"),Li.default.createElement("div",{style:hf()},Li.default.createElement("p",null,"There are no mobile wallets yet on Sui."))),Tl=Fg;var ns=xe(require("react"));var Hg=()=>ns.default.createElement("div",{style:cf()},ns.default.createElement("div",{style:_s()}),"or",ns.default.createElement("div",{style:_s()})),La=Hg;function Il(){window.ethosInternal.showSignInModal()}function Bl(){window.ethosInternal.hideSignInModal()}var qg=({connectMessage:e,dappName:t,dappIcon:r,hideEmailSignIn:i,hideWalletSignIn:n,externalContext:o})=>{let{wallets:a,selectWallet:l}=(o==null?void 0:o.wallet)||rs.useWallet(),{isModalOpen:d,openModal:A,closeModal:M}=(o==null?void 0:o.modal)||rs.useModal(),[P,D]=(0,Ke.useState)(d),[H,Y]=(0,Ke.useState)(!1),[oe,me]=(0,Ke.useState)(!1),{width:te}=rs.useWindowDimensions(),ge="ethos-close-on-click",[de,Se]=(0,Ke.useState)(!1),[ue,he]=(0,Ke.useState)(!1),[be,We]=(0,Ke.useState)(!1),[se,B]=(0,Ke.useState)(t);Cs(ge,M),(0,Ke.useEffect)(()=>{window.ethosInternal||(window.ethosInternal={}),window.ethosInternal.showSignInModal=()=>{A()},window.ethosInternal.hideSignInModal=()=>{M()},D(d)},[d,D,A,M]),(0,Ke.useEffect)(()=>{if(i&&n)throw new Error("hideEmailSignIn and hideWalletSignIn cannot both be true")},[]),(0,Ke.useEffect)(()=>{se||B(document.title)},[se]);let k=(0,Ke.useCallback)(()=>{We(C=>!C)},[]),j=(0,Ke.useCallback)(()=>{Se(C=>!C)},[]),S=(0,Ke.useCallback)(()=>{We(!1),he(!1),Se(!1)},[]),s=(0,Ke.useMemo)(()=>e||(se?Ke.default.createElement(Ke.default.Fragment,null,"Connect to ",Ke.default.createElement("span",{style:Ja()},se)):Ke.default.createElement(Ke.default.Fragment,null)),[se,e]),u=(0,Ke.useMemo)(()=>{let C=a||[];return ue?Ke.default.createElement(Tl,null):be||i&&C.length===0?Ke.default.createElement(Sl,{width:te}):n?Ke.default.createElement(Ua,{setSigningIn:Y,setEmailSent:me,width:te}):!de&&C.length>0?Ke.default.createElement(_n,{title:s,dappIcon:r,subTitle:"Choose from your installed wallets"},Ke.default.createElement(mf,{wallets:C,selectWallet:l,width:te}),!i&&Ke.default.createElement(Ke.default.Fragment,null,Ke.default.createElement(La,null),Ke.default.createElement("div",{style:Ms()},Ke.default.createElement(sn,{text:"Sign In With Email",onClick:j,width:te,primary:!0})))):Ke.default.createElement(_n,{title:s,dappIcon:r,subTitle:`Log in to ${se}`},Ke.default.createElement(Ua,{setSigningIn:Y,setEmailSent:me,width:te}),!n&&Ke.default.createElement(Ke.default.Fragment,null,Ke.default.createElement(La,null),Ke.default.createElement("div",{style:Ms()},C.length>0?Ke.default.createElement(sn,{icon:Ke.default.createElement(Ss,null),text:"Select One Of Your Wallets",onClick:j,width:te}):Ke.default.createElement(sn,{icon:Ke.default.createElement(Ss,null),text:"Install A Wallet",onClick:k,width:te}))))},[s,se,i,n,a,de,ue,be]),y=(0,Ke.useMemo)(()=>ue||be,[ue,be]),v=(0,Ke.useMemo)(()=>Ke.default.createElement("div",{style:lf()},Ke.default.createElement(Fi,{width:50})),[]);return Ke.default.createElement(wl,{isOpenAll:P},Ke.default.createElement(xl,{closeOnClickId:ge,onClose:M,isOpenAll:P,width:te,back:y?S:null},oe?Ke.default.createElement(gf,null):H?v:u))},is=qg;var zr=xe(require("react"));var os=xe(require("react")),zg=e=>{let[t,r]=(0,os.useState)({});return(0,os.useEffect)(()=>{if(!e)return;let i=async()=>{let o=await(e==null?void 0:e.getAddress());if(!o)return;let a=await ii({address:o,existingContents:t.contents});!a||r({address:o,contents:a})};i();let n=setInterval(i,5e3);return()=>clearInterval(n)},[e,t.contents]),t},Ol=zg;var dr=xe(require("react")),ql=xe(Cr());var li=xe(require("react"));var $t=xe(require("react"));function $g(e){return"connect"in e}function Wa(e){return!$g(e)}function Fa(e){return e.flatMap(t=>Wa(t)?t.get():t)}var Vg,Kg,Gg;Vg=new WeakMap;Kg=new WeakMap;Gg=new WeakMap;var Zg=function(e,t,r,i,n){if(i==="m")throw new TypeError("Private method is not writable");if(i==="a"&&!n)throw new TypeError("Private accessor was defined without a setter");if(typeof t=="function"?e!==t||!n:!t.has(e))throw new TypeError("Cannot write private member to an object whose class did not declare it");return i==="a"?n.call(e,r):n?n.value=r:t.set(e,r),r},Yg=function(e,t,r,i){if(r==="a"&&!i)throw new TypeError("Private accessor was defined without a getter");if(typeof t=="function"?e!==t||!i:!t.has(e))throw new TypeError("Cannot read private member from an object whose class did not declare it");return r==="m"?i:r==="a"?i.call(e):i?i.value:t.get(e)},ss,lr,as=new Set,ai={};function Jg(){if(lr||(lr=Object.freeze({register:Pl,get:Xg,on:Qg}),typeof window=="undefined"))return lr;let e=Object.freeze({register:Pl});try{window.addEventListener("wallet-standard:register-wallet",({detail:t})=>t(e))}catch(t){console.error(`wallet-standard:register-wallet event listener could not be added
+`,t)}try{window.dispatchEvent(new Nl(e))}catch(t){console.error(`wallet-standard:app-ready event could not be dispatched
+`,t)}return lr}function Pl(...e){var t;return e=e.filter(r=>!as.has(r)),e.length?(e.forEach(r=>as.add(r)),(t=ai.register)==null||t.forEach(r=>Ha(()=>r(...e))),function(){var i;e.forEach(n=>as.delete(n)),(i=ai.unregister)==null||i.forEach(n=>Ha(()=>n(...e)))}):()=>{}}function Xg(){return[...as]}function Qg(e,t){var r;return((r=ai[e])==null?void 0:r.push(t))||(ai[e]=[t]),function(){var n;ai[e]=(n=ai[e])==null?void 0:n.filter(o=>t!==o)}}function Ha(e){try{e()}catch(t){console.error(t)}}var Nl=class extends Event{constructor(t){super("wallet-standard:app-ready",{bubbles:!1,cancelable:!1,composed:!1});ss.set(this,void 0),Zg(this,ss,t,"f")}get detail(){return Yg(this,ss,"f")}get type(){return"wallet-standard:app-ready"}preventDefault(){throw new Error("preventDefault cannot be called")}stopImmediatePropagation(){throw new Error("stopImmediatePropagation cannot be called")}stopPropagation(){throw new Error("stopPropagation cannot be called")}};ss=new WeakMap;function Rl(){if(lr||(lr=Jg(),typeof window=="undefined"))return lr;let e=window.navigator.wallets||[];if(!Array.isArray(e))return console.error("window.navigator.wallets is not an array"),lr;let{register:t}=lr,r=(...i)=>i.forEach(n=>Ha(()=>n({register:t})));try{Object.defineProperty(window.navigator,"wallets",{value:Object.freeze({push:r})})}catch(i){return console.error("window.navigator.wallets could not be set"),lr}return r(...e),lr}function kl(e){return"standard:connect"in e.features&&"standard:events"in e.features&&"sui:signAndExecuteTransaction"in e.features}function Ul(e){return{all:e=e||new Map,on:function(t,r){var i=e.get(t);i?i.push(r):e.set(t,[r])},off:function(t,r){var i=e.get(t);i&&(r?i.splice(i.indexOf(r)>>>0,1):e.set(t,[]))},emit:function(t,r){var i=e.get(t);i&&i.slice().map(function(n){n(r)}),(i=e.get("*"))&&i.slice().map(function(n){n(t,r)})}}}var Dl=(e,t,r)=>{if(!t.has(e))throw TypeError("Cannot "+r)},Ft=(e,t,r)=>(Dl(e,t,"read from private field"),r?r.call(e):t.get(e)),fs=(e,t,r)=>{if(t.has(e))throw TypeError("Cannot add the same private member more than once");t instanceof WeakSet?t.add(e):t.set(e,r)},cs=(e,t,r,i)=>(Dl(e,t,"write to private field"),i?i.call(e,r):t.set(e,r),r),hr,jg=class{constructor({wallet:e}){this.connected=!1,this.connecting=!1,fs(this,hr,void 0),cs(this,hr,e)}get name(){return Ft(this,hr).name}get icon(){return Ft(this,hr).icon}get wallet(){return Ft(this,hr)}async getAccounts(){return Ft(this,hr).accounts.map(e=>e.address)}async connect(){try{if(this.connected||this.connecting)return;if(this.connecting=!0,Ft(this,hr).accounts.length||await Ft(this,hr).features["standard:connect"].connect(),!Ft(this,hr).accounts.length)throw new Error("No wallet accounts found");this.connected=!0}finally{this.connecting=!1}}async disconnect(){this.connected=!1,this.connecting=!1,Ft(this,hr).features["standard:disconnect"]&&await Ft(this,hr).features["standard:disconnect"].disconnect()}async signAndExecuteTransaction(e){return Ft(this,hr).features["sui:signAndExecuteTransaction"].signAndExecuteTransaction({transaction:e})}};hr=new WeakMap;var fi,ci,Dn,Ll=class{constructor(){fs(this,fi,void 0),fs(this,ci,void 0),fs(this,Dn,void 0),cs(this,ci,new Map),cs(this,fi,Rl()),cs(this,Dn,Ul()),Ft(this,fi).on("register",()=>{Ft(this,Dn).emit("changed")}),Ft(this,fi).on("unregister",()=>{Ft(this,Dn).emit("changed")})}get(){return Ft(this,fi).get().filter(kl).forEach(t=>{Ft(this,ci).has(t)||Ft(this,ci).set(t,new jg({wallet:t}))}),[...Ft(this,ci).values()]}on(e,t){return Ft(this,Dn).on(e,t),()=>{Ft(this,Dn).off(e,t)}}};fi=new WeakMap;ci=new WeakMap;Dn=new WeakMap;var ui=xe(require("react")),em=()=>{let e=(0,ui.useMemo)(()=>[new Ll],[]),[t,r]=(0,ui.useState)(()=>Fa(e));return(0,ui.useEffect)(()=>{let i=e.filter(Wa);if(!i.length)return;let n=a=>{let l=Fa(a);if(l.length!==t.length)r(l);else for(let d=0;d<t.length;++d)if(t[d]!==l[d]){r(l);break}};n(e);let o=i.map(a=>a.on("changed",()=>{n(e)}));return()=>{o.forEach(a=>a())}},[e,t]),t},Wl=em;var us="preferredSuiWallet",tm=()=>{let e=Wl(),[t,r]=(0,$t.useState)([]),[i,n]=(0,$t.useState)(null),[o,a]=(0,$t.useState)(!1),[l,d]=(0,$t.useState)(!1),[A,M]=(0,$t.useState)(!1);(0,$t.useEffect)(()=>{r(e)},[e]),(0,$t.useEffect)(()=>{o&&i&&localStorage.setItem(us,i.name)},[i,o]);let P=(0,$t.useCallback)(async ge=>{var ue;if(!t)return!1;let de=(ue=t.find(he=>he.name===ge))!=null?ue:null;n(de);let Se=!1;if(de&&!de.connecting)try{d(!0),await de.connect(),a(!0),Se=!0}catch(he){a(!1)}finally{d(!1)}return Se},[t,a,d]);(0,$t.useEffect)(()=>{(async()=>{if(st("suiWalletConnect","Wallets",(t||[]).map(de=>de.name)),!i&&!o&&!l){let de=localStorage.getItem(us);if(typeof de!="string"&&location.origin==="https://ethoswallet.xyz"){st("suiWalletConnect","Wallet explorer",(t||[]).map(ue=>ue.name));let Se=(t||[]).find(ue=>ue.name==="Ethos Wallet");Se&&(st("suiWalletConnect","Ethos wallet connected",Se.connected),de=Se.name)}if(typeof de=="string"){if(!t||t.length===0)return;await P(de)||(st("suiWalletConnect","setNoConnection0"),M(!0),localStorage.removeItem(us));return}st("suiWalletConnect","setNoConnection1"),M(!0)}(!t||t.length===0)&&(st("suiWalletConnect","setNoConnection2"),M(!0))})()},[t,i,o,l,P]);let D=(0,$t.useCallback)(async()=>{if(i==null)throw Error("Wallet Not Connected");return i.getAccounts()},[i]),H=(0,$t.useCallback)(async()=>{if(i==null)throw Error("Wallet Not Connected");return(await D())[0]},[D]),Y=(0,$t.useCallback)(()=>{if(a(!1),localStorage.removeItem(us),i==null)throw Error("Wallet Not Connected");if(!i.disconnect)throw new Error('Wallet does not support "disconnect" method');i.disconnect(),n(null)},[i]),oe=(0,$t.useCallback)(async ge=>{if(i==null)throw new Error("Wallet Not Connected");if(!i.signAndExecuteTransaction)throw new Error('Wallet does not support "signAndExecuteTransaction" method');return i.signAndExecuteTransaction(ge)},[i]),me=(0,$t.useCallback)(async ge=>{if(i==null)throw new Error("Wallet Not Connected");let de=window.ethosWallet;return!de||i.name!=="Ethos Wallet"?(console.log("Wallet does not support preapproval"),!1):de.requestPreapproval(ge)},[o]),te=(0,$t.useCallback)(async({message:ge})=>{if(i==null)throw new Error("Wallet Not Connected");let de=window.ethosWallet;return!de||i.name!=="Ethos Wallet"?(console.log("Wallet does not support sign"),!1):de.signMessage(ge)},[i]);return{wallets:t,wallet:i,connecting:l,noConnection:A,connected:o,select:P,getAccounts:D,getAddress:H,signAndExecuteTransaction:oe,requestPreapproval:me,sign:te,disconnect:Y}},Fl=tm;var rm=()=>{let{wallet:e,wallets:t,select:r,connecting:i,noConnection:n,connected:o,getAccounts:a,getAddress:l,signAndExecuteTransaction:d,requestPreapproval:A,sign:M,disconnect:P}=Fl(),D=(0,li.useMemo)(()=>({type:Lr.Extension,name:e==null?void 0:e.name,icon:(e==null?void 0:e.name)==="Sui Wallet"?"https://sui.io/favicon.png":e==null?void 0:e.icon,getAccounts:a,getAddress:l,signAndExecuteTransaction:d,requestPreapproval:A,sign:M,disconnect:P}),[e,o,a,l,d,A,M]),[H,Y]=(0,li.useState)(o?D:null);return(0,li.useEffect)(()=>{Y(o?D:null)},[o,D]),{connecting:i,noConnection:n,connected:o,wallets:t,selectWallet:r,signer:H,setSigner:Y}},Hl=rm;var nm=()=>{let e=(0,dr.useRef)(!1),t=(0,dr.useRef)({ethos:!1,extension:!1}),[r,i]=(0,dr.useState)({provider:null,signer:null}),{wallets:n,selectWallet:o,noConnection:a,signer:l,setSigner:d}=Hl(),[A,M]=(0,dr.useState)(0),P=(0,dr.useCallback)(()=>{ql.default.namespace("sui")("disconnected",!0),e.current=!1,i(Y=>({...Y,signer:null})),d(null);for(let Y of Object.keys(t.current))t.current[Y]=!1;M(Y=>Y+1)},[]),D=(0,dr.useCallback)((H,Y)=>{if(st("useConnect","trying to set providerAndSigner",Y,e.current,t.current),e.current)return;Y&&(t.current[Y]=!0);let oe=!Object.values(t.current).includes(!1);if(!H&&!oe)return;e.current=!!H;let me=new en(Sr.DEVNET);i({provider:me,signer:H})},[A]);return(0,dr.useEffect)(()=>{st("mobile","listening to mobile connection from EthosConnectProvider"),Qo(H=>{st("useConnect","Setting providerAndSigner mobile",H),st("mobile","Setting provider and signer",H),D(H,"mobile")})},[D]),(0,dr.useEffect)(()=>{st("useConnect","Setting providerAndSigner extension",l,a),!(!a&&!l)&&D(l,"extension")},[a,l,D]),(0,dr.useEffect)(()=>{(async()=>{let Y=await Un.getEthosSigner();st("useConnect","Setting providerAndSigner ethos",Y),D(Y,"ethos")})()},[D]),{wallets:n,selectWallet:o,providerAndSigner:r,logout:P}},zl=nm;var im=({ethosConfiguration:e,onWalletConnected:t})=>{e||(e={}),(e==null?void 0:e.chain)||(e.chain=oi.Sui),(e==null?void 0:e.network)||(e.network="sui"),(e==null?void 0:e.walletAppUrl)||(e.walletAppUrl="https://ethoswallet.xyz"),st("EthosConnectProvider","EthosConnectProvider Configuration:",e),(0,zr.useEffect)(()=>{Un.initializeEthos(e||{})},[]);let{wallets:r,selectWallet:i,providerAndSigner:n,logout:o}=zl(),{address:a,contents:l}=Ol(n.signer),[d,A]=(0,zr.useState)(!1),M=(0,zr.useMemo)(()=>({isModalOpen:d,openModal:()=>{A(!0)},closeModal:()=>{A(!1)}}),[d,A]),P=(0,zr.useMemo)(()=>{let{provider:H,signer:Y}=n,oe;H?Y?oe=Hr.Connected:oe=Hr.NoConnection:oe=Hr.Loading;let me={status:oe,wallets:r.map(te=>({...te,name:te.name,icon:te.icon})),selectWallet:i,provider:H};return Y&&(me.wallet={...Y,address:a,contents:l}),me},[r,i,a,n,l,o]);return(0,zr.useEffect)(()=>{if(!!(n==null?void 0:n.provider)){if(st("EthosConnectProvider","calling onWalletConnected",n),n.signer){A(!1);let H=n.signer.disconnect;n.signer.disconnect=async()=>{await H(),o()}}t&&t(n)}},[n]),(0,zr.useEffect)(()=>{var H,Y;d?(H=document.getElementsByTagName("html").item(0))==null||H.setAttribute("style","overflow: hidden;"):(Y=document.getElementsByTagName("html").item(0))==null||Y.setAttribute("style","")},[d]),{...(0,zr.useMemo)(()=>({wallet:P,modal:M,providerAndSigner:n}),[P,M,n]),ethosConfiguration:e}},ls=im;var om=({ethosConfiguration:e,onWalletConnected:t,connectMessage:r,dappName:i,dappIcon:n,children:o})=>{var l;let a=ls({ethosConfiguration:e,onWalletConnected:t});return qa.default.createElement(Fr.Provider,{value:a},o,qa.default.createElement(is,{isOpen:((l=a.modal)==null?void 0:l.isModalOpen)||!1,hideEmailSignIn:a.ethosConfiguration.hideEmailSignIn,hideWalletSignIn:a.ethosConfiguration.hideWalletSignIn,connectMessage:r,dappName:i,dappIcon:n}))},$l=om;var vn=xe(require("react"));var hi=xe(require("react"));var sm=e=>{let{children:t,isWorking:r,workingComponent:i,...n}=e;return hi.default.createElement("button",{...n},r?i||hi.default.createElement("span",{className:"block p-2"},hi.default.createElement(Fi,{width:32})):hi.default.createElement(hi.default.Fragment,null,t))},hs=sm;var am=e=>{let{children:t,onClick:r,externalContext:i,...n}=e,{openModal:o}=(i==null?void 0:i.modal)||es(),a=(0,vn.useCallback)(l=>{o(),r&&r(l)},[o,r]);return vn.default.createElement(vn.default.Fragment,null,vn.default.createElement(hs,{onClick:a,...n,style:fm()},t||vn.default.createElement(vn.default.Fragment,null,"Sign In")))},ds=am,fm=()=>({lineHeight:"21px",padding:"0 12px 0 0",border:"none",backgroundColor:"transparent",cursor:"pointer",fontFamily:"inherit",fontSize:"14px"});var Ht=xe(require("react"));var ys=xe(Kl()),cm=(e,t=9)=>{if(e===void 0)return"---";let r="",i=new ys.default(e.toString()).shiftedBy(-1*t);return i.gte(1e9)?(i=i.shiftedBy(-9),r=" B"):i.gte(1e6)?(i=i.shiftedBy(-6),r=" M"):i.gte(1e4)&&(i=i.shiftedBy(-3),r=" K"),i.gte(1)?i=i.decimalPlaces(3,ys.default.ROUND_DOWN):i=i.decimalPlaces(6,ys.default.ROUND_DOWN),i.toFormat()+r},gs=cm;var um=(e,t=6)=>e?`${e.slice(0,t)}...${e.slice(t*-1)}`:"",ms=um;var za=xe(require("react")),lm=({width:e=24,color:t="#6EBCEE"})=>za.default.createElement("svg",{id:"SuiSvg",xmlns:"http://www.w3.org/2000/svg",width:e,height:e*(40/28),viewBox:"-1 0 28 40",style:{display:"block",verticalAlign:"middle"}},za.default.createElement("path",{d:"M1.8611,33.0541a13.6477,13.6477,0,0,0,23.7778,0,13.89,13.89,0,0,0,0-13.8909L15.1824.8368a1.6444,1.6444,0,0,0-2.8648,0L1.8611,19.1632A13.89,13.89,0,0,0,1.8611,33.0541ZM10.8044,9.5555,13.0338,5.648a.8222.8222,0,0,1,1.4324,0L23.043,20.68a10.8426,10.8426,0,0,1,.8873,8.8828,9.4254,9.4254,0,0,0-.4388-1.4586c-1.1847-3.0254-3.8634-5.36-7.9633-6.9393-2.8187-1.0819-4.618-2.6731-5.3491-4.73C9.2375,13.7848,10.221,10.8942,10.8044,9.5555ZM7.0028,16.2184,4.457,20.68a10.8569,10.8569,0,0,0,0,10.8582,10.6776,10.6776,0,0,0,16.1566,2.935,7.5061,7.5061,0,0,0,.0667-5.2913c-.87-2.1858-2.9646-3.9308-6.2252-5.1876-3.6857-1.4147-6.08-3.6233-7.1157-6.5625A9.297,9.297,0,0,1,7.0028,16.2184Z",style:{fill:t,fillRule:"evenodd"}})),Gl=lm;var tn=xe(require("react"));var Zl=xe(require("react"));var Ln=xe(require("react"));var ws="#6f53e4",M3=typeof window!="undefined"&&window.location.origin.indexOf("http://localhost")===0?"http://localhost:3000":"https://ethoswallet.onrender.com";var hm=e=>{let{hoverBackgroundColor:t,hoverChildren:r,children:i,style:n,...o}=e,[a,l]=(0,Ln.useState)(!1),d=(0,Ln.useCallback)(()=>{l(!0)},[]),A=(0,Ln.useCallback)(()=>{l(!1)},[]);return Ln.default.createElement(hs,{onMouseEnter:d,onMouseLeave:A,style:{...n,backgroundColor:a?t||ws:void 0,color:a?"white":"black"},...o},a?r:i)},xs=hm;var dm=e=>Zl.default.createElement(xs,{...e,style:pm()}),bn=dm,pm=()=>({width:"100%",borderRadius:"12px",textAlign:"left",padding:"6px 12px",display:"flex",alignItems:"center",gap:"6px",border:"none",fontFamily:"inherit",cursor:"pointer"});var ym=e=>{let{externalContext:t,...r}=e,{wallet:i}=(t==null?void 0:t.wallet)||qr(),n=(0,tn.useCallback)(a=>tn.default.createElement(tn.default.Fragment,null,tn.default.createElement("svg",{width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",xmlns:"http://www.w3.org/2000/svg"},tn.default.createElement("path",{d:"M15.6657 3.88789C15.3991 2.94272 14.5305 2.25 13.5 2.25H10.5C9.46954 2.25 8.60087 2.94272 8.33426 3.88789M15.6657 3.88789C15.7206 4.0825 15.75 4.28782 15.75 4.5V4.5C15.75 4.91421 15.4142 5.25 15 5.25H9C8.58579 5.25 8.25 4.91421 8.25 4.5V4.5C8.25 4.28782 8.27937 4.0825 8.33426 3.88789M15.6657 3.88789C16.3119 3.93668 16.9545 3.99828 17.5933 4.07241C18.6939 4.20014 19.5 5.149 19.5 6.25699V19.5C19.5 20.7426 18.4926 21.75 17.25 21.75H6.75C5.50736 21.75 4.5 20.7426 4.5 19.5V6.25699C4.5 5.149 5.30608 4.20014 6.40668 4.07241C7.04547 3.99828 7.68808 3.93668 8.33426 3.88789",stroke:a?"white":"black",strokeWidth:"1.5",strokeLinecap:"round",strokeLinejoin:"round"})),"Copy Wallet Address"),[]),o=(0,tn.useCallback)(a=>{let l=a.target,d=l.innerHTML;l.innerHTML="Copied!",navigator.clipboard.writeText((i==null?void 0:i.address)||""),setTimeout(()=>{l.innerHTML=d},1e3)},[i]);return tn.default.createElement(bn,{...r,onClick:o,hoverChildren:n(!0)},n(!1))},Yl=ym;var rn=xe(require("react"));var gm=e=>{let t=(0,rn.useCallback)(i=>rn.default.createElement(rn.default.Fragment,null,rn.default.createElement("svg",{width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",xmlns:"http://www.w3.org/2000/svg"},rn.default.createElement("path",{d:"M12 21C16.1926 21 19.7156 18.1332 20.7157 14.2529M12 21C7.80742 21 4.28442 18.1332 3.2843 14.2529M12 21C14.4853 21 16.5 16.9706 16.5 12C16.5 7.02944 14.4853 3 12 3M12 21C9.51472 21 7.5 16.9706 7.5 12C7.5 7.02944 9.51472 3 12 3M12 3C15.3652 3 18.299 4.84694 19.8431 7.58245M12 3C8.63481 3 5.70099 4.84694 4.15692 7.58245M19.8431 7.58245C17.7397 9.40039 14.9983 10.5 12 10.5C9.00172 10.5 6.26027 9.40039 4.15692 7.58245M19.8431 7.58245C20.5797 8.88743 21 10.3946 21 12C21 12.778 20.9013 13.5329 20.7157 14.2529M20.7157 14.2529C18.1334 15.6847 15.1619 16.5 12 16.5C8.8381 16.5 5.86662 15.6847 3.2843 14.2529M3.2843 14.2529C3.09871 13.5329 3 12.778 3 12C3 10.3946 3.42032 8.88743 4.15692 7.58245",stroke:i?"white":"black",strokeWidth:"1.5",strokeLinecap:"round",strokeLinejoin:"round"})),"Wallet Explorer"),[]),r=(0,rn.useCallback)(()=>{window.open("https://ethoswallet.xyz/dashboard","_blank")},[]);return rn.default.createElement(bn,{...e,onClick:r,hoverChildren:t(!0)},t(!1))},Jl=gm;var En=xe(require("react"));var mm=e=>{let{externalContext:t,...r}=e,{wallet:i}=(t==null?void 0:t.wallet)||qr(),n=(0,En.useCallback)(o=>En.default.createElement(En.default.Fragment,null,En.default.createElement("svg",{width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",xmlns:"http://www.w3.org/2000/svg"},En.default.createElement("path",{d:"M13.5 21V20.25V21ZM7.5 21V21.75V21ZM5.25 18.75H6H5.25ZM5.25 5.25H4.5H5.25ZM7.5 3V2.25V3ZM13.5 3V3.75V3ZM15.75 5.25L15 5.25V5.25H15.75ZM15 9C15 9.41421 15.3358 9.75 15.75 9.75C16.1642 9.75 16.5 9.41421 16.5 9H15ZM16.5 15C16.5 14.5858 16.1642 14.25 15.75 14.25C15.3358 14.25 15 14.5858 15 15H16.5ZM15.75 18.75H16.5H15.75ZM18.2197 14.4697C17.9268 14.7626 17.9268 15.2374 18.2197 15.5303C18.5126 15.8232 18.9874 15.8232 19.2803 15.5303L18.2197 14.4697ZM21.75 12L22.2803 12.5303C22.5732 12.2374 22.5732 11.7626 22.2803 11.4697L21.75 12ZM19.2803 8.46967C18.9874 8.17678 18.5126 8.17678 18.2197 8.46967C17.9268 8.76256 17.9268 9.23744 18.2197 9.53033L19.2803 8.46967ZM9 11.25C8.58579 11.25 8.25 11.5858 8.25 12C8.25 12.4142 8.58579 12.75 9 12.75V11.25ZM13.5 20.25H7.5V21.75H13.5V20.25ZM6 18.75L6 5.25H4.5L4.5 18.75H6ZM7.5 3.75L13.5 3.75V2.25L7.5 2.25V3.75ZM15 5.25V9H16.5V5.25H15ZM15 15V18.75H16.5V15H15ZM6 5.25C6 4.42157 6.67157 3.75 7.5 3.75V2.25C5.84315 2.25 4.5 3.59315 4.5 5.25H6ZM7.5 20.25C6.67157 20.25 6 19.5784 6 18.75H4.5C4.5 20.4069 5.84315 21.75 7.5 21.75V20.25ZM13.5 21.75C15.1569 21.75 16.5 20.4069 16.5 18.75H15C15 19.5784 14.3284 20.25 13.5 20.25V21.75ZM13.5 3.75C14.3284 3.75 15 4.42157 15 5.25L16.5 5.25C16.5 3.59315 15.1569 2.25 13.5 2.25V3.75ZM19.2803 15.5303L22.2803 12.5303L21.2197 11.4697L18.2197 14.4697L19.2803 15.5303ZM22.2803 11.4697L19.2803 8.46967L18.2197 9.53033L21.2197 12.5303L22.2803 11.4697ZM21.75 11.25L9 11.25V12.75L21.75 12.75V11.25Z",fill:o?"white":"black"})),"Log Out"),[]);return En.default.createElement(bn,{...r,onClick:i==null?void 0:i.disconnect,hoverChildren:n(!0)},n(!1))},Xl=mm;var Ql=xe(require("react"));var Sn;(function(i){i.CopyWalletAddress="copy_wallet_address",i.WalletExplorer="wallet_explorer",i.Logout="logout"})(Sn||(Sn={}));var wm=({includeMenu:e=!0,buttonColor:t=ws,extraButtons:r=[],excludeButtons:i=[],externalContext:n})=>{var M;let{wallet:o}=(n==null?void 0:n.wallet)||qr(),[a,l]=(0,Ht.useState)(!1);(0,Ql.useEffect)(()=>{o||l(!1)},[o]);let d=(0,Ht.useCallback)(()=>{!o||l(!0)},[o]),A=(0,Ht.useCallback)(()=>{!o||l(!1)},[o]);return Ht.default.createElement("div",{style:xm(),onMouseEnter:d,onMouseLeave:A},Ht.default.createElement("div",{style:vm()},Ht.default.createElement("div",null,Ht.default.createElement(Gl,{color:"#222532",width:12})),o?Ht.default.createElement(Ht.default.Fragment,null,Ht.default.createElement("div",null,gs((M=o.contents)==null?void 0:M.suiBalance)," ","Sui"),Ht.default.createElement("div",{style:bm()},o.icon&&Ht.default.createElement("img",{style:Am(),src:o.icon}),ms(o.address))):Ht.default.createElement(ds,{style:Sm(),externalContext:n})),e&&a&&Ht.default.createElement("div",{style:Em()},!i.includes(Sn.CopyWalletAddress)&&Ht.default.createElement(Yl,{externalContext:n,hoverBackgroundColor:t}),!i.includes(Sn.WalletExplorer)&&Ht.default.createElement(Jl,{hoverBackgroundColor:t}),r,!i.includes(Sn.Logout)&&Ht.default.createElement(Xl,{externalContext:n,hoverBackgroundColor:t})))},jl=wm,xm=()=>({position:"relative",backgroundColor:"white",padding:"6px 12px 6px 18px",boxShadow:"1px 1px 3px 1px #dfdfe0",borderRadius:"18px",fontSize:"14px"}),vm=()=>({display:"flex",justifyContent:"center",alignItems:"center",gap:"12px"}),bm=()=>({borderRadius:"30px",backgroundColor:"#f2f1f0",padding:"6px 12px",display:"flex",alignItems:"center",gap:"6px"}),Em=()=>({display:"flex",flexDirection:"column",gap:"6px",padding:"12px 18px",position:"absolute",bottom:0,left:"12px",right:"12px",transform:"translateY(100%)",boxShadow:"1px 1px 3px 1px #dfdfe0",borderBottomLeftRadius:"18px",borderBottomRightRadius:"18px",backgroundColor:"white",zIndex:"99"}),Sm=()=>({paddingRight:"12px",whiteSpace:"nowrap"}),Am=()=>({width:"20px",height:"20px"});var _m=async(e,t=!1)=>{st("logout",`-- Wallet ${t} --`,`-- Is Extension: ${e==null?void 0:e.type} --`,`-- Disconnect: ${!!(e==null?void 0:e.disconnect)} --`,"signer",e),e.type==="extension"||!t?await e.disconnect():await e.logout()},e0=_m;var Mm=async({signer:e,message:t})=>e.sign({message:t}),t0=Mm;var Cm=async({signer:e,signableTransaction:t})=>(st("transact","Starting transaction",e,t),e.signAndExecuteTransaction(t)),r0=Cm;var Tm=async({signer:e,preapproval:t})=>e.requestPreapproval(t),n0=Tm;var Im=e=>{e.type!==Lr.Extension&&Tr(!0)},i0=Im;var Bm=e=>{e.type!==Lr.Extension&&Tr(!1)},o0=Bm;var Om=async({address:e})=>new en(Sr.DEVNET).requestSuiFromFaucet(e),s0=Om;var a0=xe(Cr()),Pm=1e3*30,Nm=async e=>{let t=new en(Sr.DEVNET),r="0x8b6497c11ffd52ee2414115234fb3200e84cd2c8",i=a0.default.namespace("lookup"),n=await i("suins"),{version:o,timestamp:a}=n||{},{suiNSRecords:l}=n||{};if(l&&Date.now()-a>Pm){let d=await t.getObjectRef(r);d&&o!==ju(d)&&(l=null),n.timestamp=Date.now(),i("suins",n)}if(!l)try{let d=await t.getObject(r);if(d.status==="Exists"){let A=d.details,P=A.data.fields.records.fields.contents;l={};for(let Y of P){let{key:oe,value:me}=Y.fields,{owner:te}=me.fields;l[oe]=te,oe.indexOf("addr.reverse")===-1&&(l[te]=oe)}let{version:D}=A.reference,H=Date.now();i("suins",{version:D,timestamp:H,suiNSRecords:l})}}catch(d){console.log("Error retrieving SuiNS lookup information",d)}return l&&l[e]||e},f0=Nm;var c0=xe(require("react"));var Rm=()=>{let{providerAndSigner:e}=(0,c0.useContext)(Fr);return e||{provider:null,signer:null}},vs=Rm;var bs=xe(require("react"));var km=()=>{let{signer:e}=vs(),[t,r]=(0,bs.useState)(null);return(0,bs.useEffect)(()=>{!e||e.getAddress().then(i=>r(i))},[e]),t},u0=km;var l0=xe(require("react"));var Um=()=>{var t,r;return(r=(t=(0,l0.useContext)(Fr).wallet)==null?void 0:t.wallet)==null?void 0:r.contents},h0=Um;var Es=xe(require("react"));var Dm=({context:e,connectMessage:t,dappName:r,dappIcon:i,children:n})=>Es.default.createElement(Es.default.Fragment,null,n,Es.default.createElement(is,{isOpen:e.modal.isModalOpen,hideEmailSignIn:e.ethosConfiguration.hideEmailSignIn,hideWalletSignIn:e.ethosConfiguration.hideWalletSignIn,connectMessage:t,dappName:r,dappIcon:i,externalContext:e})),d0=Dm;var Lm={AddressWidget:jl,MenuButton:bn,headless:{HoverColorButton:xs}},Wm={AddressWidgetButtons:Sn},Fm={login:Ui,logout:e0,sign:t0,transact:r0,preapprove:n0,showWallet:i0,hideWallet:o0,showSignInModal:Il,hideSignInModal:Bl,useProviderAndSigner:vs,useAddress:u0,useContents:h0,useWallet:qr,useContext:ls,getWalletContents:ii,dripSui:s0,lookup:f0,formatBalance:gs,truncateMiddle:ms,components:Lm,enums:Wm};
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -35094,13 +36961,13 @@ var Vl=Object.create,Ii=Object.defineProperty;var Gl=Object.getOwnPropertyDescri
 'use strict'
 
 if (process.env.NODE_ENV === 'production') {
-  module.exports = require('./ethos-connect-staging.prod.cjs')
+  module.exports = require('./ethos-connect.prod.cjs')
 } else {
-  module.exports = require('./ethos-connect-staging.dev.cjs')
+  module.exports = require('./ethos-connect.dev.cjs')
 }
 
 }).call(this)}).call(this,require('_process'))
-},{"./ethos-connect-staging.dev.cjs":42,"./ethos-connect-staging.prod.cjs":43,"_process":51}],45:[function(require,module,exports){
+},{"./ethos-connect.dev.cjs":42,"./ethos-connect.prod.cjs":43,"_process":51}],45:[function(require,module,exports){
 'use strict';
 
 var has = Object.prototype.hasOwnProperty
