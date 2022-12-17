@@ -57,6 +57,25 @@
     rpc-websockets "^7.5.0"
     tweetnacl "^1.0.3"
 
+"@mysten/sui.js@^0.20.0":
+  version "0.20.0"
+  resolved "https://registry.yarnpkg.com/@mysten/sui.js/-/sui.js-0.20.0.tgz#f92b53352eb0673710442c8e5f864dd31b250752"
+  integrity sha512-U25eSGKT08XPCRKHbrvDYlylOSAIQASMKKwnreC8vT3ukvQg1NwTX+SFZPvX+xsLZGS2b3yOQ2Uzhzho5/OIWA==
+  dependencies:
+    "@mysten/bcs" "0.5.0"
+    "@noble/hashes" "^1.1.2"
+    "@noble/secp256k1" "^1.6.3"
+    "@scure/bip32" "^1.1.0"
+    "@scure/bip39" "^1.1.0"
+    "@suchipi/femver" "^1.0.0"
+    bs58 "^5.0.0"
+    cross-fetch "^3.1.5"
+    jayson "^3.6.6"
+    js-sha3 "^0.8.0"
+    lossless-json "^1.0.5"
+    rpc-websockets "^7.5.0"
+    tweetnacl "^1.0.3"
+
 "@mysten/wallet-adapter-all-wallets@^0.3.0":
   version "0.3.1"
   resolved "https://registry.yarnpkg.com/@mysten/wallet-adapter-all-wallets/-/wallet-adapter-all-wallets-0.3.1.tgz#8eb0a1f48ff7137cf69d90814c12390ea69c38b9"
@@ -143,6 +162,11 @@
   dependencies:
     "@noble/hashes" "~1.1.1"
     "@scure/base" "~1.1.0"
+
+"@suchipi/femver@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@suchipi/femver/-/femver-1.0.0.tgz#4909dcc069695e07bd23a64c4bfe411d11d9692f"
+  integrity sha512-bprE8+K5V+DPX7q2e2K57ImqNBdfGHDIWaGI5xHxZoxbKOuQZn4wzPiUxOAHnsUr3w3xHrWXwN7gnG/iIuEMIg==
 
 "@superstate/core@^0.1.0":
   version "0.1.0"
@@ -294,6 +318,11 @@ balanced-match@^1.0.0:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/balanced-match/-/balanced-match-1.0.2.tgz#e83e3a7e3f300b34cb9d87f615fa0cbf357690ee"
   integrity sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==
+
+base-x@^4.0.0:
+  version "4.0.0"
+  resolved "https://registry.yarnpkg.com/base-x/-/base-x-4.0.0.tgz#d0e3b7753450c73f8ad2389b5c018a4af7b2224a"
+  integrity sha512-FuwxlW4H5kh37X/oW59pwTzzTKRzfrrQwhmyspRM7swOEZcHtDZSCt45U6oKgtuFE+WYPblePMVIPR4RZrh/hw==
 
 base64-js@^1.0.2, base64-js@^1.3.1:
   version "1.5.1"
@@ -461,6 +490,13 @@ browserify@^17.0.0:
     util "~0.12.0"
     vm-browserify "^1.0.0"
     xtend "^4.0.0"
+
+bs58@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/bs58/-/bs58-5.0.0.tgz#865575b4d13c09ea2a84622df6c8cbeb54ffc279"
+  integrity sha512-r+ihvQJvahgYT50JD05dyJNKlmmSlMoOGwn1lCcEzanPglg7TxYjioQUYehQ9mAR/+hOSd2jRc/Z2y5UxBymvQ==
+  dependencies:
+    base-x "^4.0.0"
 
 buffer-from@^1.0.0:
   version "1.1.2"
@@ -783,12 +819,12 @@ escape-string-regexp@^1.0.0:
   resolved "https://registry.yarnpkg.com/escape-string-regexp/-/escape-string-regexp-1.0.5.tgz#1b61c0562190a8dff6ae3bb2cf0200ca130b86d4"
   integrity sha512-vbRorB5FUQWvla16U8R/qgaFIya2qGzwDrNmCZuYKrbdSUMG6I1ZCGQRefkRVhuOkIGVne7BQ35DSfo1qvJqFg==
 
-ethos-connect@^0.0.45:
-  version "0.0.45"
-  resolved "https://registry.yarnpkg.com/ethos-connect/-/ethos-connect-0.0.45.tgz#bcaab28649c5f2b06b8507b2b0d1d879b466001f"
-  integrity sha512-dY4gJmKf4/FJXhm5M2H3nuYuTq9SXXHKsgj7o447cd4pCxskw7fXW8Ib7TFz1e6FzBC9LzZwEIIt7G/tVbzvyQ==
+ethos-connect@^0.0.59:
+  version "0.0.59"
+  resolved "https://registry.yarnpkg.com/ethos-connect/-/ethos-connect-0.0.59.tgz#3698e58d797ccbf70665112fda4f815cf28cd6bf"
+  integrity sha512-jwzySNakgTchJGEA60mCNd4OZi27yVd9eULC9znqKTe8bnC86rfEEnqTvKOz84qqqQu5ic64PJx2dfARWQYRxw==
   dependencies:
-    "@mysten/sui.js" "^0.15.0"
+    "@mysten/sui.js" "^0.20.0"
     "@mysten/wallet-adapter-all-wallets" "^0.3.0"
     "@mysten/wallet-adapter-base" "^0.3.1"
     "@mysten/wallet-adapter-react" "^6.0.0"
