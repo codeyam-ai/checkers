@@ -1,7 +1,7 @@
 
 #[test_only]
 module ethos::checker_board_tests {
-    use ethos::checker_board::{CheckerBoard};
+    use ethos::checker_board::{Self, CheckerBoard};
 
     const PLAYER1: u8 = 1;
     const PLAYER2: u8 = 2;
@@ -70,7 +70,7 @@ module ethos::checker_board_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = 4)]
+    #[expected_failure(abort_code = checker_board::EINVALID_PLAYER)]
     fun test_modify_bad_from() {
         use ethos::checker_board::{new, modify};
 
@@ -79,7 +79,7 @@ module ethos::checker_board_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = 1)]
+    #[expected_failure(abort_code = checker_board::EBAD_DESTINATION)]
     fun test_modify_bad_to_player1() {
         use ethos::checker_board::{new, modify};
 
@@ -88,7 +88,7 @@ module ethos::checker_board_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = 1)]
+    #[expected_failure(abort_code = checker_board::EBAD_DESTINATION)]
     fun test_modify_bad_to_player2() {
         use ethos::checker_board::{new, modify};
 
@@ -97,7 +97,7 @@ module ethos::checker_board_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = 2)]
+    #[expected_failure(abort_code = checker_board::EOCCUPIED_SPACE)]
     fun test_modify_occupied_space() {
         use ethos::checker_board::{new, modify};
 
@@ -106,7 +106,7 @@ module ethos::checker_board_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = 1)]
+    #[expected_failure(abort_code = checker_board::EBAD_DESTINATION)]
     fun test_modify_destination_not_allowed_player_1() {
         use ethos::checker_board::{new, modify};
 
@@ -115,7 +115,7 @@ module ethos::checker_board_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = 1)]
+    #[expected_failure(abort_code = checker_board::EBAD_DESTINATION)]
     fun test_modify_destination_not_allowed_player_2() {
         use ethos::checker_board::{new, modify};
 
@@ -124,7 +124,7 @@ module ethos::checker_board_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = 4)]
+    #[expected_failure(abort_code = checker_board::EINVALID_PLAYER)]
     fun test_modify_player_1_cant_move_player_2() {
         use ethos::checker_board::{new, modify};
 
@@ -133,7 +133,7 @@ module ethos::checker_board_tests {
     }
 
     #[test]
-    #[expected_failure(abort_code = 4)]
+    #[expected_failure(abort_code = checker_board::EINVALID_PLAYER)]
     fun test_modify_player_2_cant_move_player_1() {
         use ethos::checker_board::{new, modify};
 
