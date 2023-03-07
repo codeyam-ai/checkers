@@ -1,5 +1,6 @@
 module.exports = {
-    contractAddress: "0x8aef9ff2f186e904ec66b99012c75fe207cb888b",
+    network: "https://node.shinami.com/api/v1/3be8a6da87256601554fae7b46f9cf71",
+    contractAddress: "0x6a2d6a62475573ad2406cab31bbd64ca2ee83cb2",
     piece: (color, king) => (`
         <svg width="44" height="44" viewBox="0 0 525 525" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g filter="url(#filter0_d_359_466)">

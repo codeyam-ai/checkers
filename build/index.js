@@ -67,7 +67,8 @@ module.exports = {
 }
 },{"./constants":2,"./utils":6}],2:[function(require,module,exports){
 module.exports = {
-    contractAddress: "0x8aef9ff2f186e904ec66b99012c75fe207cb888b",
+    network: "https://node.shinami.com/api/v1/3be8a6da87256601554fae7b46f9cf71",
+    contractAddress: "0x6a2d6a62475573ad2406cab31bbd64ca2ee83cb2",
     piece: (color, king) => (`
         <svg width="44" height="44" viewBox="0 0 525 525" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g filter="url(#filter0_d_359_466)">
@@ -145,9 +146,9 @@ module.exports = {
 const React = require('react');
 const ReactDOM = require('react-dom/client');
 const { EthosConnectProvider, SignInButton, ethos } = require('ethos-connect');
-const { JsonRpcProvider, Network } = require("@mysten/sui.js");
+const { JsonRpcProvider } = require("@mysten/sui.js");
 
-const { contractAddress } = require('./constants');
+const { contractAddress, network } = require('./constants');
 const { 
   eById, 
   eByClass, 
@@ -207,7 +208,7 @@ function init() {
 async function pollForNextMove() {
   if (!walletSigner) return;
 
-  const provider = new JsonRpcProvider(Network.DEVNET);
+  const provider = new JsonRpcProvider(network);
   const sharedObject = await provider.getObject(activeGame.address);
   const address = await walletSigner.getAddress()
 
@@ -384,7 +385,7 @@ async function loadGames() {
     })
   );
 
-  const provider = new JsonRpcProvider(Network.DEVNET);
+  const provider = new JsonRpcProvider(network);
   const sharedObjects = await provider.getObjectBatch(playerCaps.map(p => p.gameId));
 
   games = sharedObjects.map(
